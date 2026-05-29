@@ -9,9 +9,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function Welcome() {
   const { login } = useAuth();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,6 +43,9 @@ export default function Welcome() {
             <Text style={styles.disclaimer}>
               By continuing, you agree to our Terms & Privacy Policy
             </Text>
+            <TouchableOpacity onPress={() => router.push('/admin')}>
+              <Text style={styles.adminLink}>Admin Login</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </LinearGradient>
@@ -126,5 +131,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     opacity: 0.8,
+  },
+  adminLink: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.6,
+    textDecorationLine: 'underline',
+    marginTop: 8,
   },
 });

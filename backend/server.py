@@ -9,8 +9,12 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
 import httpx
+import bcrypt
+import jwt
 from datetime import datetime, timezone, timedelta
 import base64
+import secrets
+import string
 from enum import Enum
 
 ROOT_DIR = Path(__file__).parent
@@ -20,6 +24,12 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Admin config
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@offcampus.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'OffCampus@2026')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
+ADMIN_PASSWORD_HASH = bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -236,14 +246,46 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     
     return R * c
 
+def generate_referral_code(name: str) -> str:
+    """Generate a unique referral code"""
+    prefix = "".join([c for c in (name or "USER").upper() if c.isalpha()])[:4] or "USER"
+    suffix = "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4))
+    return f"{prefix}{suffix}"
+
+def create_admin_jwt() -> str:
+    """Create admin JWT token"""
+    payload = {
+        "sub": ADMIN_EMAIL,
+        "role": "admin",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=8),
+        "iat": datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+async def verify_admin(authorization: Optional[str] = Header(None)) -> str:
+    """Verify admin JWT token"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized as admin")
+        return payload.get("sub")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Admin token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
 
 # ============= AUTH ROUTES =============
 @api_router.post("/auth/google-session", response_model=LoginResponse)
-async def google_session_login(session_id: str):
+async def google_session_login(session_id: str, referral_code: Optional[str] = None):
     """Process Google OAuth session and create/update user"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient() as http_client:
         try:
-            response = await client.get(
+            response = await http_client.get(
                 "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
                 headers={"X-Session-ID": session_id}
             )
@@ -271,15 +313,59 @@ async def google_session_login(session_id: str):
                 {"$set": {"picture": picture}}
             )
     else:
+        # Check if email matches a college domain (auto-verify)
+        email_domain = email.split("@")[-1].lower() if "@" in email else ""
+        matching_college = await db.colleges.find_one(
+            {"email_domains": email_domain},
+            {"_id": 0}
+        )
+        
+        # Generate referral code
+        ref_code = generate_referral_code(name)
+        
         # Create new user
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        new_user = User(
+        verification_status = VerificationStatus.VERIFIED if matching_college else VerificationStatus.PENDING
+        
+        new_user_dict = User(
             user_id=user_id,
             email=email,
             name=name,
-            picture=picture
-        )
-        await db.users.insert_one(new_user.dict())
+            picture=picture,
+            verification_status=verification_status,
+            college_id=matching_college["college_id"] if matching_college else None,
+        ).dict()
+        new_user_dict["referral_code"] = ref_code
+        new_user_dict["referred_by"] = None
+        new_user_dict["referral_count"] = 0
+        new_user_dict["premium_until"] = None
+        
+        await db.users.insert_one(new_user_dict)
+        
+        # Process referral if provided
+        if referral_code:
+            referrer = await db.users.find_one({"referral_code": referral_code}, {"_id": 0})
+            if referrer:
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"referred_by": referrer["user_id"]}}
+                )
+                # Reward referrer with 7 days premium
+                current_premium = referrer.get("premium_until")
+                if current_premium and isinstance(current_premium, datetime):
+                    if current_premium.tzinfo is None:
+                        current_premium = current_premium.replace(tzinfo=timezone.utc)
+                    new_premium = max(current_premium, datetime.now(timezone.utc)) + timedelta(days=7)
+                else:
+                    new_premium = datetime.now(timezone.utc) + timedelta(days=7)
+                
+                await db.users.update_one(
+                    {"user_id": referrer["user_id"]},
+                    {
+                        "$set": {"premium_until": new_premium, "is_premium": True},
+                        "$inc": {"referral_count": 1}
+                    }
+                )
     
     # Create session
     session_obj = Session(
@@ -889,6 +975,277 @@ async def root():
 @api_router.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+# ============= ADMIN AUTH ROUTES =============
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
+@api_router.post("/admin/login")
+async def admin_login(request: AdminLoginRequest):
+    """Admin login with email and password"""
+    if request.email != ADMIN_EMAIL:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if not bcrypt.checkpw(request.password.encode(), ADMIN_PASSWORD_HASH.encode()):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_admin_jwt()
+    return {"access_token": token, "token_type": "bearer"}
+
+@api_router.get("/admin/me")
+async def admin_me(admin_email: str = None, authorization: Optional[str] = Header(None)):
+    """Get current admin info"""
+    admin = await verify_admin(authorization)
+    return {"email": admin, "role": "admin"}
+
+@api_router.get("/admin/stats")
+async def admin_stats(authorization: Optional[str] = Header(None)):
+    """Get platform statistics"""
+    await verify_admin(authorization)
+    
+    total_users = await db.users.count_documents({})
+    verified_users = await db.users.count_documents({"verification_status": "verified"})
+    pending_users = await db.users.count_documents({"verification_status": "pending"})
+    premium_users = await db.users.count_documents({"is_premium": True})
+    on_campus = await db.users.count_documents({"is_on_campus": True})
+    total_confessions = await db.confessions.count_documents({})
+    total_matches = await db.likes.count_documents({"is_match": True}) // 2
+    total_colleges = await db.colleges.count_documents({})
+    
+    return {
+        "total_users": total_users,
+        "verified_users": verified_users,
+        "pending_verifications": pending_users,
+        "premium_users": premium_users,
+        "users_on_campus": on_campus,
+        "total_confessions": total_confessions,
+        "total_matches": total_matches,
+        "total_colleges": total_colleges,
+    }
+
+@api_router.get("/admin/users")
+async def admin_list_users(
+    authorization: Optional[str] = Header(None),
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+):
+    """List all users (admin only)"""
+    await verify_admin(authorization)
+    
+    query: Dict[str, Any] = {}
+    if status:
+        query["verification_status"] = status
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+        ]
+    
+    users = await db.users.find(query, {"_id": 0}).limit(limit).to_list(limit)
+    return {"users": users, "count": len(users)}
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, authorization: Optional[str] = Header(None)):
+    """Delete a user (admin only)"""
+    await verify_admin(authorization)
+    
+    result = await db.users.delete_one({"user_id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Clean up related data
+    await db.user_sessions.delete_many({"user_id": user_id})
+    await db.likes.delete_many({"$or": [{"from_user_id": user_id}, {"to_user_id": user_id}]})
+    await db.verification_requests.delete_many({"user_id": user_id})
+    
+    return {"message": "User deleted"}
+
+@api_router.post("/admin/users/{user_id}/grant-premium")
+async def admin_grant_premium(
+    user_id: str,
+    days: int = 30,
+    authorization: Optional[str] = Header(None)
+):
+    """Grant premium to a user (admin only)"""
+    await verify_admin(authorization)
+    
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_premium = datetime.now(timezone.utc) + timedelta(days=days)
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_premium": True, "premium_until": new_premium}}
+    )
+    return {"message": f"Premium granted for {days} days"}
+
+@api_router.delete("/admin/confessions/{confession_id}")
+async def admin_delete_confession(confession_id: str, authorization: Optional[str] = Header(None)):
+    """Delete a confession (admin only)"""
+    await verify_admin(authorization)
+    
+    result = await db.confessions.delete_one({"confession_id": confession_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Confession not found")
+    
+    await db.comments.delete_many({"confession_id": confession_id})
+    return {"message": "Confession deleted"}
+
+
+# ============= CHAT/MESSAGING ROUTES =============
+class MessageCreateRequest(BaseModel):
+    to_user_id: str
+    content: str
+
+@api_router.post("/messages/send")
+async def send_message(
+    request: MessageCreateRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """Send a message to another user (must be matched)"""
+    user = await get_current_user(authorization)
+    
+    # Verify they are matched
+    match = await db.likes.find_one({
+        "from_user_id": user["user_id"],
+        "to_user_id": request.to_user_id,
+        "is_match": True
+    })
+    if not match:
+        raise HTTPException(status_code=403, detail="You can only message matches")
+    
+    # Create message
+    message = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "from_user_id": user["user_id"],
+        "to_user_id": request.to_user_id,
+        "content": request.content,
+        "created_at": datetime.now(timezone.utc),
+        "read": False,
+    }
+    await db.messages.insert_one(message)
+    
+    message.pop("_id", None)
+    return {"message": message}
+
+@api_router.get("/messages/conversations")
+async def get_conversations(authorization: Optional[str] = Header(None)):
+    """Get all conversations (list of matches with last message)"""
+    user = await get_current_user(authorization)
+    
+    # Get all matches
+    matches = await db.likes.find({
+        "from_user_id": user["user_id"],
+        "is_match": True
+    }, {"_id": 0}).to_list(100)
+    
+    conversations = []
+    for match in matches:
+        other_user_id = match["to_user_id"]
+        other_user = await db.users.find_one(
+            {"user_id": other_user_id},
+            {"_id": 0, "email": 0}
+        )
+        if not other_user:
+            continue
+        
+        # Get last message
+        last_msg = await db.messages.find_one(
+            {
+                "$or": [
+                    {"from_user_id": user["user_id"], "to_user_id": other_user_id},
+                    {"from_user_id": other_user_id, "to_user_id": user["user_id"]},
+                ]
+            },
+            {"_id": 0},
+            sort=[("created_at", -1)]
+        )
+        
+        unread_count = await db.messages.count_documents({
+            "from_user_id": other_user_id,
+            "to_user_id": user["user_id"],
+            "read": False
+        })
+        
+        conversations.append({
+            "user": other_user,
+            "last_message": last_msg,
+            "unread_count": unread_count,
+        })
+    
+    # Sort by last message time
+    conversations.sort(
+        key=lambda c: c["last_message"]["created_at"] if c["last_message"] else datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True
+    )
+    
+    return {"conversations": conversations}
+
+@api_router.get("/messages/{other_user_id}")
+async def get_messages(
+    other_user_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get messages between current user and another user"""
+    user = await get_current_user(authorization)
+    
+    messages = await db.messages.find({
+        "$or": [
+            {"from_user_id": user["user_id"], "to_user_id": other_user_id},
+            {"from_user_id": other_user_id, "to_user_id": user["user_id"]},
+        ]
+    }, {"_id": 0}).sort("created_at", 1).to_list(500)
+    
+    # Mark received messages as read
+    await db.messages.update_many(
+        {"from_user_id": other_user_id, "to_user_id": user["user_id"], "read": False},
+        {"$set": {"read": True}}
+    )
+    
+    return {"messages": messages}
+
+
+# ============= REFERRAL ROUTES =============
+@api_router.get("/referrals/my-stats")
+async def my_referral_stats(authorization: Optional[str] = Header(None)):
+    """Get current user's referral stats"""
+    user = await get_current_user(authorization)
+    
+    # Generate code if user doesn't have one
+    if not user.get("referral_code"):
+        code = generate_referral_code(user["name"])
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": {"referral_code": code}}
+        )
+        user["referral_code"] = code
+    
+    # Get referred users
+    referred = await db.users.find(
+        {"referred_by": user["user_id"]},
+        {"_id": 0, "name": 1, "college_id": 1, "created_at": 1}
+    ).to_list(100)
+    
+    premium_until = user.get("premium_until")
+    days_remaining = 0
+    if premium_until:
+        if isinstance(premium_until, datetime):
+            if premium_until.tzinfo is None:
+                premium_until = premium_until.replace(tzinfo=timezone.utc)
+            delta = premium_until - datetime.now(timezone.utc)
+            days_remaining = max(0, delta.days)
+    
+    return {
+        "referral_code": user["referral_code"],
+        "referral_count": user.get("referral_count", 0),
+        "referred_users": referred,
+        "premium_days_remaining": days_remaining,
+        "rewards_earned_days": user.get("referral_count", 0) * 7,
+    }
 
 
 # Include the router in the main app

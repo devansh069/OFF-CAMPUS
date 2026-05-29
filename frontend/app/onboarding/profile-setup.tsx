@@ -25,20 +25,21 @@ const INTERESTS = [
 ];
 
 export default function ProfileSetup() {
-  const { sessionToken, refreshUser } = useAuth();
+  const { user, sessionToken, refreshUser } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
-  const [collegeId, setCollegeId] = useState('');
-  const [year, setYear] = useState('');
-  const [course, setCourse] = useState('');
-  const [bio, setBio] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [lookingFor, setLookingFor] = useState('');
+  const [age, setAge] = useState(user?.age?.toString() || '');
+  const [gender, setGender] = useState(user?.gender || '');
+  const [collegeId, setCollegeId] = useState(user?.college_id || '');
+  const [year, setYear] = useState(user?.year || '');
+  const [course, setCourse] = useState(user?.course || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [interests, setInterests] = useState<string[]>(user?.interests || []);
+  const [lookingFor, setLookingFor] = useState(user?.looking_for || '');
   const [colleges, setColleges] = useState<any[]>([]);
+  const [collegeSearch, setCollegeSearch] = useState('');
 
   useEffect(() => {
     fetchColleges();
@@ -53,6 +54,12 @@ export default function ProfileSetup() {
       console.error('Error fetching colleges:', error);
     }
   };
+
+  const filteredColleges = colleges.filter((c) =>
+    c.name.toLowerCase().includes(collegeSearch.toLowerCase()) ||
+    c.short_name.toLowerCase().includes(collegeSearch.toLowerCase()) ||
+    c.location.toLowerCase().includes(collegeSearch.toLowerCase())
+  );
 
   const toggleInterest = (interest: string) => {
     if (interests.includes(interest)) {
@@ -103,7 +110,16 @@ export default function ProfileSetup() {
 
       if (response.ok) {
         await refreshUser();
-        router.replace('/(tabs)/discover');
+        // Check if user needs verification (personal email)
+        const updatedUser = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${sessionToken}` },
+        }).then(r => r.json());
+        
+        if (updatedUser.user?.verification_status === 'verified') {
+          router.replace('/(tabs)/discover');
+        } else {
+          router.replace('/onboarding/verification');
+        }
       } else {
         Alert.alert('Error', 'Failed to update profile');
       }
@@ -134,7 +150,7 @@ export default function ProfileSetup() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {step === 1 && (
               <View style={styles.stepContainer}>
                 <Text style={styles.stepTitle}>Basic Info</Text>
@@ -149,7 +165,6 @@ export default function ProfileSetup() {
                     value={age}
                     onChangeText={setAge}
                     keyboardType="number-pad"
-                    testID="age-input"
                   />
                 </View>
 
@@ -161,7 +176,6 @@ export default function ProfileSetup() {
                         key={g}
                         style={[styles.optionButton, gender === g && styles.optionButtonActive]}
                         onPress={() => setGender(g)}
-                        testID={`gender-${g}`}
                       >
                         <Text style={[styles.optionText, gender === g && styles.optionTextActive]}>
                           {g.charAt(0).toUpperCase() + g.slice(1)}
@@ -184,7 +198,6 @@ export default function ProfileSetup() {
                         key={option.value}
                         style={[styles.optionButton, lookingFor === option.value && styles.optionButtonActive]}
                         onPress={() => setLookingFor(option.value)}
-                        testID={`looking-for-${option.value}`}
                       >
                         <Text style={[styles.optionText, lookingFor === option.value && styles.optionTextActive]}>
                           {option.label}
@@ -199,33 +212,54 @@ export default function ProfileSetup() {
             {step === 2 && (
               <View style={styles.stepContainer}>
                 <Text style={styles.stepTitle}>Your College</Text>
-                <Text style={styles.stepSubtitle}>Select your campus</Text>
+                <Text style={styles.stepSubtitle}>Search or pick your campus</Text>
+
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={20} color="#888" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Type college name..."
+                    placeholderTextColor="#888"
+                    value={collegeSearch}
+                    onChangeText={setCollegeSearch}
+                  />
+                  {collegeSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setCollegeSearch('')}>
+                      <Ionicons name="close-circle" size={20} color="#888" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <View style={styles.collegeList}>
-                  {colleges.map((college) => (
-                    <TouchableOpacity
-                      key={college.college_id}
-                      style={[
-                        styles.collegeItem,
-                        collegeId === college.college_id && styles.collegeItemActive
-                      ]}
-                      onPress={() => setCollegeId(college.college_id)}
-                      testID={`college-${college.short_name}`}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[
-                          styles.collegeName,
-                          collegeId === college.college_id && styles.collegeNameActive
-                        ]}>
-                          {college.name}
-                        </Text>
-                        <Text style={styles.collegeLocation}>{college.location}</Text>
-                      </View>
-                      {collegeId === college.college_id && (
-                        <Ionicons name="checkmark-circle" size={24} color="#FFF" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                  {filteredColleges.length === 0 ? (
+                    <View style={styles.noResults}>
+                      <Text style={styles.noResultsText}>No colleges match your search</Text>
+                    </View>
+                  ) : (
+                    filteredColleges.map((college) => (
+                      <TouchableOpacity
+                        key={college.college_id}
+                        style={[
+                          styles.collegeItem,
+                          collegeId === college.college_id && styles.collegeItemActive
+                        ]}
+                        onPress={() => setCollegeId(college.college_id)}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[
+                            styles.collegeName,
+                            collegeId === college.college_id && styles.collegeNameActive
+                          ]}>
+                            {college.name}
+                          </Text>
+                          <Text style={styles.collegeLocation}>{college.location}</Text>
+                        </View>
+                        {collegeId === college.college_id && (
+                          <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  )}
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -309,7 +343,6 @@ export default function ProfileSetup() {
               style={[styles.nextButton, loading && styles.nextButtonDisabled]}
               onPress={handleNext}
               disabled={loading}
-              testID="next-button"
             >
               <Text style={styles.nextButtonText}>
                 {loading ? 'Saving...' : (step === 3 ? 'Complete Setup' : 'Next')}
@@ -331,11 +364,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFF' },
   progressBar: {
     height: 4,
     backgroundColor: '#333',
@@ -343,29 +372,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
-  progress: {
-    height: '100%',
-    backgroundColor: '#FF3366',
-  },
+  progress: { height: '100%', backgroundColor: '#FF3366' },
   scrollView: { flex: 1, padding: 20 },
   stepContainer: { gap: 20 },
-  stepTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  stepSubtitle: {
-    fontSize: 16,
-    color: '#999',
-    marginBottom: 16,
-  },
+  stepTitle: { fontSize: 32, fontWeight: 'bold', color: '#FFF', marginBottom: 4 },
+  stepSubtitle: { fontSize: 16, color: '#999', marginBottom: 16 },
   inputGroup: { gap: 8 },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  label: { fontSize: 16, fontWeight: '600', color: '#FFF' },
   input: {
     backgroundColor: '#1E1E1E',
     borderWidth: 1,
@@ -375,20 +388,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFF',
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    fontSize: 12,
-    color: '#888',
-    textAlign: 'right',
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  charCount: { fontSize: 12, color: '#888', textAlign: 'right' },
+  optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionButton: {
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -397,19 +399,33 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     borderRadius: 20,
   },
-  optionButtonActive: {
-    backgroundColor: '#FF3366',
-    borderColor: '#FF3366',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#FFF',
-  },
+  optionButtonActive: { backgroundColor: '#FF3366', borderColor: '#FF3366' },
+  optionText: { fontSize: 14, color: '#FFF' },
   optionTextActive: { fontWeight: '600' },
-  collegeList: {
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    paddingHorizontal: 12,
     gap: 8,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#333',
   },
+  searchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 16,
+    paddingVertical: 14,
+  },
+  noResults: {
+    padding: 20,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noResultsText: { color: '#888' },
+  collegeList: { gap: 8, marginBottom: 16 },
   collegeItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -419,26 +435,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
   },
-  collegeItemActive: {
-    backgroundColor: '#FF3366',
-    borderColor: '#FF3366',
-  },
-  collegeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
+  collegeItemActive: { backgroundColor: '#FF3366', borderColor: '#FF3366' },
+  collegeName: { fontSize: 16, fontWeight: '600', color: '#FFF', marginBottom: 4 },
   collegeNameActive: { color: '#FFF' },
-  collegeLocation: {
-    fontSize: 12,
-    color: '#AAA',
-  },
-  interestsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  collegeLocation: { fontSize: 12, color: '#AAA' },
+  interestsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   interestChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -447,14 +448,8 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     borderRadius: 20,
   },
-  interestChipActive: {
-    backgroundColor: '#FF3366',
-    borderColor: '#FF3366',
-  },
-  interestText: {
-    fontSize: 14,
-    color: '#FFF',
-  },
+  interestChipActive: { backgroundColor: '#FF3366', borderColor: '#FF3366' },
+  interestText: { fontSize: 14, color: '#FFF' },
   interestTextActive: { fontWeight: '600' },
   footer: { padding: 20 },
   nextButton: {
@@ -464,9 +459,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nextButtonDisabled: { opacity: 0.5 },
-  nextButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  nextButtonText: { fontSize: 18, fontWeight: '600', color: '#FFF' },
 });

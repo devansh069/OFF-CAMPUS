@@ -12,11 +12,14 @@ import {
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Profile() {
   const { user, sessionToken, logout, refreshUser } = useAuth();
+  const router = useRouter();
   const [college, setCollege] = useState<any>(null);
 
   useEffect(() => {
@@ -39,6 +42,56 @@ export default function Profile() {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
+  };
+
+  const addPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow photo access');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      const photo = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      try {
+        await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({ photo }),
+        });
+        await refreshUser();
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+  };
+
+  const deletePhoto = (index: number) => {
+    Alert.alert('Delete Photo', 'Remove this photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos/${index}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${sessionToken}` },
+          });
+          await refreshUser();
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      }},
     ]);
   };
 
@@ -371,4 +424,56 @@ const styles = StyleSheet.create({
   },
   premiumTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   premiumSubtitle: { color: '#FFF', fontSize: 13, opacity: 0.9 },
+  photosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoItem: { width: '31%', aspectRatio: 3/4, borderRadius: 12, overflow: 'hidden', position: 'relative' },
+  photoImg: { width: '100%', height: '100%' },
+  photoOverlay: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 20 },
+  addPhotoBtn: {
+    width: '31%',
+    aspectRatio: 3/4,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FF3366',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E1E1E',
+    gap: 4,
+  },
+  addPhotoText: { color: '#FF3366', fontSize: 12, fontWeight: '600' },
+  referralCard: {
+    margin: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  referralGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFA50022',
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    padding: 16,
+    margin: 16,
+    borderRadius: 12,
+  },
+  verifyTitle: { color: '#FFA500', fontSize: 16, fontWeight: 'bold' },
+  verifySubtitle: { color: '#FFA500', fontSize: 12, opacity: 0.8 },
+});
+PhotoText: { color: '#FF3366', fontSize: 12, fontWeight: '600' },
+  referralCard: {
+    margin: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  referralGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
 });
