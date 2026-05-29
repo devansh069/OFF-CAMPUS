@@ -29,6 +29,9 @@ export default function RootLayout() {
         <Stack.Screen name="chat" />
         <Stack.Screen name="referrals" />
         <Stack.Screen name="admin" />
+        <Stack.Screen name="premium" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="premium-success" />
+        <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
       </Stack>
     </AuthProvider>
   );

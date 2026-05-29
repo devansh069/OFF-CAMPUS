@@ -266,22 +266,44 @@ export default function Profile() {
         </TouchableOpacity>
 
         {!user.is_premium && (
-          <TouchableOpacity style={styles.premiumCard}>
+          <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
             <LinearGradient
               colors={['#FFD700', '#FFA500']}
               style={styles.premiumGradient}
             >
-              <Ionicons name="star" size={32} color="#FFF" />
+              <Ionicons name="diamond" size={32} color="#FFF" />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.premiumTitle}>Get Premium</Text>
+                <Text style={styles.premiumTitle}>Go Premium - ₹99/mo</Text>
                 <Text style={styles.premiumSubtitle}>
-                  Access students from all colleges & more!
+                  Access ALL Delhi colleges + perks
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#FFF" />
             </LinearGradient>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/profile-edit')}>
+          <LinearGradient colors={['#9D4EDD', '#FF1B6B']} style={styles.premiumGradient}>
+            <Ionicons name="create" size={32} color="#FFF" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.premiumTitle}>Edit Profile</Text>
+              <Text style={styles.premiumSubtitle}>Update bio, interests & more</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/referrals')}>
+          <LinearGradient colors={['#06D6A0', '#118AB2']} style={styles.premiumGradient}>
+            <Ionicons name="gift" size={32} color="#FFF" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.premiumTitle}>Refer Friends</Text>
+              <Text style={styles.premiumSubtitle}>Earn 7 days premium per friend!</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
 
         <View style={{ height: 40 }} />
       </ScrollView>

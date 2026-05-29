@@ -11,6 +11,7 @@ import uuid
 import httpx
 import bcrypt
 import jwt
+import stripe
 from datetime import datetime, timezone, timedelta
 import base64
 import secrets
@@ -30,6 +31,11 @@ ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@offcampus.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'OffCampus@2026')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 ADMIN_PASSWORD_HASH = bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
+
+# Stripe config
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', 'sk_test_emergent')
+stripe.api_key = STRIPE_API_KEY
+PREMIUM_PRICE_INR = 9900  # ₹99.00 in paise
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -1243,6 +1249,268 @@ async def my_referral_stats(authorization: Optional[str] = Header(None)):
         "premium_days_remaining": days_remaining,
         "rewards_earned_days": user.get("referral_count", 0) * 7,
     }
+
+
+# ============= STRIPE / PREMIUM ROUTES =============
+class CheckoutRequest(BaseModel):
+    success_url: str
+    cancel_url: str
+
+@api_router.post("/premium/checkout")
+async def create_checkout(request: CheckoutRequest, authorization: Optional[str] = Header(None)):
+    """Create Stripe checkout session for ₹99/month premium"""
+    user = await get_current_user(authorization)
+    
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "inr",
+                    "product_data": {
+                        "name": "Off Campus Premium",
+                        "description": "1 Month Premium - Inter-Campus Access + More",
+                    },
+                    "unit_amount": PREMIUM_PRICE_INR,
+                },
+                "quantity": 1,
+            }],
+            success_url=request.success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.cancel_url,
+            client_reference_id=user["user_id"],
+            customer_email=user["email"],
+            metadata={"user_id": user["user_id"], "plan": "premium_monthly"},
+        )
+        
+        # Store session for tracking
+        await db.payment_sessions.insert_one({
+            "session_id": session.id,
+            "user_id": user["user_id"],
+            "amount": PREMIUM_PRICE_INR,
+            "currency": "inr",
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc),
+        })
+        
+        return {"checkout_url": session.url, "session_id": session.id}
+    except Exception as e:
+        logger.error(f"Stripe error: {e}")
+        raise HTTPException(status_code=500, detail=f"Payment error: {str(e)}")
+
+@api_router.get("/premium/status/{session_id}")
+async def check_payment_status(session_id: str, authorization: Optional[str] = Header(None)):
+    """Check payment status and activate premium if paid"""
+    user = await get_current_user(authorization)
+    
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Check if already processed
+        payment_session = await db.payment_sessions.find_one({"session_id": session_id}, {"_id": 0})
+        if payment_session and payment_session.get("status") == "completed":
+            return {"status": "completed", "is_premium": True}
+        
+        if session.payment_status == "paid":
+            # Activate premium for 30 days
+            premium_until = datetime.now(timezone.utc) + timedelta(days=30)
+            await db.users.update_one(
+                {"user_id": user["user_id"]},
+                {"$set": {"is_premium": True, "premium_until": premium_until}}
+            )
+            await db.payment_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc)}}
+            )
+            return {"status": "completed", "is_premium": True}
+        
+        return {"status": session.payment_status, "is_premium": False}
+    except Exception as e:
+        logger.error(f"Stripe status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============= EVENTS / FESTS ROUTES =============
+class EventCreateRequest(BaseModel):
+    title: str
+    description: str
+    college_id: Optional[str] = None
+    location: str
+    date: str  # ISO format
+    cover_image: Optional[str] = None
+    category: str = "fest"  # fest, party, workshop, sports, etc
+
+@api_router.post("/events/create")
+async def create_event(request: EventCreateRequest, authorization: Optional[str] = Header(None)):
+    """Create a new event/fest"""
+    user = await get_current_user(authorization)
+    
+    event = {
+        "event_id": f"event_{uuid.uuid4().hex[:12]}",
+        "title": request.title,
+        "description": request.description,
+        "college_id": request.college_id or user.get("college_id"),
+        "location": request.location,
+        "date": request.date,
+        "cover_image": request.cover_image,
+        "category": request.category,
+        "host_user_id": user["user_id"],
+        "host_name": user["name"],
+        "attendees": [],
+        "attendee_count": 0,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.events.insert_one(event)
+    event.pop("_id", None)
+    return {"event": event}
+
+@api_router.get("/events/feed")
+async def events_feed(authorization: Optional[str] = Header(None)):
+    """Get upcoming events feed"""
+    user = await get_current_user(authorization)
+    
+    query: Dict[str, Any] = {}
+    if not user.get("is_premium") and user.get("college_id"):
+        # Non-premium: only own college
+        query["college_id"] = user["college_id"]
+    
+    events = await db.events.find(query, {"_id": 0}).sort("date", 1).limit(50).to_list(50)
+    
+    # Add user's RSVP status
+    for e in events:
+        e["is_attending"] = user["user_id"] in (e.get("attendees") or [])
+    
+    return {"events": events}
+
+@api_router.post("/events/{event_id}/rsvp")
+async def rsvp_event(event_id: str, authorization: Optional[str] = Header(None)):
+    """Toggle RSVP for an event"""
+    user = await get_current_user(authorization)
+    
+    event = await db.events.find_one({"event_id": event_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    attendees = event.get("attendees") or []
+    if user["user_id"] in attendees:
+        attendees.remove(user["user_id"])
+        attending = False
+    else:
+        attendees.append(user["user_id"])
+        attending = True
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {"attendees": attendees, "attendee_count": len(attendees)}}
+    )
+    return {"attending": attending, "attendee_count": len(attendees)}
+
+@api_router.get("/events/{event_id}/attendees")
+async def event_attendees(event_id: str, authorization: Optional[str] = Header(None)):
+    """Get list of attendees for an event"""
+    await get_current_user(authorization)
+    
+    event = await db.events.find_one({"event_id": event_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    attendee_ids = event.get("attendees", [])
+    attendees = await db.users.find(
+        {"user_id": {"$in": attendee_ids}},
+        {"_id": 0, "email": 0}
+    ).to_list(100)
+    return {"attendees": attendees, "count": len(attendees)}
+
+
+# ============= STORIES ROUTES (24hr) =============
+class StoryCreateRequest(BaseModel):
+    image: str  # base64
+    caption: Optional[str] = None
+
+@api_router.post("/stories/create")
+async def create_story(request: StoryCreateRequest, authorization: Optional[str] = Header(None)):
+    """Create a 24-hour story"""
+    user = await get_current_user(authorization)
+    
+    story = {
+        "story_id": f"story_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "user_name": user["name"],
+        "user_picture": user.get("picture") or (user.get("photos") or [None])[0],
+        "college_id": user.get("college_id"),
+        "image": request.image,
+        "caption": request.caption,
+        "views": [],
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=24),
+    }
+    await db.stories.insert_one(story)
+    story.pop("_id", None)
+    return {"story": story}
+
+@api_router.get("/stories/feed")
+async def stories_feed(authorization: Optional[str] = Header(None)):
+    """Get active stories from same college (or all if premium)"""
+    user = await get_current_user(authorization)
+    
+    now = datetime.now(timezone.utc)
+    query: Dict[str, Any] = {"expires_at": {"$gt": now}}
+    if not user.get("is_premium") and user.get("college_id"):
+        query["college_id"] = user["college_id"]
+    
+    stories = await db.stories.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    
+    # Group by user
+    by_user: Dict[str, Any] = {}
+    for s in stories:
+        uid = s["user_id"]
+        if uid not in by_user:
+            by_user[uid] = {
+                "user_id": uid,
+                "user_name": s["user_name"],
+                "user_picture": s.get("user_picture"),
+                "stories": [],
+                "has_unviewed": False,
+            }
+        viewed = user["user_id"] in (s.get("views") or [])
+        s["viewed"] = viewed
+        if not viewed and uid != user["user_id"]:
+            by_user[uid]["has_unviewed"] = True
+        by_user[uid]["stories"].append(s)
+    
+    # Put own stories first
+    grouped = list(by_user.values())
+    grouped.sort(key=lambda g: (g["user_id"] != user["user_id"], not g["has_unviewed"]))
+    
+    return {"users_with_stories": grouped}
+
+@api_router.post("/stories/{story_id}/view")
+async def view_story(story_id: str, authorization: Optional[str] = Header(None)):
+    """Mark a story as viewed"""
+    user = await get_current_user(authorization)
+    
+    await db.stories.update_one(
+        {"story_id": story_id},
+        {"$addToSet": {"views": user["user_id"]}}
+    )
+    return {"ok": True}
+
+
+# ============= LEADERBOARD =============
+@api_router.get("/leaderboard/top-vibes")
+async def top_vibes(authorization: Optional[str] = Header(None), limit: int = 10):
+    """Get top vibe scores from same college (or global if premium)"""
+    user = await get_current_user(authorization)
+    
+    query: Dict[str, Any] = {"verification_status": "verified", "total_ratings": {"$gt": 0}}
+    if not user.get("is_premium") and user.get("college_id"):
+        query["college_id"] = user["college_id"]
+    
+    top = await db.users.find(
+        query,
+        {"_id": 0, "email": 0, "spotify_data": 0, "interests": 0}
+    ).sort("vibe_score", -1).limit(limit).to_list(limit)
+    
+    return {"top_vibes": top}
 
 
 # Include the router in the main app

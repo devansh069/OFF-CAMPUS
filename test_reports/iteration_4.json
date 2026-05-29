@@ -1,0 +1,67 @@
+{
+  "summary": "Backend testing for NEW features (Premium/Stripe, Events/Fests, Stories, Top Vibes Leaderboard) + full regression. 23/25 NEW-feature tests PASSED; 31/31 existing regression tests PASSED. The ONLY failures are the 2 Stripe-dependent tests because STRIPE_API_KEY in /app/backend/.env is set to the placeholder string 'sk_test_emergent' which Stripe rejects ('Invalid API Key provided: sk_test_****gent'). All other new endpoints work end-to-end with DB persistence verified: events feed (returns 5 seeded events; premium gating enforced - non-premium sees own college only, premium sees all colleges), event create/RSVP toggle/attendees list, stories create with 24h expiry (verified 23-25h delta), stories feed returns only non-expired stories grouped by user, story view marks viewer in views[], top-vibes leaderboard sorted desc by vibe_score with same-college gating for non-premium. Regression: /api/auth/me, /api/discovery/profiles, /api/confessions/feed, /api/messages/conversations, /api/admin/login, /api/colleges/list, /api/referrals/my-stats all return 200 with expected shapes.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/premium/checkout & GET /api/premium/status/{session_id}",
+        "issue": "Stripe returns 500 'Invalid API Key provided: sk_test_****gent'. The STRIPE_API_KEY value in /app/backend/.env is the literal placeholder 'sk_test_emergent', not a real Stripe test secret key (real test keys look like 'sk_test_51XXXXXXXX...'). Both /premium/checkout and /premium/status are non-functional until a real Stripe test/live key is provided. Alternatively, switch to emergentintegrations Stripe wrapper if that is the intended integration.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/discovery/pass",
+        "issue": "Still a no-op from previous iteration; passed users can reappear. Unchanged."
+      },
+      {
+        "endpoint": "GET /api/admin/verification-requests + approve/reject",
+        "issue": "Still use get_current_user (regular session) instead of verify_admin (JWT). Security inconsistency from previous iteration. Unchanged."
+      },
+      {
+        "endpoint": "POST /api/events/create",
+        "issue": "No validation: any authenticated user can create an event with any college_id (server.py:1351 falls back to user's college only if not provided; but a malicious user could spoof another college's events). Consider validating college_id matches user's college unless premium."
+      },
+      {
+        "endpoint": "GET /api/stories/feed",
+        "issue": "Returns raw base64 image data inline in the feed (server.py:1460). For users with many active stories this could result in very large payloads. Consider returning image URLs or a separate /stories/{id} endpoint for the actual image."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/pytest_new_features.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Replace STRIPE_API_KEY=sk_test_emergent in /app/backend/.env with a REAL Stripe test secret key (format: sk_test_51XXXXXXXX...). Currently the premium checkout flow is 100% broken. If the intent was to use emergent's Stripe wrapper, refactor server.py to call emergentintegrations instead of the raw stripe SDK.",
+    "MEDIUM (carried over): Migrate /api/admin/verification-requests, /api/admin/verification/{id}/approve, /reject to verify_admin (JWT).",
+    "LOW: Validate college_id in POST /api/events/create against user's college (server.py:1342-1364).",
+    "LOW: Persist /api/discovery/pass actions.",
+    "LOW: Split server.py (1654 lines) into modules (auth, admin, events, stories, premium, etc.).",
+    "INFO: Stories feed returns full base64 images inline - consider pagination or URL-based delivery to reduce payload size."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1654 lines (was 1389 in iteration 3) - violates >700 LOC guideline; should be modularized into routers (auth.py, admin.py, events.py, stories.py, premium.py).",
+    "Stripe key has fallback 'sk_test_emergent' in code (server.py:36) - a placeholder string that is NOT a valid Stripe key. Either remove the fallback (fail fast) or use emergentintegrations Stripe library.",
+    "POST /api/premium/checkout broadly catches Exception and re-raises as 500 (server.py:1296-1298) - this masks Stripe's specific error types (rate limits, card errors, auth errors). Consider catching stripe.error.* specifically.",
+    "Stories feed (server.py:1450-1484) returns full base64 image data - heavy payload risk.",
+    "GET /api/events/feed sort uses date as string ISO sort which works correctly (alphabetical = chronological for ISO 8601), but storing date as proper datetime would be more robust."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (new - 25 tests for Premium/Events/Stories/Leaderboard + regression)"
+  ],
+  "success_rate": {"backend": "92% (54/56 total: 31/31 existing + 23/25 new)", "frontend": "not_tested"},
+  "seed_data_creation": "Used existing user_a/user_b fixtures from conftest.py. Inserted temporary events, stories, payment_sessions for each test - all cleaned up after. 5 seeded events confirmed present in DB.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All new endpoints (Premium, Events, Stories, Leaderboard) are working EXCEPT the 2 Stripe endpoints (/api/premium/checkout, /api/premium/status/{session_id}) which fail with 500 due to invalid STRIPE_API_KEY='sk_test_emergent' (placeholder). Once a real Stripe test secret key is set in /app/backend/.env and backend restarted, re-run `pytest backend/tests/test_new_features.py::TestPremiumCheckout -v` to verify. Premium gating logic (non-premium users see only own college events/stories/leaderboard; premium see all) is fully tested and passing. RSVP toggle, 24h story expiry, story views, leaderboard sorting all verified.",
+  "rca_of_issue": "Stripe 500 RCA: stripe library makes a request to api.stripe.com with the API key set to 'sk_test_emergent'. Stripe's API responds with 401 Invalid API Key. The endpoint's broad `except Exception` re-raises as HTTPException(500, ...) with the original Stripe error message. Reproduction: `curl -X POST $URL/api/premium/checkout -H 'Authorization: Bearer <token>' -d '{\"success_url\":\"https://x\",\"cancel_url\":\"https://y\"}'` returns 500. Mitigation: set a real Stripe test key in /app/backend/.env (e.g., from https://dashboard.stripe.com/test/apikeys) OR migrate to emergentintegrations Stripe wrapper if that is the intended integration pattern."
+}
