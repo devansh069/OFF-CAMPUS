@@ -890,11 +890,8 @@ async def create_rating(
 # ============= ADMIN ROUTES =============
 @api_router.get("/admin/verification-requests")
 async def get_verification_requests(authorization: Optional[str] = Header(None)):
-    """Get pending verification requests"""
-    user = await get_current_user(authorization)
-    
-    # In production, check if user is admin
-    # For now, return all pending requests
+    """Get pending verification requests (admin only)"""
+    await verify_admin(authorization)
     
     requests = await db.verification_requests.find(
         {"status": VerificationStatus.PENDING},
@@ -908,8 +905,8 @@ async def approve_verification(
     request_id: str,
     authorization: Optional[str] = Header(None)
 ):
-    """Approve verification request"""
-    user = await get_current_user(authorization)
+    """Approve verification request (admin only)"""
+    admin_email = await verify_admin(authorization)
     
     # Update verification request
     result = await db.verification_requests.update_one(
@@ -917,7 +914,7 @@ async def approve_verification(
         {"$set": {
             "status": VerificationStatus.VERIFIED,
             "reviewed_at": datetime.now(timezone.utc),
-            "reviewed_by": user["user_id"]
+            "reviewed_by": admin_email
         }}
     )
     
@@ -940,15 +937,15 @@ async def reject_verification(
     request_id: str,
     authorization: Optional[str] = Header(None)
 ):
-    """Reject verification request"""
-    user = await get_current_user(authorization)
+    """Reject verification request (admin only)"""
+    admin_email = await verify_admin(authorization)
     
     result = await db.verification_requests.update_one(
         {"request_id": request_id},
         {"$set": {
             "status": VerificationStatus.REJECTED,
             "reviewed_at": datetime.now(timezone.utc),
-            "reviewed_by": user["user_id"]
+            "reviewed_by": admin_email
         }}
     )
     

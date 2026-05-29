@@ -465,15 +465,3 @@ const styles = StyleSheet.create({
   verifyTitle: { color: '#FFA500', fontSize: 16, fontWeight: 'bold' },
   verifySubtitle: { color: '#FFA500', fontSize: 12, opacity: 0.8 },
 });
-PhotoText: { color: '#FF3366', fontSize: 12, fontWeight: '600' },
-  referralCard: {
-    margin: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  referralGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-});
