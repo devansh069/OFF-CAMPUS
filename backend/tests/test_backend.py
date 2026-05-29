@@ -63,7 +63,7 @@ class TestAdminAuth:
 
     def test_admin_login_wrong_password(self, api_client, base_url):
         r = api_client.post(f"{base_url}/api/admin/login", json={
-            "email": "admin@offcampus.com",
+            "email": "admin@offcampus.com", 
             "password": "WRONG"
         })
         assert r.status_code == 401

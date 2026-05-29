@@ -1262,37 +1262,33 @@ async def create_checkout(request: CheckoutRequest, authorization: Optional[str]
     user = await get_current_user(authorization)
     
     try:
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=[{
-                "price_data": {
-                    "currency": "inr",
-                    "product_data": {
-                        "name": "Off Campus Premium",
-                        "description": "1 Month Premium - Inter-Campus Access + More",
-                    },
-                    "unit_amount": PREMIUM_PRICE_INR,
-                },
-                "quantity": 1,
-            }],
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
+        
+        session_req = CheckoutSessionRequest(
+            amount=99.0,
+            currency="inr",
             success_url=request.success_url + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=request.cancel_url,
-            client_reference_id=user["user_id"],
-            customer_email=user["email"],
-            metadata={"user_id": user["user_id"], "plan": "premium_monthly"},
+            metadata={
+                "user_id": user["user_id"],
+                "user_email": user["email"],
+                "plan": "premium_monthly",
+            },
         )
+        session = await stripe_checkout.create_checkout_session(session_req)
         
         # Store session for tracking
         await db.payment_sessions.insert_one({
-            "session_id": session.id,
+            "session_id": session.session_id,
             "user_id": user["user_id"],
-            "amount": PREMIUM_PRICE_INR,
+            "amount": 99.0,
             "currency": "inr",
             "status": "pending",
             "created_at": datetime.now(timezone.utc),
         })
         
-        return {"checkout_url": session.url, "session_id": session.id}
+        return {"checkout_url": session.url, "session_id": session.session_id}
     except Exception as e:
         logger.error(f"Stripe error: {e}")
         raise HTTPException(status_code=500, detail=f"Payment error: {str(e)}")
@@ -1303,14 +1299,16 @@ async def check_payment_status(session_id: str, authorization: Optional[str] = H
     user = await get_current_user(authorization)
     
     try:
-        session = stripe.checkout.Session.retrieve(session_id)
-        
         # Check if already processed
         payment_session = await db.payment_sessions.find_one({"session_id": session_id}, {"_id": 0})
         if payment_session and payment_session.get("status") == "completed":
             return {"status": "completed", "is_premium": True}
         
-        if session.payment_status == "paid":
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
+        status_response = await stripe_checkout.get_checkout_status(session_id)
+        
+        if status_response.payment_status == "paid":
             # Activate premium for 30 days
             premium_until = datetime.now(timezone.utc) + timedelta(days=30)
             await db.users.update_one(
@@ -1323,7 +1321,7 @@ async def check_payment_status(session_id: str, authorization: Optional[str] = H
             )
             return {"status": "completed", "is_premium": True}
         
-        return {"status": session.payment_status, "is_premium": False}
+        return {"status": status_response.payment_status, "is_premium": False}
     except Exception as e:
         logger.error(f"Stripe status error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
