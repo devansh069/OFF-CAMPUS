@@ -59,9 +59,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkExistingSession();
   }, []);
 
-  // Handle deep links (for mobile)
+  // Handle deep links (for mobile) - check both on mount and when URL changes
   useEffect(() => {
     if (Platform.OS !== 'web') {
+      // Check initial URL (for cold starts)
+      Linking.getInitialURL().then((url) => {
+        if (url) {
+          handleDeepLink({ url });
+        }
+      });
+
+      // Listen for URL changes (for hot links)
       const subscription = Linking.addEventListener('url', handleDeepLink);
       return () => subscription.remove();
     }
@@ -88,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check localStorage for existing token
         token = localStorage.getItem('session_token');
       } else {
-        // Mobile: check SecureStore
+        // Mobile: check SecureStore first
         token = await SecureStore.getItemAsync('session_token');
       }
 
@@ -105,12 +113,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const handleDeepLink = async (event: { url: string }) => {
-    const url = event.url;
-    const sessionIdMatch = url.match(/[#?&]session_id=([^&]+)/);
-    
-    if (sessionIdMatch) {
-      const sessionId = sessionIdMatch[1];
-      await processSessionId(sessionId);
+    try {
+      const url = event.url;
+      console.log('Deep link received:', url);
+      
+      const sessionIdMatch = url.match(/[#?&]session_id=([^&]+)/);
+      
+      if (sessionIdMatch) {
+        const sessionId = sessionIdMatch[1];
+        console.log('Processing session ID from deep link');
+        await processSessionId(sessionId);
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
     }
   };
 
