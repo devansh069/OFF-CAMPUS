@@ -97,7 +97,7 @@ export default function Messages() {
               <View style={styles.convInfo}>
                 <View style={styles.convHeader}>
                   <Text style={styles.convName}>{conv.user.name}</Text>
-                  {conv.last_message && (
+                  {conv.last_message?.created_at && (
                     <Text style={styles.convTime}>
                       {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
                     </Text>

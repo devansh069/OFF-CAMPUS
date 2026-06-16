@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -33,7 +33,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: () => Promise<void>;
+  login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
@@ -56,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Check for existing session on mount
   useEffect(() => {
+    console.log('AuthProvider mounted. EXPO_PUBLIC_BACKEND_URL is:', EXPO_PUBLIC_BACKEND_URL);
     checkExistingSession();
   }, []);
 
@@ -159,13 +160,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchUserProfile = async (token: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('fetchUserProfile: Request timed out for URL:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
+      controller.abort();
+    }, 5000);
+
     try {
+      console.log('fetchUserProfile: Fetching profile from:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
+      console.log('fetchUserProfile: Response received with status:', response.status);
       if (response.status === 401) {
         // Invalid token, clear it
         await clearSession();
@@ -174,45 +185,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!response.ok) {
-        throw new Error('Failed to fetch user');
+        throw new Error(`Failed to fetch user (status: ${response.status})`);
       }
 
       const data = await response.json();
+      console.log('fetchUserProfile: Logged in user is:', data.user ? `${data.user.name} (${data.user.email})` : 'none');
       setUser(data.user);
       setLoading(false);
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('Error fetching user:', error);
       await clearSession();
       setLoading(false);
     }
   };
 
-  const login = async () => {
+  const login = async (email: string) => {
     try {
-      let redirectUrl: string;
+      setLoading(true);
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/bypass-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      if (Platform.OS === 'web') {
-        redirectUrl = window.location.origin + '/';
-      } else {
-        redirectUrl = Linking.createURL('auth');
+      if (!response.ok) {
+        throw new Error('Failed to login');
       }
 
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-
+      const data = await response.json();
+      const token = data.session_token;
+      
+      // Store token
       if (Platform.OS === 'web') {
-        window.location.href = authUrl;
+        localStorage.setItem('session_token', token);
       } else {
-        const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-        
-        if (result.type === 'success' && result.url) {
-          const sessionIdMatch = result.url.match(/[#?&]session_id=([^&]+)/);
-          if (sessionIdMatch) {
-            await processSessionId(sessionIdMatch[1]);
-          }
-        }
+        await SecureStore.setItemAsync('session_token', token);
       }
+
+      setSessionToken(token);
+      setUser(data.user);
+      setLoading(false);
     } catch (error) {
       console.error('Error during login:', error);
+      setLoading(false);
+      Alert.alert('Login Failed', 'Please make sure the backend is running.');
     }
   };
 

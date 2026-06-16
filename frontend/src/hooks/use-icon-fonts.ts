@@ -43,9 +43,6 @@ const iconFontMap = (): Record<IconFamily, string> =>
     ]),
   ) as Record<IconFamily, string>;
 
-export const useIconFonts = (): readonly [boolean, Error | null] =>
-  useFonts(
-    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
-      ? iconFontMap()
-      : {},
-  );
+export const useIconFonts = (): readonly [boolean, Error | null] => {
+  return [true, null] as const;
+};
