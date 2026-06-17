@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -111,7 +113,7 @@ export default function Profile() {
                   'Authorization': `Bearer ${sessionToken}`,
                 },
                 body: JSON.stringify({
-                  top_tracks: ['As It Was', 'Heat Waves', 'Stay'],
+                  top_tracks: ['Starboy - The Weeknd', 'Levitating - Dua Lipa', 'Peaches - Justin Bieber'],
                   top_artists: ['Harry Styles', 'Glass Animals', 'The Weeknd'],
                 }),
               });
@@ -132,95 +134,196 @@ export default function Profile() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#FF3366', '#FF6B35']} style={styles.header}>
-          <View style={styles.headerActions}>
-            <View style={{ width: 24 }} />
-            <Text style={styles.headerTitle}>Profile</Text>
-            <TouchableOpacity onPress={handleLogout} testID="logout-btn">
-              <Ionicons name="log-out-outline" size={24} color="#FFF" />
+        {/* Brand Header */}
+        <View style={styles.headerBar}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="flame" size={18} color="#FF1B6B" />
+            </View>
+            <Text style={styles.brandText}>mismatched</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.globalPill} onPress={() => router.push('/premium')}>
+              <MaterialCommunityIcons name="crown" size={14} color="#FFD700" style={{ marginRight: 4 }} />
+              <Text style={styles.globalText}>Global</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
             </TouchableOpacity>
           </View>
-
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri: user.picture || user.photos?.[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
-              }}
-              style={styles.avatar}
-            />
-            {user.verification_status === 'verified' && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={28} color="#4FC3F7" />
-              </View>
-            )}
-          </View>
-          
-          <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-
-          <View style={styles.vibeScoreCard}>
-            <Ionicons name="star" size={24} color="#FFD700" />
-            <View>
-              <Text style={styles.vibeLabel}>Vibe Score</Text>
-              <Text style={styles.vibeValue}>{user.vibe_score?.toFixed(1)}/5.0</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={styles.statusRow}>
-          <View style={styles.statusItem}>
-            <Ionicons
-              name={user.verification_status === 'verified' ? 'checkmark-circle' : 'time'}
-              size={20}
-              color={user.verification_status === 'verified' ? '#4CAF50' : '#FFA500'}
-            />
-            <Text style={styles.statusText}>
-              {user.verification_status === 'verified' ? 'Verified' : 'Pending'}
-            </Text>
-          </View>
-          {user.is_premium && (
-            <View style={styles.statusItem}>
-              <Ionicons name="star" size={20} color="#FFD700" />
-              <Text style={styles.statusText}>Premium</Text>
-            </View>
-          )}
-          {user.is_on_campus && (
-            <View style={styles.statusItem}>
-              <View style={styles.greenDot} />
-              <Text style={styles.statusText}>On Campus</Text>
-            </View>
-          )}
         </View>
 
-        {college && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>COLLEGE</Text>
-            <View style={styles.infoCard}>
-              <Ionicons name="school" size={24} color="#FF3366" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.infoTitle}>{college.name}</Text>
-                <Text style={styles.infoSubtitle}>{college.location}</Text>
+        {/* Profile Avatar Card */}
+        <View style={styles.avatarSection}>
+          <View style={styles.avatarContainer}>
+            <LinearGradient colors={['#FF1B6B', '#9D4EDD', '#FFD700']} style={styles.avatarRing}>
+              <View style={styles.avatarInner}>
+                <Image
+                  source={{
+                    uri: user.picture || user.photos?.[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
+                  }}
+                  style={styles.avatarImage}
+                />
               </View>
+            </LinearGradient>
+            <View style={styles.crownBadge}>
+              <MaterialCommunityIcons name="crown" size={12} color="#FFF" />
             </View>
           </View>
-        )}
 
-        {user.year && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>ACADEMICS</Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Year</Text>
-              <Text style={styles.infoValue}>{user.year}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
+            <Ionicons name="checkmark-circle" size={18} color="#2F80ED" style={{ marginLeft: 6 }} />
+          </View>
+
+          <View style={styles.collegePill}>
+            <Text style={styles.collegePillText}>
+              {user.verification_status === 'verified' ? 'Verified' : 'Pending'} {college?.short_name || 'IPU'} Student
+            </Text>
+          </View>
+        </View>
+
+        {/* Stats Dashboard */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <View style={styles.statIconRow}>
+              <MaterialCommunityIcons name="sparkles" size={20} color="#FF1B6B" />
             </View>
-            {user.course && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Course</Text>
-                <Text style={styles.infoValue}>{user.course}</Text>
+            <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
+            <Text style={styles.statLabel}>VIBE SCORE</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={styles.statIconRow}>
+              <Ionicons name="flame" size={20} color="#FFA500" />
+            </View>
+            <Text style={styles.statValue}>12d</Text>
+            <Text style={styles.statLabel}>APP STREAK</Text>
+          </View>
+        </View>
+
+        {/* Your Vibe DNA */}
+        <View style={styles.dnaCard}>
+          <View style={styles.dnaHeader}>
+            <Text style={styles.dnaTitle}>Your Vibe DNA</Text>
+            <View style={styles.analysisBadge}>
+              <Text style={styles.analysisText}>ANALYSIS COMPLETE</Text>
+            </View>
+          </View>
+          <Text style={styles.dnaSubtitle}>Based on your activity</Text>
+
+          <View style={styles.dnaRow}>
+            <View style={[styles.dnaPill, styles.creativePill]}>
+              <Text style={styles.creativeText}>🎨 CREATIVE</Text>
+            </View>
+            <View style={[styles.dnaPill, styles.nightOwlPill]}>
+              <Text style={styles.nightOwlText}>🦉 NIGHT OWL</Text>
+            </View>
+            <View style={[styles.dnaPill, styles.socialitePill]}>
+              <Text style={styles.socialiteText}>✨ SOCIALITE</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Integrations Card */}
+        <View style={styles.integrationsCard}>
+          <Text style={styles.integrationsTitle}>Integrations</Text>
+          <Text style={styles.integrationsSubtitle}>Connect accounts to flex your vibe</Text>
+
+          <TouchableOpacity style={styles.spotifyCard} onPress={addSpotifyData}>
+            <View style={styles.spotifyHeader}>
+              <Ionicons name="musical-notes" size={20} color="#1DB954" />
+              <Text style={styles.spotifyTitle}>MY CURRENT VIBE</Text>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" style={{ marginLeft: 'auto' }} />
+            </View>
+
+            <View style={styles.spotifyTracks}>
+              {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
+                user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
+                  const parts = track.split(' - ');
+                  const title = parts[0] || track;
+                  const artist = parts[1] || 'Connected Spotify Vibe';
+                  return (
+                    <View key={idx} style={styles.trackRow}>
+                      <Text style={styles.trackIndex}>{idx + 1}</Text>
+                      <View style={styles.trackArt}>
+                        <Ionicons name="musical-note" size={14} color="#1DB954" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.trackTitle}>{title}</Text>
+                        <Text style={styles.trackArtist}>{artist}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <>
+                  <View style={styles.trackRow}>
+                    <Text style={styles.trackIndex}>1</Text>
+                    <View style={[styles.trackArt, { backgroundColor: '#2a1a08' }]}>
+                      <Ionicons name="musical-note" size={14} color="#FFA500" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.trackTitle}>Starboy</Text>
+                      <Text style={styles.trackArtist}>The Weeknd</Text>
+                    </View>
+                  </View>
+                  <View style={styles.trackRow}>
+                    <Text style={styles.trackIndex}>2</Text>
+                    <View style={[styles.trackArt, { backgroundColor: '#0c2a1c' }]}>
+                      <Ionicons name="musical-note" size={14} color="#1DB954" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.trackTitle}>Levitating</Text>
+                      <Text style={styles.trackArtist}>Dua Lipa</Text>
+                    </View>
+                  </View>
+                  <View style={styles.trackRow}>
+                    <Text style={styles.trackIndex}>3</Text>
+                    <View style={[styles.trackArt, { backgroundColor: '#2a0c1a' }]}>
+                      <Ionicons name="musical-note" size={14} color="#FF1B6B" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.trackTitle}>Peaches</Text>
+                      <Text style={styles.trackArtist}>Justin Bieber</Text>
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Gallery / Photos Grid */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>MY GALLERY</Text>
+          <View style={styles.photosGrid}>
+            {user.photos?.map((photo: string, index: number) => (
+              <View key={index} style={styles.photoItem}>
+                <Image source={{ uri: photo.startsWith('data:') ? photo : `${EXPO_PUBLIC_BACKEND_URL}${photo}` }} style={styles.photoImg} />
+                <TouchableOpacity style={styles.photoOverlay} onPress={() => deletePhoto(index)}>
+                  <Ionicons name="trash-outline" size={14} color="#FFF" />
+                </TouchableOpacity>
               </View>
+            ))}
+            {(!user.photos || user.photos.length < 6) && (
+              <TouchableOpacity
+                style={[
+                  styles.addPhotoBtn,
+                  (!user.photos || user.photos.length === 0) && { width: '100%', aspectRatio: undefined, height: 120 }
+                ]}
+                onPress={addPhoto}
+              >
+                <Ionicons name="camera" size={(!user.photos || user.photos.length === 0) ? 32 : 24} color="rgba(255, 255, 255, 0.4)" />
+                <Text style={styles.addPhotoText}>
+                  {(!user.photos || user.photos.length === 0) ? 'Add your first photo' : 'Add Photo'}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
-        )}
+        </View>
 
+        {/* Profile Info Summary */}
         {user.bio && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>BIO</Text>
@@ -241,69 +344,46 @@ export default function Profile() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.spotifyCard} onPress={addSpotifyData}>
-          <View style={styles.spotifyHeader}>
-            <Ionicons name="musical-notes" size={28} color="#1DB954" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.spotifyTitle}>Spotify Vibes</Text>
-              <Text style={styles.spotifySubtitle}>
-                {user.spotify_data?.top_artists?.length
-                  ? `${user.spotify_data.top_artists.length} artists added`
-                  : 'Connect your music taste'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </View>
-          {user.spotify_data?.top_artists?.length > 0 && (
-            <View style={[styles.tagsRow, { marginTop: 12 }]}>
-              {user.spotify_data.top_artists.slice(0, 3).map((artist: string) => (
-                <View key={artist} style={[styles.tag, { backgroundColor: '#1DB95422' }]}>
-                  <Text style={[styles.tagText, { color: '#1DB954' }]}>{artist}</Text>
+        {/* Quick Links */}
+        <View style={{ marginVertical: 8 }}>
+          {!user.is_premium && (
+            <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
+              <LinearGradient
+                colors={['#FFD700', '#FFA500']}
+                style={styles.premiumGradient}
+              >
+                <Ionicons name="diamond" size={24} color="#FFF" />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.premiumTitle}>Go Premium - ₹99/mo</Text>
+                  <Text style={styles.premiumSubtitle}>Access ALL Delhi colleges + perks</Text>
                 </View>
-              ))}
-            </View>
+                <Ionicons name="chevron-forward" size={18} color="#FFF" />
+              </LinearGradient>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
 
-        {!user.is_premium && (
-          <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
-            <LinearGradient
-              colors={['#FFD700', '#FFA500']}
-              style={styles.premiumGradient}
-            >
-              <Ionicons name="diamond" size={32} color="#FFF" />
+          <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/profile-edit')}>
+            <LinearGradient colors={['#9D4EDD', '#FF1B6B']} style={styles.premiumGradient}>
+              <Ionicons name="create" size={24} color="#FFF" />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.premiumTitle}>Go Premium - ₹99/mo</Text>
-                <Text style={styles.premiumSubtitle}>
-                  Access ALL Delhi colleges + perks
-                </Text>
+                <Text style={styles.premiumTitle}>Edit Profile</Text>
+                <Text style={styles.premiumSubtitle}>Update bio, interests & academics</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#FFF" />
+              <Ionicons name="chevron-forward" size={18} color="#FFF" />
             </LinearGradient>
           </TouchableOpacity>
-        )}
 
-        <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/profile-edit')}>
-          <LinearGradient colors={['#9D4EDD', '#FF1B6B']} style={styles.premiumGradient}>
-            <Ionicons name="create" size={32} color="#FFF" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.premiumTitle}>Edit Profile</Text>
-              <Text style={styles.premiumSubtitle}>Update bio, interests & more</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#FFF" />
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/referrals')}>
-          <LinearGradient colors={['#06D6A0', '#118AB2']} style={styles.premiumGradient}>
-            <Ionicons name="gift" size={32} color="#FFF" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.premiumTitle}>Refer Friends</Text>
-              <Text style={styles.premiumSubtitle}>Earn 7 days premium per friend!</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#FFF" />
-          </LinearGradient>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/referrals')}>
+            <LinearGradient colors={['#06D6A0', '#118AB2']} style={styles.premiumGradient}>
+              <Ionicons name="gift" size={24} color="#FFF" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.premiumTitle}>Refer Friends</Text>
+                <Text style={styles.premiumSubtitle}>Earn 7 days premium per referral!</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -312,130 +392,398 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
-  header: {
-    padding: 20,
-    paddingBottom: 30,
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerActions: {
+  container: { flex: 1, backgroundColor: '#000000' },
+  bg: { flex: 1, backgroundColor: '#000000' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+  
+  headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFF' },
-  avatarContainer: { position: 'relative' },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#FFF',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-  },
-  name: { fontSize: 26, fontWeight: 'bold', color: '#FFF' },
-  email: { fontSize: 14, color: '#FFF', opacity: 0.9 },
-  vibeScoreCard: {
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    padding: 12,
-    borderRadius: 12,
+    gap: 8,
+  },
+  logoCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 51, 102, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandText: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+  },
+  globalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A1E08',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  globalText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  settingsIcon: {
+    padding: 4,
+  },
+
+  avatarSection: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 130,
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarRing: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 3,
+  },
+  avatarInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 62,
+    backgroundColor: '#000',
+    padding: 3,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+  crownBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 4,
+    backgroundColor: '#FFA500',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 12,
   },
-  vibeLabel: { color: '#FFF', fontSize: 12, opacity: 0.9 },
-  vibeValue: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    padding: 16,
-    flexWrap: 'wrap',
+  name: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFF',
   },
-  statusItem: {
+  collegePill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  collegePillText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginVertical: 8,
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#120F1D',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 4,
+  },
+  statIconRow: {
+    marginBottom: 4,
+  },
+  statValue: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  dnaCard: {
+    backgroundColor: '#120F1D',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dnaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dnaTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  analysisBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  analysisText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  dnaSubtitle: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  dnaRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dnaPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creativePill: {
+    borderColor: '#4A90E2',
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+  },
+  creativeText: {
+    color: '#4A90E2',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  nightOwlPill: {
+    borderColor: '#9013FE',
+    backgroundColor: 'rgba(144, 19, 254, 0.1)',
+  },
+  nightOwlText: {
+    color: '#A55EEA',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  socialitePill: {
+    borderColor: '#F5A623',
+    backgroundColor: 'rgba(245, 166, 35, 0.1)',
+  },
+  socialiteText: {
+    color: '#F5A623',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  integrationsCard: {
+    backgroundColor: '#120F1D',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  integrationsTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  integrationsSubtitle: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  spotifyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 14,
+  },
+  spotifyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1E1E1E',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 8,
+    marginBottom: 12,
   },
-  statusText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-  greenDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4CAF50' },
+  spotifyTitle: {
+    color: '#1DB954',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  spotifyTracks: {
+    gap: 12,
+  },
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trackIndex: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 14,
+    fontWeight: '900',
+    width: 12,
+  },
+  trackArt: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  trackArtist: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    marginTop: 1,
+  },
+
   section: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   sectionLabel: {
-    color: '#888',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
     marginBottom: 8,
   },
-  infoCard: {
+  photosGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-    padding: 16,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoItem: {
+    width: '31%',
+    aspectRatio: 3/4,
     borderRadius: 12,
-    gap: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  infoTitle: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  infoSubtitle: { color: '#999', fontSize: 13, marginTop: 2 },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#1E1E1E',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 4,
+  photoImg: {
+    width: '100%',
+    height: '100%',
   },
-  infoLabel: { color: '#999', fontSize: 14 },
-  infoValue: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  photoOverlay: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 6,
+    borderRadius: 20,
+  },
+  addPhotoBtn: {
+    width: '31%',
+    aspectRatio: 3/4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#120F1D',
+    gap: 6,
+  },
+  addPhotoText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   bioText: {
     color: '#FFF',
     fontSize: 15,
     lineHeight: 22,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#120F1D',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   tag: {
-    backgroundColor: '#FF336633',
+    backgroundColor: 'rgba(255, 27, 107, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-  },
-  tagText: { color: '#FF3366', fontSize: 13, fontWeight: '600' },
-  spotifyCard: {
-    margin: 16,
-    backgroundColor: '#1E1E1E',
-    padding: 16,
-    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1DB954',
+    borderColor: 'rgba(255, 27, 107, 0.2)',
   },
-  spotifyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  tagText: {
+    color: '#FF1B6B',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  spotifyTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  spotifySubtitle: { color: '#999', fontSize: 13, marginTop: 2 },
+
   premiumCard: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginVertical: 6,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -444,46 +792,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  premiumTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  premiumSubtitle: { color: '#FFF', fontSize: 13, opacity: 0.9 },
-  photosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  photoItem: { width: '31%', aspectRatio: 3/4, borderRadius: 12, overflow: 'hidden', position: 'relative' },
-  photoImg: { width: '100%', height: '100%' },
-  photoOverlay: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 20 },
-  addPhotoBtn: {
-    width: '31%',
-    aspectRatio: 3/4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#FF3366',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E1E1E',
-    gap: 4,
+  premiumTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
-  addPhotoText: { color: '#FF3366', fontSize: 12, fontWeight: '600' },
-  referralCard: {
-    margin: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
+  premiumSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    marginTop: 2,
   },
-  referralGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  verifyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFA50022',
-    borderWidth: 1,
-    borderColor: '#FFA500',
-    padding: 16,
-    margin: 16,
-    borderRadius: 12,
-  },
-  verifyTitle: { color: '#FFA500', fontSize: 16, fontWeight: 'bold' },
-  verifySubtitle: { color: '#FFA500', fontSize: 12, opacity: 0.8 },
 });

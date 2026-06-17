@@ -279,7 +279,7 @@ export default function Discover() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#F43F5E" />
+        <ActivityIndicator size="large" color="#FF1B6B" />
       </View>
     );
   }
@@ -290,20 +290,18 @@ export default function Discover() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#000000', '#000000']} style={styles.bg}>
+      <View style={styles.bg}>
         
         {/* Top Header Bar */}
         <View style={styles.topBar}>
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/images/logo.png')} 
-              style={styles.logoImage} 
-              resizeMode="contain"
-            />
+            <Ionicons name="flame" size={24} color="#FF1B6B" />
+            <Text style={styles.logoText}>mismatched</Text>
           </View>
           <TouchableOpacity 
             style={styles.modeBtn}
             onPress={() => setGlobalMode(!globalMode)}
+            activeOpacity={0.8}
           >
             <Ionicons name="globe" size={14} color="#FFD700" />
             <Text style={styles.modeText}>{globalMode ? 'Global' : (college?.short_name || 'My Campus')}</Text>
@@ -313,7 +311,7 @@ export default function Discover() {
         {/* Gender Filter Selector */}
         <View style={styles.filterContainer}>
           <View style={styles.filterLabelContainer}>
-            <Ionicons name="options-outline" size={16} color="#94A3B8" />
+            <Ionicons name="options-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
             <Text style={styles.filterLabel}>Show Me:</Text>
           </View>
           <View style={styles.filterButtonsRow}>
@@ -328,10 +326,11 @@ export default function Discover() {
                     setGenderFilter(option);
                     setCurrentIndex(0); // Reset index on filter change
                   }}
+                  activeOpacity={0.8}
                 >
                   {isActive ? (
                     <LinearGradient
-                      colors={['#3B82F6', '#8B5CF6', '#EF4444']}
+                      colors={['#FF1B6B', '#9D4EDD']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.filterBtnGrad}
@@ -387,14 +386,14 @@ export default function Discover() {
                     <View style={styles.cardNameRow}>
                       <Text style={styles.cardName}>{currentProfile.name}, {currentProfile.age}</Text>
                       {currentProfile.verification_status === 'verified' && (
-                        <Ionicons name="checkmark-circle" size={18} color="#4FC3F7" style={{ marginLeft: 6 }} />
+                        <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
                       )}
                     </View>
 
                     {/* College / Course */}
                     {(currentProfile.year || currentProfile.course) && (
                       <View style={styles.cardCollegeRow}>
-                        <Ionicons name="school-outline" size={14} color="#94A3B8" />
+                        <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
                         <Text style={styles.cardCollegeText}>{[currentProfile.course, currentProfile.year].filter(Boolean).join(' • ')}</Text>
                       </View>
                     )}
@@ -405,7 +404,7 @@ export default function Discover() {
                     {/* Looking For */}
                     {currentProfile.looking_for && (
                       <View style={styles.cardLookingChip}>
-                        <Ionicons name="heart" size={12} color="#F43F5E" />
+                        <Ionicons name="heart" size={12} color="#FF1B6B" />
                         <Text style={styles.cardLookingText}>Looking for {currentProfile.looking_for}</Text>
                       </View>
                     )}
@@ -448,11 +447,11 @@ export default function Discover() {
                       <Text style={styles.postCaption}>{post.caption}</Text>
                       <View style={styles.postFooter}>
                         <View style={styles.postFooterStat}>
-                          <Ionicons name="heart-outline" size={16} color="#FDA4AF" />
+                          <Ionicons name="heart-outline" size={16} color="#FF1B6B" />
                           <Text style={styles.postFooterText}>{post.likes} likes</Text>
                         </View>
                         <View style={styles.postFooterStat}>
-                          <Ionicons name="chatbubble-outline" size={16} color="#94A3B8" />
+                          <Ionicons name="chatbubble-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
                           <Text style={styles.postFooterText}>{post.comments} comments</Text>
                         </View>
                       </View>
@@ -462,26 +461,28 @@ export default function Discover() {
               </ScrollView>
             </Animated.View>
             
-            {/* Floating Action Overlay Buttons - Glassy iPhone UI Style */}
+            {/* Floating Action Overlay Buttons */}
             <View style={styles.floatingActions}>
               <TouchableOpacity 
                 style={[styles.floatingBtn, styles.floatingNope]} 
                 onPress={() => handlePassAndNext(currentProfile.user_id)}
+                activeOpacity={0.8}
               >
-                <Ionicons name="close" size={28} color="#FF453A" /> {/* iPhone System Red */}
+                <Ionicons name="close" size={28} color="#FF453A" />
               </TouchableOpacity>
               
               <TouchableOpacity 
                 style={[styles.floatingBtn, styles.floatingLike]} 
                 onPress={() => handleLikeAndNext(currentProfile.user_id)}
+                activeOpacity={0.8}
               >
-                <Ionicons name="heart" size={28} color="#FF2D55" /> {/* iPhone System Pink/Rose */}
+                <Ionicons name="heart" size={28} color="#FF1B6B" />
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View style={styles.empty}>
-            <Ionicons name="people-outline" size={80} color="#3D2B4F" />
+            <Ionicons name="people-outline" size={80} color="rgba(255, 255, 255, 0.15)" />
             <Text style={styles.emptyT}>No more profiles found</Text>
             <Text style={styles.emptyS}>Try changing your filter settings or hit refresh to check again</Text>
             <TouchableOpacity 
@@ -491,9 +492,10 @@ export default function Discover() {
                 await fetchProfiles();
                 setCurrentIndex(0);
               }}
+              activeOpacity={0.8}
             >
               <Ionicons name="refresh" size={16} color="#FFF" />
-              <Text style={styles.refreshText}>Refresh</Text>
+              <Text style={styles.refreshText}>Refresh Feed</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -501,7 +503,12 @@ export default function Discover() {
         {/* Match Screen Overlay */}
         {showMatch && (
           <View style={styles.matchOverlay}>
-            <LinearGradient colors={['#3B82F6', '#8B5CF6', '#EF4444']} style={styles.matchInner}>
+            <LinearGradient 
+              colors={['#FF1B6B', '#9D4EDD']} 
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.matchInner}
+            >
               <Text style={styles.matchTitle}>IT'S A MATCH! 💥</Text>
               <Text style={styles.matchSub}>You and {showMatch.name} liked each other</Text>
               <Image source={{ uri: showMatch.photos?.[0] || showMatch.picture }} style={styles.matchPic} />
@@ -512,24 +519,29 @@ export default function Discover() {
                     setShowMatch(null); 
                     router.push(`/chat/${showMatch.user_id}`); 
                   }}
+                  activeOpacity={0.8}
                 >
                   <Text style={styles.matchBtnText}>Say Hi 👋</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.matchBtnSecondary} onPress={() => setShowMatch(null)}>
+                <TouchableOpacity 
+                  style={styles.matchBtnSecondary} 
+                  onPress={() => setShowMatch(null)}
+                  activeOpacity={0.8}
+                >
                   <Text style={styles.matchBtnTextSecondary}>Keep Swiping</Text>
                 </TouchableOpacity>
               </View>
             </LinearGradient>
           </View>
         )}
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
-  bg: { flex: 1 },
+  bg: { flex: 1, backgroundColor: '#000000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   topBar: { 
     flexDirection: 'row', 
@@ -538,28 +550,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#121324'
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)'
   },
   logoContainer: { 
-    justifyContent: 'center', 
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     height: 40 
   },
-  logoImage: { 
-    width: 120, 
-    height: 32,
-    marginVertical: 4
+  logoText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   modeBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 6, 
-    backgroundColor: '#121324', 
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
     paddingHorizontal: 14, 
     paddingVertical: 8, 
     borderRadius: 20, 
     borderWidth: 1, 
-    borderColor: '#2E3048' 
+    borderColor: 'rgba(255, 255, 255, 0.08)' 
   },
   modeText: { color: '#FFD700', fontSize: 12, fontWeight: '700' },
   
@@ -570,12 +584,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginVertical: 10,
-    backgroundColor: '#121324',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     paddingVertical: 10,
     borderRadius: 20,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#1E2235',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   filterLabelContainer: {
     flexDirection: 'row',
@@ -583,7 +597,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterLabel: {
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -592,10 +606,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterBtn: {
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2E3048',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     overflow: 'hidden',
     height: 30,
     justifyContent: 'center',
@@ -610,7 +624,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterBtnText: {
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 12,
     fontWeight: '600',
     paddingHorizontal: 12,
@@ -633,18 +647,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileScrollContent: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 130, // Space for floating buttons overlay
   },
   photoCard: {
     position: 'relative', 
     width: '100%', 
-    aspectRatio: 1.25, // Shorter vertically (landscape-ish)
+    aspectRatio: 0.85, // Taller portrait display
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#22253A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 16,
   },
   photoContainer: { 
@@ -661,28 +675,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
-    backgroundColor: 'rgba(0,0,0,0.75)', 
+    backgroundColor: 'rgba(0,0,0,0.65)', 
     paddingHorizontal: 10, 
     paddingVertical: 6, 
-    borderRadius: 12 
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   cardVibeText: { color: '#FFD700', fontSize: 12, fontWeight: '900' },
   cardCampusBadge: { 
     position: 'absolute', 
     top: 16, 
     right: 16, 
-    backgroundColor: '#059669', 
+    backgroundColor: 'rgba(6, 214, 160, 0.12)', 
     paddingHorizontal: 10, 
     paddingVertical: 6, 
-    borderRadius: 12 
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(6, 214, 160, 0.3)',
   },
-  cardCampusText: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  cardCampusText: { color: '#06D6A0', fontSize: 10, fontWeight: '900' },
   
   detailsCard: {
-    backgroundColor: '#0F1016', // Sleek dark card background
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#22253A', // Fine border outline
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: 20,
     marginBottom: 16,
   },
@@ -692,34 +710,34 @@ const styles = StyleSheet.create({
   cardNameRow: { flexDirection: 'row', alignItems: 'center' },
   cardName: { color: '#FFF', fontSize: 26, fontWeight: '900', letterSpacing: -0.5 },
   cardCollegeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  cardCollegeText: { color: '#94A3B8', fontSize: 14, fontWeight: '600' },
-  cardBio: { color: '#E2E8F0', fontSize: 14, lineHeight: 20, marginTop: 4 },
+  cardCollegeText: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 14, fontWeight: '600' },
+  cardBio: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, lineHeight: 20, marginTop: 4 },
   
   cardLookingChip: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
-    backgroundColor: 'rgba(244,63,94,0.12)', 
+    backgroundColor: 'rgba(255, 27, 107, 0.08)', 
     paddingHorizontal: 10, 
     paddingVertical: 6, 
     borderRadius: 16, 
     alignSelf: 'flex-start', 
     borderWidth: 1, 
-    borderColor: 'rgba(244,63,94,0.5)', 
+    borderColor: 'rgba(255, 27, 107, 0.25)', 
     marginTop: 4 
   },
-  cardLookingText: { color: '#FDA4AF', fontSize: 12, fontWeight: '700' },
+  cardLookingText: { color: '#FF1B6B', fontSize: 12, fontWeight: '700' },
   
   cardTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   cardTag: { 
-    backgroundColor: 'rgba(255,255,255,0.06)', 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
     paddingHorizontal: 10, 
     paddingVertical: 5, 
     borderRadius: 12, 
     borderWidth: 1, 
     borderColor: 'rgba(255,255,255,0.08)' 
   },
-  cardTagText: { color: '#E2E8F0', fontSize: 12, fontWeight: '600' },
+  cardTagText: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, fontWeight: '600' },
   
   // Section layout
   sectionTitle: {
@@ -732,10 +750,10 @@ const styles = StyleSheet.create({
 
   // Spotify Section
   spotifyCard: {
-    backgroundColor: 'rgba(29, 185, 84, 0.08)',
+    backgroundColor: 'rgba(29, 185, 84, 0.05)',
     borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: 'rgba(29, 185, 84, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(29, 185, 84, 0.15)',
     padding: 20,
     marginBottom: 16,
   },
@@ -765,10 +783,10 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   postCard: {
-    backgroundColor: '#0F1016', // Match visual theme of details card
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#22253A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     overflow: 'hidden',
     marginBottom: 16
   },
@@ -778,7 +796,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover'
   },
   postCaption: {
-    color: '#E2E8F0',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
     padding: 14,
     lineHeight: 20
@@ -795,7 +813,7 @@ const styles = StyleSheet.create({
     gap: 6
   },
   postFooterText: {
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 12,
     fontWeight: '600'
   },
@@ -825,27 +843,25 @@ const styles = StyleSheet.create({
     elevation: 8
   },
   floatingNope: { 
-    backgroundColor: 'rgba(255, 255, 255, 0.08)', // glassy white
-    borderWidth: 1.5, 
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backdropFilter: 'blur(20px)'
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.08)'
   },
   floatingLike: { 
-    backgroundColor: 'rgba(255, 45, 85, 0.1)', // glassy system rose
-    borderWidth: 1.5, 
-    borderColor: 'rgba(255, 45, 85, 0.3)',
-    backdropFilter: 'blur(20px)'
+    backgroundColor: 'rgba(255, 27, 107, 0.05)', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 27, 107, 0.25)'
   },
   
   // Empty State
-  empty: { flex: 1, padding: 40, alignItems: 'center', gap: 12, justifyContent: 'center' },
+  empty: { flex: 1, padding: 40, alignItems: 'center', gap: 12, justifyContent: 'center', backgroundColor: '#000000' },
   emptyT: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 12, textAlign: 'center' },
-  emptyS: { color: '#94A3B8', textAlign: 'center', fontSize: 14, lineHeight: 20 },
+  emptyS: { color: 'rgba(255, 255, 255, 0.4)', textAlign: 'center', fontSize: 14, lineHeight: 20 },
   refreshBtn: { 
     flexDirection: 'row', 
     gap: 6, 
     alignItems: 'center', 
-    backgroundColor: '#F43F5E', 
+    backgroundColor: '#FF1B6B', 
     paddingHorizontal: 20, 
     paddingVertical: 12, 
     borderRadius: 24, 
@@ -872,7 +888,7 @@ const styles = StyleSheet.create({
   matchPic: { width: 180, height: 180, borderRadius: 90, borderWidth: 5, borderColor: '#FFF' },
   matchActions: { gap: 12, width: '100%' },
   matchBtn: { backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
-  matchBtnText: { color: '#F43F5E', fontWeight: '900', fontSize: 16 },
+  matchBtnText: { color: '#FF1B6B', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
 });

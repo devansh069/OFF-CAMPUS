@@ -9,11 +9,13 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -21,12 +23,18 @@ export default function Messages() {
   const { sessionToken } = useAuth();
   const router = useRouter();
   const [conversations, setConversations] = useState<any[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(fetchConversations, 10000);
+    fetchMatches();
+    const interval = setInterval(() => {
+      fetchConversations();
+      fetchMatches();
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,15 +53,35 @@ export default function Messages() {
     }
   };
 
+  const fetchMatches = async () => {
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/matches`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` },
+      });
+      const data = await response.json();
+      setMatches(data.matches || []);
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+    }
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchConversations();
+    fetchMatches();
   };
+
+  const activeUserIds = conversations.map(c => c.user.user_id);
+  const newMatches = matches.filter(m => !activeUserIds.includes(m.user_id));
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF3366" />
+        <ActivityIndicator size="large" color="#FF1B6B" />
       </View>
     );
   }
@@ -61,67 +89,152 @@ export default function Messages() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Messages</Text>
-        <Text style={styles.subtitle}>Chat with your matches 💬</Text>
+        <View style={styles.brandRow}>
+          <View style={styles.brandLogo}>
+            <Ionicons name="flame" size={20} color="#FF1B6B" />
+            <Text style={styles.brandText}>mismatched</Text>
+          </View>
+          <View style={styles.pulseBadge}>
+            <View style={styles.activeDot} />
+            <Text style={styles.pulseText}>Chats</Text>
+          </View>
+        </View>
+        <Text style={styles.title}>Inbox 💬</Text>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchBarContainer}>
+        <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search matches or chats..."
+          placeholderTextColor="#666"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          clearButtonMode="while-editing"
+        />
+        {searchQuery !== '' && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+            <Ionicons name="close-circle" size={18} color="#666" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3366" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF1B6B" />}
       >
-        {conversations.length === 0 ? (
+        {/* Horizontal Matches List */}
+        {!searchQuery && newMatches.length > 0 && (
+          <View style={styles.matchesSection}>
+            <Text style={styles.sectionTitle}>New Matches ({newMatches.length})</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchesScrollContent}>
+              {newMatches.map((match: any) => (
+                <TouchableOpacity
+                  key={match.user_id}
+                  style={styles.matchItem}
+                  onPress={() => router.push(`/chat/${match.user_id}`)}
+                >
+                  <View style={styles.matchAvatarContainer}>
+                    <Image
+                      source={{ uri: match.photos?.[0] || match.picture }}
+                      style={styles.matchAvatar}
+                    />
+                    <LinearGradient
+                      colors={['#FF1B6B', '#9D4EDD']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.matchRing}
+                    />
+                  </View>
+                  <Text style={styles.matchName} numberOfLines={1}>
+                    {match.name.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={styles.conversationsHeaderRow}>
+          <Text style={styles.sectionTitle}>Messages</Text>
+        </View>
+
+        {filteredConversations.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="heart-outline" size={80} color="#444" />
-            <Text style={styles.emptyText}>No matches yet</Text>
-            <Text style={styles.emptySubText}>Start swiping in Discover to find matches!</Text>
-            <TouchableOpacity
-              style={styles.exploreBtn}
-              onPress={() => router.push('/(tabs)/discover')}
-            >
-              <Text style={styles.exploreBtnText}>Go to Discover</Text>
-            </TouchableOpacity>
+            <Ionicons name="chatbubbles-outline" size={70} color="rgba(255, 255, 255, 0.15)" />
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No chats found' : 'No active chats yet'}
+            </Text>
+            <Text style={styles.emptySubText}>
+              {searchQuery
+                ? 'Try searching for another match'
+                : 'Start swiping and connect with other college students!'}
+            </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                style={styles.exploreBtn}
+                onPress={() => router.push('/(tabs)/discover')}
+              >
+                <Text style={styles.exploreBtnText}>Go to Discover</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
-          conversations.map((conv: any) => (
-            <TouchableOpacity
-              key={conv.user.user_id}
-              style={styles.conversationItem}
-              onPress={() => router.push(`/chat/${conv.user.user_id}`)}
-            >
-              <Image
-                source={{
-                  uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjMzMzIi8+PC9zdmc+'
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.convInfo}>
-                <View style={styles.convHeader}>
-                  <Text style={styles.convName}>{conv.user.name}</Text>
-                  {conv.last_message?.created_at && (
-                    <Text style={styles.convTime}>
-                      {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
+          filteredConversations.map((conv: any) => {
+            const hasUnread = conv.unread_count > 0;
+            return (
+              <TouchableOpacity
+                key={conv.user.user_id}
+                style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
+                onPress={() => router.push(`/chat/${conv.user.user_id}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.avatarWrapper}>
+                  <Image
+                    source={{
+                      uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
+                    }}
+                    style={styles.avatar}
+                  />
+                  {conv.user.is_on_campus && (
+                    <View style={styles.onlineBadge} />
+                  )}
+                </View>
+                <View style={styles.convInfo}>
+                  <View style={styles.convHeader}>
+                    <Text style={styles.convName}>{conv.user.name}</Text>
+                    {conv.last_message?.created_at && (
+                      <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
+                        {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.convPreview}>
+                    <Text
+                      style={[
+                        styles.convMessage,
+                        hasUnread && styles.convMessageUnread
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {conv.last_message?.content || 'Say hi! 👋'}
                     </Text>
-                  )}
+                    {hasUnread && (
+                      <LinearGradient
+                        colors={['#FF1B6B', '#9D4EDD']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.unreadBadge}
+                      >
+                        <Text style={styles.unreadCount}>{conv.unread_count}</Text>
+                      </LinearGradient>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.convPreview}>
-                  <Text
-                    style={[
-                      styles.convMessage,
-                      conv.unread_count > 0 && styles.convMessageUnread
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {conv.last_message?.content || 'Say hi! 👋'}
-                  </Text>
-                  {conv.unread_count > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadCount}>{conv.unread_count}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -129,51 +242,58 @@ export default function Messages() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#000000' },
   centerContainer: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  header: { padding: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF' },
-  subtitle: { fontSize: 14, color: '#999', marginTop: 4 },
-  conversationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
-  },
-  avatar: { width: 60, height: 60, borderRadius: 30 },
-  convInfo: { flex: 1, gap: 4 },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10 },
+  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  brandLogo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  brandText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255, 27, 107, 0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 27, 107, 0.25)' },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF1B6B' },
+  pulseText: { color: '#FF1B6B', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  title: { fontSize: 32, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
+
+  // Search Bar
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.04)', marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)', height: 44 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '500' },
+  clearSearchBtn: { padding: 4 },
+
+  // Matches Section
+  matchesSection: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
+  sectionTitle: { fontSize: 11, fontWeight: '800', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: 1, paddingHorizontal: 16, marginBottom: 12 },
+  matchesScrollContent: { paddingHorizontal: 16, gap: 16 },
+  matchItem: { alignItems: 'center', width: 68 },
+  matchAvatarContainer: { width: 58, height: 58, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  matchAvatar: { width: 50, height: 50, borderRadius: 25 },
+  matchRing: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, borderRadius: 29, borderWidth: 2, borderColor: 'transparent', zIndex: -1 },
+  matchName: { color: '#FFF', fontSize: 12, fontWeight: '600', marginTop: 6, width: '100%', textAlign: 'center' },
+
+  // Conversations Feed
+  conversationsHeaderRow: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
+  conversationItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.04)' },
+  conversationItemUnread: { backgroundColor: 'rgba(255, 27, 107, 0.02)' },
+  avatarWrapper: { position: 'relative' },
+  avatar: { width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
+  onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#06D6A0', borderWidth: 2, borderColor: '#000000' },
+  convInfo: { flex: 1, gap: 3 },
   convHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convName: { fontSize: 16, fontWeight: '600', color: '#FFF' },
-  convTime: { fontSize: 12, color: '#666' },
-  convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convMessage: { fontSize: 14, color: '#999', flex: 1 },
-  convMessageUnread: { color: '#FFF', fontWeight: '600' },
-  unreadBadge: {
-    backgroundColor: '#FF3366',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 22,
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  unreadCount: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
-  emptyState: { padding: 60, alignItems: 'center', gap: 12 },
-  emptyText: { color: '#FFF', fontSize: 18, fontWeight: '600', marginTop: 16 },
-  emptySubText: { color: '#888', fontSize: 14, textAlign: 'center' },
-  exploreBtn: {
-    backgroundColor: '#FF3366',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 16,
-  },
-  exploreBtnText: { color: '#FFF', fontWeight: 'bold' },
+  convName: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  convTime: { fontSize: 11, color: 'rgba(255, 255, 255, 0.35)' },
+  convTimeUnread: { color: '#FF1B6B', fontWeight: '700' },
+  convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  convMessage: { fontSize: 13, color: 'rgba(255, 255, 255, 0.5)', flex: 1 },
+  convMessageUnread: { color: '#FFF', fontWeight: '700' },
+  unreadBadge: { paddingHorizontal: 6, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  unreadCount: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  emptyState: { padding: 60, alignItems: 'center', gap: 12, justifyContent: 'center' },
+  emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
+  emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  exploreBtn: { backgroundColor: '#FF1B6B', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
+  exploreBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
 });

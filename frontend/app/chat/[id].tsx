@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -90,22 +91,42 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Premium Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#FFF" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
         {otherUser && (
-          <>
-            <Image
-              source={{ uri: otherUser.photos?.[0] || otherUser.picture }}
-              style={styles.headerAvatar}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerName}>{otherUser.name}</Text>
-              <Text style={styles.headerStatus}>{otherUser.is_on_campus ? 'On Campus' : 'Off Campus'}</Text>
+          <TouchableOpacity 
+            style={styles.headerUserRow}
+            activeOpacity={0.7}
+            onPress={() => {
+              // Direct navigation to user's profile card if desired
+            }}
+          >
+            <View style={styles.headerAvatarWrapper}>
+              <Image
+                source={{ uri: otherUser.photos?.[0] || otherUser.picture }}
+                style={styles.headerAvatar}
+              />
+              {otherUser.is_on_campus && (
+                <View style={styles.headerOnlineBadge} />
+              )}
             </View>
-          </>
+            <View style={styles.headerMeta}>
+              <Text style={styles.headerName}>{otherUser.name}</Text>
+              <View style={styles.statusBadge}>
+                <View style={[styles.statusDot, { backgroundColor: otherUser.is_on_campus ? '#06D6A0' : 'rgba(255,255,255,0.3)' }]} />
+                <Text style={styles.headerStatus}>
+                  {otherUser.is_on_campus ? 'On Campus' : 'Off Campus'}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.headerInfoBtn}>
+          <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -115,36 +136,72 @@ export default function ChatScreen() {
       >
         {loading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator color="#FF3366" />
+            <ActivityIndicator color="#FF1B6B" />
           </View>
         ) : (
           <ScrollView
             ref={scrollRef}
             style={styles.messagesContainer}
-            contentContainerStyle={{ padding: 16, gap: 8 }}
+            contentContainerStyle={{ padding: 16, gap: 12 }}
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
           >
             {messages.length === 0 && (
               <View style={styles.welcomeBox}>
-                <Text style={styles.welcomeText}>🎉 You matched!</Text>
-                <Text style={styles.welcomeSub}>Send the first message and break the ice</Text>
+                <LinearGradient
+                  colors={['rgba(255, 27, 107, 0.15)', 'rgba(157, 78, 221, 0.15)']}
+                  style={styles.welcomeGradient}
+                />
+                <Ionicons name="sparkles" size={36} color="#FFD700" style={styles.sparkleIcon} />
+                <Text style={styles.welcomeText}>It's a Connection! 🎉</Text>
+                <Text style={styles.welcomeSub}>You matched with {otherUser?.name || 'them'}. Send a message to break the ice!</Text>
               </View>
             )}
+            
             {messages.map((msg: any) => {
               const isMine = msg.from_user_id === user?.user_id;
+              const msgDate = new Date(msg.created_at);
+              const formattedTime = msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
               return (
                 <View
                   key={msg.message_id}
-                  style={[styles.messageBubble, isMine ? styles.myMessage : styles.theirMessage]}
+                  style={[styles.messageRow, isMine ? styles.myRow : styles.theirRow]}
                 >
-                  <Text style={isMine ? styles.myText : styles.theirText}>{msg.content}</Text>
+                  {!isMine && (
+                    <Image
+                      source={{ uri: otherUser?.photos?.[0] || otherUser?.picture }}
+                      style={styles.bubbleAvatar}
+                    />
+                  )}
+                  <View style={styles.bubbleWrapper}>
+                    {isMine ? (
+                      <LinearGradient
+                        colors={['#FF1B6B', '#9D4EDD']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.messageBubble, styles.myMessage]}
+                      >
+                        <Text style={styles.myText}>{msg.content}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={[styles.messageBubble, styles.theirMessage]}>
+                        <Text style={styles.theirText}>{msg.content}</Text>
+                      </View>
+                    )}
+                    <Text style={[styles.msgTime, isMine ? styles.myTime : styles.theirTime]}>
+                      {formattedTime}
+                    </Text>
+                  </View>
                 </View>
               );
             })}
           </ScrollView>
         )}
 
+        {/* Input Bar Section */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7}>
+            <Ionicons name="add" size={24} color="rgba(255, 255, 255, 0.6)" />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -158,8 +215,13 @@ export default function ChatScreen() {
             style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
             onPress={sendMessage}
             disabled={!text.trim() || sending}
+            activeOpacity={0.8}
           >
-            <Ionicons name="send" size={20} color="#FFF" />
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Ionicons name="send" size={16} color="#FFF" style={{ marginLeft: 2 }} />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -168,72 +230,212 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#000000' },
   flex: { flex: 1 },
+  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+  
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#000000',
+    gap: 12,
   },
-  headerAvatar: { width: 40, height: 40, borderRadius: 20 },
-  headerName: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  headerStatus: { color: '#999', fontSize: 12 },
-  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    padding: 4,
+    marginLeft: -4,
+  },
+  headerUserRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerAvatarWrapper: {
+    position: 'relative',
+  },
+  headerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerOnlineBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#06D6A0',
+    borderWidth: 1.5,
+    borderColor: '#000000',
+  },
+  headerMeta: {
+    gap: 1,
+  },
+  headerName: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  headerStatus: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  headerInfoBtn: {
+    padding: 4,
+  },
+
+  // Messages Container
   messagesContainer: { flex: 1 },
+  
+  // Welcome Matched Box
   welcomeBox: {
-    backgroundColor: '#1E1E1E',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
     marginVertical: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  welcomeText: { color: '#FF3366', fontSize: 18, fontWeight: 'bold' },
-  welcomeSub: { color: '#999', fontSize: 14, marginTop: 4 },
+  welcomeGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.8,
+  },
+  sparkleIcon: {
+    marginBottom: 12,
+  },
+  welcomeText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  welcomeSub: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+
+  // Chat Bubbles
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginVertical: 4,
+    maxWidth: '85%',
+  },
+  myRow: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row-reverse',
+  },
+  theirRow: {
+    alignSelf: 'flex-start',
+  },
+  bubbleAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  bubbleWrapper: {
+    gap: 2,
+  },
   messageBubble: {
-    maxWidth: '75%',
-    padding: 12,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
   myMessage: {
-    backgroundColor: '#FF3366',
-    alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
   theirMessage: {
-    backgroundColor: '#1E1E1E',
-    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
-  myText: { color: '#FFF', fontSize: 15 },
-  theirText: { color: '#FFF', fontSize: 15 },
+  myText: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  theirText: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  msgTime: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.3)',
+    marginTop: 2,
+  },
+  myTime: {
+    alignSelf: 'flex-end',
+    marginRight: 4,
+  },
+  theirTime: {
+    alignSelf: 'flex-start',
+    marginLeft: 4,
+  },
+
+  // Input Box
   inputContainer: {
     flexDirection: 'row',
     padding: 12,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1E1E1E',
-    alignItems: 'flex-end',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
-  input: {
-    flex: 1,
-    backgroundColor: '#1E1E1E',
-    color: '#FFF',
-    fontSize: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    maxHeight: 100,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    backgroundColor: '#FF3366',
-    borderRadius: 22,
+  attachBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendBtnDisabled: { opacity: 0.5 },
+  input: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  sendBtn: {
+    width: 38,
+    height: 38,
+    backgroundColor: '#FF1B6B',
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendBtnDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    opacity: 0.8,
+  },
 });
