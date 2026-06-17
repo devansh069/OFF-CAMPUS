@@ -20,7 +20,22 @@ export default function CampusLive() {
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
+  const [college, setCollege] = useState<any>(null);
+  const [feedType, setFeedType] = useState<'global' | 'college'>('global');
+
+  useEffect(() => {
+    fetchAll();
+    if (user?.college_id) {
+      fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user.college_id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.college) {
+            setCollege(data.college);
+          }
+        })
+        .catch(e => console.error('Error fetching college:', e));
+    }
+  }, [user?.college_id]);
 
   const fetchAll = async () => {
     try {
@@ -43,7 +58,7 @@ export default function CampusLive() {
     try {
       await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-        body: JSON.stringify({ content: text, college_id: user?.college_id }),
+        body: JSON.stringify({ content: text, college_id: feedType === 'college' ? user?.college_id : null }),
       });
       setText('');
       await fetchAll();
@@ -79,19 +94,32 @@ export default function CampusLive() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF1B6B" /></View>;
 
+  const filteredConfessions = confessions.filter((c: any) => {
+    if (feedType === 'college') {
+      return c.college_id === user?.college_id;
+    }
+    return true;
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#1A0B2E', '#0F0817']} style={styles.bg}>
+      <View style={styles.bg}>
         <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor="#FF1B6B" />}>
           <View style={styles.headerBar}>
-            <View style={styles.logoRow}>
-              <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.logoIc}><Ionicons name="planet" size={18} color="#FFF" /></LinearGradient>
-              <Text style={styles.brand}>off campus</Text>
-            </View>
-            <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>LIVE</Text></View>
+            <View style={{ flex: 1 }} />
+            <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>{feedType === 'global' ? '142 Live' : '18 Live'}</Text></View>
           </View>
 
-          <Text style={styles.heroT}>Campus Live</Text>
+          <TouchableOpacity
+            style={styles.headerTitleContainer}
+            onPress={() => setFeedType(prev => prev === 'global' ? 'college' : 'global')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.heroT} numberOfLines={1}>
+              {feedType === 'global' ? 'Global' : (college?.short_name || college?.name || 'My Campus')}
+            </Text>
+            <Ionicons name="chevron-down" size={24} color="#FFF" style={styles.chevronIcon} />
+          </TouchableOpacity>
 
           {/* Stories */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 14 }}>
@@ -114,24 +142,40 @@ export default function CampusLive() {
             ))}
           </ScrollView>
 
-          {/* Confess Input */}
-          <View style={styles.confessBox}>
-            <View style={styles.confessAvatar}><Text style={{ fontSize: 18 }}>🤫</Text></View>
+          {/* Slim Line Divider */}
+          <View style={styles.divider} />
+
+          {/* Sleek Inline Input */}
+          <View style={styles.inlineInputRow}>
+            <View style={styles.inlineEmojiCircle}>
+              <Text style={{ fontSize: 18 }}>🤫</Text>
+            </View>
             <TextInput
-              style={styles.confessInput}
+              style={styles.inlineInput}
               placeholder="Drop an anonymous confession..."
               placeholderTextColor="#6B5B7A"
               value={text}
               onChangeText={setText}
-              multiline
               maxLength={300}
+              returnKeyType="send"
+              onSubmitEditing={post}
             />
-            <TouchableOpacity style={[styles.postBtn, !text.trim() && { opacity: 0.5 }]} onPress={post} disabled={!text.trim() || posting}>
-              <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.postGrad}>
-                {posting ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.postText}>Post</Text>}
-              </LinearGradient>
+            <TouchableOpacity
+              style={[styles.plusButton, !text.trim() && styles.plusButtonDisabled]}
+              onPress={post}
+              disabled={!text.trim() || posting}
+              activeOpacity={0.7}
+            >
+              {posting ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <Ionicons name="add" size={24} color="#FFF" />
+              )}
             </TouchableOpacity>
           </View>
+
+          {/* Slim Line Divider after input */}
+          <View style={styles.divider} />
 
           {/* Top Vibes */}
           {topVibes.length > 0 && (
@@ -164,11 +208,15 @@ export default function CampusLive() {
             <Ionicons name="megaphone" size={20} color="#FF1B6B" />
             <Text style={styles.sectionT}>Confessions</Text>
           </View>
-          {confessions.map((c: any) => (
+          {filteredConfessions.map((c: any) => (
             <View key={c.confession_id} style={styles.confCard}>
               <View style={styles.confTop}>
-                <LinearGradient colors={['#4FC3F7', '#1976D2']} style={styles.confAv}><Text style={styles.confAvT}>I</Text></LinearGradient>
-                <View style={styles.confAnon}><Text style={styles.confAnonT}>Anonymous • IPU</Text></View>
+                <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.confAv}>
+                  <Text style={styles.confAvT}>🤫</Text>
+                </LinearGradient>
+                <View style={styles.confAnon}>
+                  <Text style={styles.confAnonT}>Anonymous • {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}</Text>
+                </View>
                 <Text style={styles.confTime}>{c.created_at && formatDistanceToNow(new Date(c.created_at), { addSuffix: false })}</Text>
               </View>
               <Text style={styles.confTxt}>{c.content}</Text>
@@ -186,41 +234,40 @@ export default function CampusLive() {
           ))}
           <View style={{ height: 40 }} />
         </ScrollView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F0817' },
-  bg: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F0817' },
-  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoIc: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  brand: { color: '#FFF', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  container: { flex: 1, backgroundColor: '#000000' },
+  bg: { flex: 1, backgroundColor: '#000000' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3D1A2E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#FF1B6B' },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF1B6B' },
   liveText: { color: '#FF1B6B', fontSize: 12, fontWeight: '900' },
-  heroT: { color: '#FFF', fontSize: 38, fontWeight: '900', letterSpacing: -1, paddingHorizontal: 16, marginBottom: 12 },
+  headerTitleContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
+  heroT: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
+  chevronIcon: { marginLeft: 8 },
   storiesScroll: { flexGrow: 0, marginBottom: 16 },
   storyItem: { alignItems: 'center', gap: 6, width: 72 },
-  addStoryCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: '#FF1B6B', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1A0F2A', position: 'relative' },
-  addPlus: { position: 'absolute', bottom: 0, right: 4, backgroundColor: '#FF1B6B', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0F0817' },
+  addStoryCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: '#FF1B6B', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', position: 'relative' },
+  addPlus: { position: 'absolute', bottom: 0, right: 4, backgroundColor: '#FF1B6B', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000000' },
   storyRing: { width: 72, height: 72, borderRadius: 36, padding: 2, alignItems: 'center', justifyContent: 'center' },
-  storyInner: { width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#0F0817', padding: 2 },
+  storyInner: { width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#000000', padding: 2 },
   storyImg: { width: '100%', height: '100%', borderRadius: 32 },
   storyName: { color: '#C5B6D6', fontSize: 11, fontWeight: '600', textAlign: 'center' },
-  confessBox: { margin: 16, padding: 16, backgroundColor: '#1A0F2A', borderRadius: 20, borderWidth: 1, borderColor: '#FF1B6B', gap: 12 },
-  confessAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFA50022', alignItems: 'center', justifyContent: 'center' },
-  confessInput: { color: '#FFF', fontSize: 15, minHeight: 50 },
-  postBtn: { alignSelf: 'flex-end', borderRadius: 20, overflow: 'hidden' },
-  postGrad: { paddingHorizontal: 24, paddingVertical: 10 },
-  postText: { color: '#FFF', fontWeight: '900' },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255, 255, 255, 0.15)', marginHorizontal: 16, marginVertical: 12 },
+  inlineInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 12 },
+  inlineEmojiCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
+  inlineInput: { flex: 1, color: '#FFF', fontSize: 15, paddingVertical: 8 },
+  plusButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' },
+  plusButtonDisabled: { backgroundColor: 'rgba(255, 255, 255, 0.2)', opacity: 0.5 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
   trophyIc: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#06D6A022', alignItems: 'center', justifyContent: 'center' },
   sectionT: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  vibeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, margin: 8, marginHorizontal: 16, padding: 12, backgroundColor: '#1A0F2A', borderRadius: 18, borderWidth: 1, borderColor: '#2A1B3D' },
+  vibeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 6, marginHorizontal: 16, padding: 12, backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: 18, borderWidth: 1, borderColor: '#2A1B3D' },
   rankBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   rankText: { color: '#FFF', fontWeight: '900', fontSize: 13 },
   vibePic: { width: 50, height: 50, borderRadius: 25 },
@@ -228,15 +275,15 @@ const styles = StyleSheet.create({
   vibeBio: { color: '#A899B8', fontSize: 12 },
   vibeScoreBox: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFD70022', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   vibeScoreT: { color: '#FFD700', fontWeight: '900' },
-  confCard: { margin: 16, marginTop: 8, padding: 16, backgroundColor: '#1A0F2A', borderRadius: 20, borderWidth: 1, borderColor: '#2A1B3D' },
+  confCard: { marginVertical: 8, marginHorizontal: 16, padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 20, borderWidth: 1, borderColor: '#2A1B3D' },
   confTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   confAv: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  confAvT: { color: '#FFF', fontWeight: '900' },
+  confAvT: { fontSize: 16, color: '#FFF' },
   confAnon: { backgroundColor: '#2A1B3D', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   confAnonT: { color: '#A899B8', fontSize: 12, fontWeight: '700' },
   confTime: { color: '#6B5B7A', fontSize: 12, marginLeft: 'auto' },
   confTxt: { color: '#FFF', fontSize: 16, lineHeight: 22 },
-  confActions: { flexDirection: 'row', gap: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A1B3D' },
+  confActions: { flexDirection: 'row', gap: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' },
   confAct: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   confActT: { color: '#A899B8', fontWeight: '600' },
 });
