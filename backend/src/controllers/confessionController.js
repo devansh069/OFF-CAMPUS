@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { Confession, Comment } = require('../models');
+const { Confession, Comment, User, College } = require('../models');
 
 /**
  * Creates an anonymous confession post
@@ -93,7 +93,7 @@ const likeConfession = async (req, res) => {
  */
 const addComment = async (req, res) => {
   const { confession_id } = req.params;
-  const { content } = req.body;
+  const { content, parent_id } = req.body;
   const user = req.user;
 
   if (!content) {
@@ -111,7 +111,8 @@ const addComment = async (req, res) => {
       comment_id: commentId,
       confession_id,
       user_id: user.user_id,
-      content
+      content,
+      parent_id: parent_id || null
     });
 
     // Increment confession comments counter
@@ -121,6 +122,12 @@ const addComment = async (req, res) => {
     // Remove user_id to keep response payload anonymous
     const responseComment = comment.toJSON();
     delete responseComment.user_id;
+
+    // Fetch user's college name
+    const commentUser = await User.findByPk(user.user_id, {
+      include: [{ model: College, as: 'college', attributes: ['short_name'] }]
+    });
+    responseComment.college_name = commentUser?.college?.short_name || 'Campus';
 
     res.json({ comment: responseComment });
   } catch (error) {
@@ -138,12 +145,37 @@ const getComments = async (req, res) => {
   try {
     const comments = await Comment.findAll({
       where: { confession_id },
-      attributes: { exclude: ['user_id'] }, // Hide for anonymity
+      include: [
+        {
+          model: User,
+          attributes: ['college_id'],
+          include: [
+            {
+              model: College,
+              as: 'college',
+              attributes: ['short_name']
+            }
+          ]
+        }
+      ],
       order: [['created_at', 'ASC']],
       limit: 100
     });
 
-    res.json({ comments });
+    const formattedComments = comments.map(c => {
+      const commentJson = c.toJSON();
+      const collegeShortName = commentJson.User?.college?.short_name || 'Campus';
+      
+      delete commentJson.User;
+      delete commentJson.user_id;
+      
+      return {
+        ...commentJson,
+        college_name: collegeShortName
+      };
+    });
+
+    res.json({ comments: formattedComments });
   } catch (error) {
     console.error('Get comments error:', error);
     res.status(500).json({ detail: 'Failed to retrieve comments' });

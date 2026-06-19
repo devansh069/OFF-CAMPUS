@@ -989,9 +989,9 @@ export default function Discover() {
                         activeOpacity={0.8}
                       >
                         <LinearGradient
-                          colors={['#FF1B6B', '#9D4EDD']}
+                          colors={['#ee4d4d', '#780505']}
                           start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
+                          end={{ x: 1, y: 0 }}
                           style={styles.photoHandshakeGrad}
                         >
                           <MaterialCommunityIcons name="handshake" size={24} color="#FFF" />
@@ -1100,9 +1100,9 @@ export default function Discover() {
                               activeOpacity={0.8}
                             >
                               <LinearGradient
-                                colors={['#FF1B6B', '#9D4EDD']}
+                                colors={['#ee4d4d', '#780505']}
                                 start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
+                                end={{ x: 1, y: 0 }}
                                 style={styles.photoHandshakeGrad}
                               >
                                 <MaterialCommunityIcons name="handshake" size={24} color="#FFF" />
@@ -1151,9 +1151,9 @@ export default function Discover() {
         {showMatch && (
           <View style={styles.matchOverlay}>
             <LinearGradient
-              colors={['#FF1B6B', '#9D4EDD']}
+              colors={['#ee4d4d', '#780505']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              end={{ x: 1, y: 0 }}
               style={styles.matchInner}
             >
               <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
@@ -1792,7 +1792,7 @@ const styles = StyleSheet.create({
   matchPic: { width: 180, height: 180, borderRadius: 90, borderWidth: 5, borderColor: '#FFF' },
   matchActions: { gap: 12, width: '100%' },
   matchBtn: { backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
-  matchBtnText: { color: '#FF1B6B', fontWeight: '900', fontSize: 16 },
+  matchBtnText: { color: '#ee4d4d', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
 });

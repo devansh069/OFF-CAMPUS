@@ -102,7 +102,7 @@ export default function TabsLayout() {
                   <LinearGradient
                     colors={['#ee4d4d', '#780505']}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    end={{ x: 1, y: 0 }}
                     style={styles.badgeGradient}
                   >
                     <Text style={styles.badgeText}>{likesCount}</Text>
@@ -145,7 +145,7 @@ export default function TabsLayout() {
                   <LinearGradient
                     colors={['#ee4d4d', '#780505']}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    end={{ x: 1, y: 0 }}
                     style={styles.badgeGradient}
                   >
                     <Text style={styles.badgeText}>{unreadCount}</Text>

@@ -37,6 +37,14 @@ export default function CampusLive() {
   const [storyProgress, setStoryProgress] = useState(0);
   const [showViewersSheet, setShowViewersSheet] = useState(false);
 
+  // Reddit Comments Thread states
+  const [selectedConfession, setSelectedConfession] = useState<any | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+  const [postingComment, setPostingComment] = useState(false);
+
   useEffect(() => {
     fetchAll();
     if (user?.college_id) {
@@ -70,14 +78,30 @@ export default function CampusLive() {
     if (!text.trim()) return;
     setPosting(true);
     try {
-      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-        body: JSON.stringify({ content: text, college_id: feedType === 'college' ? user?.college_id : null }),
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${sessionToken}` 
+        },
+        body: JSON.stringify({ 
+          content: text, 
+          college_id: feedType === 'college' ? user?.college_id : null 
+        }),
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to post confession' }));
+        Alert.alert('Error', errorData.detail || 'Failed to post confession');
+        return;
+      }
       setText('');
       await fetchAll();
-    } catch (e) { console.error(e); }
-    finally { setPosting(false); }
+    } catch (e: any) { 
+      console.error(e);
+      Alert.alert('Network Error', e.message || 'Could not connect to server');
+    } finally { 
+      setPosting(false); 
+    }
   };
 
   const likeC = async (id: string) => {
@@ -89,48 +113,132 @@ export default function CampusLive() {
 
   // Image Picking Handlers
   const handleCameraLaunch = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera permission is required to take a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
-    });
-    if (!result.canceled && result.assets[0].base64) {
-      setStoryImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      setShowPickModal(false);
-      setShowAudienceModal(true);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showSimulatorModeAlert('Camera permission denied or not granted.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
+      });
+      if (result.canceled) return;
+      if (result.assets && result.assets[0].base64) {
+        setStoryImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        setShowPickModal(false);
+        setShowAudienceModal(true);
+      } else {
+        showSimulatorModeAlert('Could not read camera photo data.');
+      }
+    } catch (e) {
+      console.warn('launchCameraAsync failed:', e);
+      showSimulatorModeAlert('Camera is not available on this device/simulator.');
     }
   };
 
   const handleGalleryLaunch = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Gallery permission is required to choose a photo.');
-      return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showSimulatorModeAlert('Gallery permission denied or not granted.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
+      });
+      if (result.canceled) return;
+      if (result.assets && result.assets[0].base64) {
+        setStoryImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        setShowPickModal(false);
+        setShowAudienceModal(true);
+      } else {
+        showSimulatorModeAlert('Could not read gallery photo data.');
+      }
+    } catch (e) {
+      console.warn('launchImageLibraryAsync failed:', e);
+      showSimulatorModeAlert('Gallery is not available on this device/simulator.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
-    });
-    if (!result.canceled && result.assets[0].base64) {
-      setStoryImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      setShowPickModal(false);
-      setShowAudienceModal(true);
-    }
+  };
+
+  const showSimulatorModeAlert = (message: string) => {
+    Alert.alert(
+      'Simulator Mode 📸',
+      `${message} Would you like to use a mock student story photo instead for testing?`,
+      [
+        {
+          text: 'Use Mock Photo',
+          onPress: () => {
+            // High quality portrait photo of student life
+            setStoryImage('https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop');
+            setShowPickModal(false);
+            setShowAudienceModal(true);
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   // Story Posting Handlers
   const handlePostStory = async (audience: 'matches' | 'college' | 'global') => {
     if (audience === 'global' && !user?.is_premium) {
       setShowAudienceModal(false);
-      setShowBuyPremiumPopup(true);
+      router.push('/premium');
+      return;
+    }
+
+    if (!storyImage) {
+      Alert.alert('Error', 'No image selected to post');
       return;
     }
 
     setPosting(true);
     try {
+      if (sessionToken === 'dummy_token') {
+        const newStory = {
+          story_id: `story_mock_${Date.now()}`,
+          user_id: user?.user_id || 'user_dummy',
+          user_name: user?.name || 'Dummy Student',
+          user_picture: user?.picture || user?.photos?.[0] || null,
+          college_id: user?.college_id || 'col_stephens',
+          image: storyImage,
+          caption: null,
+          audience,
+          views: [],
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        };
+
+        setStories(prev => {
+          const existingUserIdx = prev.findIndex(u => u.user_id === newStory.user_id);
+          if (existingUserIdx >= 0) {
+            const updated = [...prev];
+            updated[existingUserIdx] = {
+              ...updated[existingUserIdx],
+              has_unviewed: true,
+              stories: [...(updated[existingUserIdx].stories || []), newStory]
+            };
+            return updated;
+          } else {
+            return [
+              {
+                user_id: newStory.user_id,
+                user_name: newStory.user_name,
+                user_picture: newStory.user_picture,
+                has_unviewed: true,
+                stories: [newStory]
+              },
+              ...prev
+            ];
+          }
+        });
+
+        Alert.alert('Story posted!', 'Your story will be live for 24 hours');
+        setShowAudienceModal(false);
+        setStoryImage(null);
+        return;
+      }
+
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
@@ -231,6 +339,121 @@ export default function CampusLive() {
     }
   };
 
+  const openComments = async (confession: any) => {
+    setSelectedConfession(confession);
+    setReplyingTo(null);
+    setCommentText('');
+    setComments([]);
+    setLoadingComments(true);
+    try {
+      const headers = { 'Authorization': `Bearer ${sessionToken}` };
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${confession.confession_id}/comments`, { headers });
+      const data = await response.json();
+      setComments(data.comments || []);
+    } catch (e) {
+      console.error('Error fetching comments:', e);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const postComment = async () => {
+    if (!commentText.trim() || !selectedConfession) return;
+    setPostingComment(true);
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${selectedConfession.confession_id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({
+          content: commentText,
+          parent_id: replyingTo ? replyingTo.comment_id : null
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.comment) {
+        // Refresh comments list
+        const updatedResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${selectedConfession.confession_id}/comments`, {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+        const updatedData = await updatedResponse.json();
+        setComments(updatedData.comments || []);
+
+        // Increment count in feed list
+        setConfessions(prev => prev.map(c => 
+          c.confession_id === selectedConfession.confession_id 
+            ? { ...c, comments: (c.comments || 0) + 1 }
+            : c
+        ));
+        // Increment count in active confession modal
+        setSelectedConfession((prev: any) => prev ? { ...prev, comments: (prev.comments || 0) + 1 } : null);
+
+        setCommentText('');
+        setReplyingTo(null);
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to add comment');
+      }
+    } catch (e) {
+      console.error('Error posting comment:', e);
+      Alert.alert('Error', 'Network error while posting comment');
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const buildCommentTree = (flatComments: any[]) => {
+    const map: { [key: string]: any } = {};
+    const roots: any[] = [];
+
+    flatComments.forEach(c => {
+      map[c.comment_id] = { ...c, replies: [] };
+    });
+
+    flatComments.forEach(c => {
+      const mapped = map[c.comment_id];
+      if (c.parent_id && map[c.parent_id]) {
+        map[c.parent_id].replies.push(mapped);
+      } else {
+        roots.push(mapped);
+      }
+    });
+
+    return roots;
+  };
+
+  const renderCommentNode = (node: any, depth: number = 0) => {
+    return (
+      <View key={node.comment_id} style={styles.commentNodeContainer}>
+        <View style={styles.commentTop}>
+          <Text style={styles.commentAnon}>Anonymous • {node.college_name || 'Campus'}</Text>
+          <Text style={styles.commentTime}>
+            {node.created_at && formatDistanceToNow(new Date(node.created_at), { addSuffix: true })}
+          </Text>
+        </View>
+
+        <View style={styles.commentBodyRow}>
+          <Text style={styles.commentText}>{node.content}</Text>
+        </View>
+
+        <View style={styles.commentActions}>
+          <TouchableOpacity 
+            style={styles.commentReplyBtn} 
+            onPress={() => setReplyingTo(node)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-undo-outline" size={14} color="#A899B8" />
+            <Text style={styles.commentReplyText}>Reply</Text>
+          </TouchableOpacity>
+        </View>
+
+        {node.replies && node.replies.length > 0 && (
+          <View style={styles.nestedRepliesContainer}>
+            {node.replies.map((reply: any) => renderCommentNode(reply, depth + 1))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF1B6B" /></View>;
 
   const filteredConfessions = confessions.filter((c: any) => {
@@ -274,9 +497,9 @@ export default function CampusLive() {
             {/* Display Active Stories */}
             {stories.map((s: any, userIndex: number) => (
               <TouchableOpacity key={s.user_id} style={styles.storyItem} onPress={() => openStoryViewer(userIndex)}>
-                <LinearGradient colors={s.has_unviewed ? ['#FF1B6B', '#9D4EDD', '#FFD700'] : ['#3D2B4F', '#3D2B4F']} style={styles.storyRing}>
+                <LinearGradient colors={s.has_unviewed ? ['#ee4d4d', '#780505', '#FFD700'] : ['#3D2B4F', '#3D2B4F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.storyRing}>
                   <View style={styles.storyInner}>
-                    {s.user_picture ? <Image source={{ uri: s.user_picture }} style={styles.storyImg} /> : <View style={[styles.storyImg, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}><Text style={{ color: '#FFF', fontWeight: '900', fontSize: 24 }}>{s.user_name?.[0]}</Text></View>}
+                    {s.user_picture ? <Image source={{ uri: s.user_picture }} style={styles.storyImg} /> : <View style={[styles.storyImg, { backgroundColor: '#ee4d4d', alignItems: 'center', justifyContent: 'center' }]}><Text style={{ color: '#FFF', fontWeight: '900', fontSize: 24 }}>{s.user_name?.[0]}</Text></View>}
                   </View>
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>
@@ -287,38 +510,6 @@ export default function CampusLive() {
           </ScrollView>
 
           {/* Slim Line Divider */}
-          <View style={styles.divider} />
-
-          {/* Sleek Inline Input */}
-          <View style={styles.inlineInputRow}>
-            <View style={styles.inlineEmojiCircle}>
-              <Text style={{ fontSize: 18 }}>🤫</Text>
-            </View>
-            <TextInput
-              style={styles.inlineInput}
-              placeholder="Drop an anonymous confession..."
-              placeholderTextColor="#6B5B7A"
-              value={text}
-              onChangeText={setText}
-              maxLength={300}
-              returnKeyType="send"
-              onSubmitEditing={post}
-            />
-            <TouchableOpacity
-              style={[styles.plusButton, !text.trim() && styles.plusButtonDisabled]}
-              onPress={post}
-              disabled={!text.trim() || posting}
-              activeOpacity={0.7}
-            >
-              {posting ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Ionicons name="add" size={24} color="#FFF" />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Slim Line Divider after input */}
           <View style={styles.divider} />
 
           {/* Top Vibes */}
@@ -349,35 +540,180 @@ export default function CampusLive() {
 
           {/* Confessions */}
           <View style={styles.sectionHead}>
-            <Ionicons name="megaphone" size={20} color="#FF1B6B" />
+            <Ionicons name="megaphone" size={20} color="#ee4d4d" />
             <Text style={styles.sectionT}>Confessions</Text>
           </View>
+
+          {/* Sleek Inline Input below heading, no emoji circle */}
+          <View style={styles.inlineInputRow}>
+            <TextInput
+              style={styles.inlineInput}
+              placeholder="Drop an anonymous confession..."
+              placeholderTextColor="#6B5B7A"
+              value={text}
+              onChangeText={setText}
+              maxLength={300}
+              returnKeyType="send"
+              onSubmitEditing={post}
+            />
+            <TouchableOpacity
+              style={[styles.plusButton, !text.trim() && styles.plusButtonDisabled]}
+              onPress={post}
+              disabled={!text.trim() || posting}
+              activeOpacity={0.7}
+            >
+              {posting ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <Ionicons name="add" size={24} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Slim Line Divider after input */}
+          <View style={styles.divider} />
+
           {filteredConfessions.map((c: any) => (
-            <View key={c.confession_id} style={styles.confCard}>
+            <TouchableOpacity 
+              key={c.confession_id} 
+              style={styles.confCard}
+              onPress={() => openComments(c)}
+              activeOpacity={0.9}
+            >
               <View style={styles.confTop}>
-                <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.confAv}>
-                  <Text style={styles.confAvT}>🤫</Text>
-                </LinearGradient>
-                <View style={styles.confAnon}>
-                  <Text style={styles.confAnonT}>Anonymous • {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}</Text>
-                </View>
+                <Text style={styles.confHeaderAnon}>
+                  Anonymous • {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
+                </Text>
                 <Text style={styles.confTime}>{c.created_at && formatDistanceToNow(new Date(c.created_at), { addSuffix: false })}</Text>
               </View>
-              <Text style={styles.confTxt}>{c.content}</Text>
+              <View style={styles.messageBubble}>
+                <Text style={styles.confTxt}>{c.content}</Text>
+              </View>
               <View style={styles.confActions}>
-                <TouchableOpacity style={styles.confAct} onPress={() => likeC(c.confession_id)}>
-                  <Ionicons name="heart" size={18} color="#FF1B6B" />
+                <TouchableOpacity style={styles.confAct} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
+                  <Ionicons name="heart" size={18} color="#ee4d4d" />
                   <Text style={styles.confActT}>{c.likes || 0}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.confAct}>
+                <TouchableOpacity style={styles.confAct} onPress={() => openComments(c)}>
                   <Ionicons name="chatbubble" size={16} color="#A899B8" />
                   <Text style={styles.confActT}>{c.comments || 0}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* REDDIT STYLE COMMENTS THREAD MODAL */}
+        <Modal
+          visible={selectedConfession !== null}
+          animationType="slide"
+          onRequestClose={() => setSelectedConfession(null)}
+        >
+          <SafeAreaView style={styles.commentsModalContainer}>
+            {/* Modal Header */}
+            <View style={styles.commentsModalHeader}>
+              <TouchableOpacity 
+                style={styles.modalCloseBtn} 
+                onPress={() => setSelectedConfession(null)}
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Confession Thread</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView 
+              style={styles.commentsScrollView}
+              contentContainerStyle={styles.commentsContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {selectedConfession && (
+                <View style={[styles.confCard, { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', marginHorizontal: 0, marginTop: 10 }]}>
+                  <View style={styles.confTop}>
+                    <Text style={styles.confHeaderAnon}>
+                      Anonymous • {selectedConfession.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
+                    </Text>
+                    <Text style={styles.confTime}>
+                      {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })}
+                    </Text>
+                  </View>
+                  <View style={styles.messageBubble}>
+                    <Text style={styles.confTxt}>{selectedConfession.content}</Text>
+                  </View>
+                  <View style={styles.confActions}>
+                    <TouchableOpacity style={styles.confAct} onPress={() => likeC(selectedConfession.confession_id)}>
+                      <Ionicons name="heart" size={18} color="#ee4d4d" />
+                      <Text style={styles.confActT}>{selectedConfession.likes || 0}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.confAct}>
+                      <Ionicons name="chatbubble" size={16} color="#A899B8" />
+                      <Text style={styles.confActT}>{selectedConfession.comments || 0}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              <Text style={styles.repliesTitleHeader}>Replies</Text>
+
+              {loadingComments ? (
+                <ActivityIndicator color="#ee4d4d" size="large" style={{ marginTop: 20 }} />
+              ) : comments.length === 0 ? (
+                <View style={styles.emptyCommentsBox}>
+                  <Ionicons name="chatbubbles-outline" size={48} color="rgba(255,255,255,0.15)" />
+                  <Text style={styles.emptyCommentsText}>Be the first to reply!</Text>
+                </View>
+              ) : (
+                <View style={styles.commentsTreeBox}>
+                  {buildCommentTree(comments).map(commentNode => renderCommentNode(commentNode, 0))}
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Input container at the bottom */}
+            <View style={styles.commentInputWrapper}>
+              {replyingTo && (
+                <View style={styles.replyingToHeader}>
+                  <Text style={styles.replyingToText} numberOfLines={1}>
+                    Replying to Anonymous: "{replyingTo.content}"
+                  </Text>
+                  <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                    <Ionicons name="close-circle" size={18} color="#ee4d4d" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={styles.commentInputRow}>
+                <TextInput
+                  style={styles.commentTextInput}
+                  placeholder={replyingTo ? "Add a reply..." : "Add a comment..."}
+                  placeholderTextColor="#6B5B7A"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  maxLength={250}
+                  multiline
+                />
+                <TouchableOpacity 
+                  style={[styles.commentSendBtn, !commentText.trim() && styles.commentSendBtnDisabled]}
+                  disabled={!commentText.trim() || postingComment}
+                  onPress={postComment}
+                >
+                  {postingComment ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <LinearGradient 
+                      colors={['#ee4d4d', '#780505']} 
+                      start={{ x: 0, y: 0 }} 
+                      end={{ x: 1, y: 0 }} 
+                      style={styles.sendGrad}
+                    >
+                      <Ionicons name="send" size={16} color="#FFF" />
+                    </LinearGradient>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </SafeAreaView>
+        </Modal>
 
         {/* MODAL 1: PICK IMAGE METHOD DIALOG */}
         <Modal transparent={true} visible={showPickModal} animationType="fade" onRequestClose={() => setShowPickModal(false)}>
@@ -426,7 +762,7 @@ export default function CampusLive() {
               {/* Matches Visibility Option */}
               <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('matches')} activeOpacity={0.8}>
                 <View style={styles.audienceIconWrapper}>
-                  <Ionicons name="heart" size={22} color="#FF1B6B" />
+                  <Ionicons name="heart" size={22} color="#ee4d4d" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.audienceName}>My Matches</Text>
@@ -477,7 +813,7 @@ export default function CampusLive() {
                 }}
                 activeOpacity={0.8}
               >
-                <LinearGradient colors={['#FF1B6B', '#9D4EDD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buyBtnGradient}>
+                <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.buyBtnGradient}>
                   <Text style={styles.buyBtnText}>Upgrade to Premium</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -617,16 +953,16 @@ const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#000000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3D1A2E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#FF1B6B' },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF1B6B' },
-  liveText: { color: '#FF1B6B', fontSize: 12, fontWeight: '900' },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3D1A2E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#ee4d4d' },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ee4d4d' },
+  liveText: { color: '#ee4d4d', fontSize: 12, fontWeight: '900' },
   headerTitleContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
   heroT: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
   chevronIcon: { marginLeft: 8 },
   storiesScroll: { flexGrow: 0, marginBottom: 16 },
   storyItem: { alignItems: 'center', gap: 6, width: 72 },
-  addStoryCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: '#FF1B6B', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', position: 'relative' },
-  addPlus: { position: 'absolute', bottom: 0, right: 4, backgroundColor: '#FF1B6B', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000000' },
+  addStoryCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: '#ee4d4d', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', position: 'relative' },
+  addPlus: { position: 'absolute', bottom: 0, right: 4, backgroundColor: '#ee4d4d', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000000' },
   storyRing: { width: 72, height: 72, borderRadius: 36, padding: 2, alignItems: 'center', justifyContent: 'center' },
   storyInner: { width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#000000', padding: 2 },
   storyImg: { width: '100%', height: '100%', borderRadius: 32 },
@@ -634,8 +970,8 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255, 255, 255, 0.15)', marginHorizontal: 16, marginVertical: 12 },
   inlineInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 12 },
   inlineEmojiCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
-  inlineInput: { flex: 1, color: '#FFF', fontSize: 15, paddingVertical: 8 },
-  plusButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' },
+  inlineInput: { flex: 1, color: '#FFF', fontSize: 15, paddingVertical: 10, paddingHorizontal: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
+  plusButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#ee4d4d', alignItems: 'center', justifyContent: 'center' },
   plusButtonDisabled: { backgroundColor: 'rgba(255, 255, 255, 0.2)', opacity: 0.5 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
   trophyIc: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#06D6A022', alignItems: 'center', justifyContent: 'center' },
@@ -649,16 +985,48 @@ const styles = StyleSheet.create({
   vibeScoreBox: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFD70022', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   vibeScoreT: { color: '#FFD700', fontWeight: '900' },
   confCard: { marginVertical: 8, marginHorizontal: 16, padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 20, borderWidth: 1, borderColor: '#2A1B3D' },
-  confTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  confTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   confAv: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   confAvT: { fontSize: 16, color: '#FFF' },
   confAnon: { backgroundColor: '#2A1B3D', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   confAnonT: { color: '#A899B8', fontSize: 12, fontWeight: '700' },
+  confHeaderAnon: { color: '#A899B8', fontSize: 13, fontWeight: '600' },
+  messageBubble: { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderRadius: 16, borderBottomLeftRadius: 4, padding: 14, marginTop: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.04)' },
   confTime: { color: '#6B5B7A', fontSize: 12, marginLeft: 'auto' },
   confTxt: { color: '#FFF', fontSize: 16, lineHeight: 22 },
   confActions: { flexDirection: 'row', gap: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' },
   confAct: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   confActT: { color: '#A899B8', fontWeight: '600' },
+  
+  // Comments modal & threads styles
+  commentsModalContainer: { flex: 1, backgroundColor: '#000000' },
+  commentsModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  modalCloseBtn: { padding: 4 },
+  modalHeaderTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  commentsScrollView: { flex: 1 },
+  commentsContentContainer: { paddingHorizontal: 16, paddingBottom: 40 },
+  repliesTitleHeader: { color: '#FFF', fontSize: 16, fontWeight: '800', marginTop: 20, marginBottom: 12 },
+  emptyCommentsBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
+  emptyCommentsText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
+  commentsTreeBox: { paddingBottom: 20 },
+  commentNodeContainer: { marginVertical: 8 },
+  commentTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  commentAnon: { color: '#A899B8', fontSize: 13, fontWeight: '700' },
+  commentTime: { color: '#6B5B7A', fontSize: 11 },
+  commentBodyRow: { paddingLeft: 2 },
+  commentText: { color: '#FFF', fontSize: 14, lineHeight: 18 },
+  commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 4 },
+  commentReplyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 },
+  commentReplyText: { color: '#A899B8', fontSize: 12, fontWeight: '600' },
+  nestedRepliesContainer: { borderLeftWidth: 1.5, borderLeftColor: 'rgba(255, 255, 255, 0.12)', marginLeft: 6, paddingLeft: 12, marginTop: 4 },
+  commentInputWrapper: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', padding: 12, backgroundColor: '#0A0A0B' },
+  commentInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  commentTextInput: { flex: 1, color: '#FFF', fontSize: 14, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', maxHeight: 100 },
+  commentSendBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  commentSendBtnDisabled: { opacity: 0.5 },
+  sendGrad: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  replyingToHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(238, 77, 77, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 8 },
+  replyingToText: { color: '#ee4d4d', fontSize: 12, flex: 1, marginRight: 8 },
 
   // Picker modal and popups
   dialogBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.82)', justifyContent: 'center', alignItems: 'center' },

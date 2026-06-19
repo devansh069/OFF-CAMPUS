@@ -18,6 +18,10 @@ const Comment = sequelize.define('Comment', {
   content: {
     type: DataTypes.TEXT,
     allowNull: false
+  },
+  parent_id: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'comments',

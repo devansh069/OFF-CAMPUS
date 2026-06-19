@@ -162,7 +162,7 @@ export default function Messages() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF1B6B" />
+        <ActivityIndicator size="large" color="#ee4d4d" />
       </View>
     );
   }
@@ -183,7 +183,7 @@ export default function Messages() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF1B6B" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
       >
         {/* Horizontal Matches List */}
         {!searchQuery && newMatches.length > 0 && (
@@ -202,9 +202,9 @@ export default function Messages() {
                       style={styles.matchAvatar}
                     />
                     <LinearGradient
-                      colors={['#FF1B6B', '#9D4EDD']}
+                      colors={['#ee4d4d', '#780505']}
                       start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
+                      end={{ x: 1, y: 0 }}
                       style={styles.matchRing}
                     />
                   </View>
@@ -283,9 +283,9 @@ export default function Messages() {
                     </Text>
                     {hasUnread && (
                       <LinearGradient
-                        colors={['#FF1B6B', '#9D4EDD']}
+                        colors={['#ee4d4d', '#780505']}
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                        end={{ x: 1, y: 0 }}
                         style={styles.unreadBadge}
                       >
                         <Text style={styles.unreadCount}>{conv.unread_count}</Text>
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   brandLogo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
-  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255, 27, 107, 0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 27, 107, 0.25)' },
-  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF1B6B' },
-  pulseText: { color: '#FF1B6B', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(238, 77, 77, 0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.25)' },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ee4d4d' },
+  pulseText: { color: '#ee4d4d', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
   title: { fontSize: 32, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
 
   // Search Bar
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   convHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   convName: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   convTime: { fontSize: 11, color: 'rgba(255, 255, 255, 0.35)' },
-  convTimeUnread: { color: '#FF1B6B', fontWeight: '700' },
+  convTimeUnread: { color: '#ee4d4d', fontWeight: '700' },
   convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   convMessage: { fontSize: 13, color: 'rgba(255, 255, 255, 0.5)', flex: 1 },
   convMessageUnread: { color: '#FFF', fontWeight: '700' },
@@ -356,6 +356,6 @@ const styles = StyleSheet.create({
   emptyState: { padding: 60, alignItems: 'center', gap: 12, justifyContent: 'center' },
   emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18 },
-  exploreBtn: { backgroundColor: '#FF1B6B', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
+  exploreBtn: { backgroundColor: '#ee4d4d', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
   exploreBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
 });

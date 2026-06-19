@@ -91,7 +91,7 @@ export default function Premium() {
           <Text style={styles.heroSub}>All Access to All Delhi Colleges 🎓</Text>
 
           <View style={styles.priceCard}>
-            <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.priceGrad}>
+            <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.priceGrad}>
               <View style={styles.studentBadge}>
                 <Ionicons name="school" size={12} color="#FFD700" />
                 <Text style={styles.studentBadgeText}>STUDENT SPECIAL OFFER</Text>

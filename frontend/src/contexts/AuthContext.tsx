@@ -72,15 +72,14 @@ const dummyUser: User = {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(dummyUser);
-  const [loading, setLoading] = useState(false);
-  const [sessionToken, setSessionToken] = useState<string | null>('dummy_token');
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
     console.log('AuthProvider mounted. EXPO_PUBLIC_BACKEND_URL is:', EXPO_PUBLIC_BACKEND_URL);
-    // checkExistingSession(); // Disabled to bypass login and use mock user
-    setLoading(false);
+    checkExistingSession();
   }, []);
 
   // Handle deep links (for mobile) - check both on mount and when URL changes
@@ -232,26 +231,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string) => {
     try {
       setLoading(true);
-      const mockUser: User = {
-        ...dummyUser,
-        email: email || 'dummy@test.edu.in',
-        name: email ? email.split('@')[0] : 'Dummy Student',
-      };
+      console.log('Logging in via bypass endpoint for email:', email);
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/bypass-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email || 'dummy@test.edu.in' })
+      });
+      if (!response.ok) {
+        throw new Error('Bypass login failed with status ' + response.status);
+      }
+      const data = await response.json();
+      const token = data.session_token;
       
       // Store token
       if (Platform.OS === 'web') {
-        localStorage.setItem('session_token', 'dummy_token');
+        localStorage.setItem('session_token', token);
       } else {
-        await SecureStore.setItemAsync('session_token', 'dummy_token');
+        await SecureStore.setItemAsync('session_token', token);
       }
 
-      setSessionToken('dummy_token');
-      setUser(mockUser);
+      setSessionToken(token);
+      setUser(data.user);
       setLoading(false);
+      console.log('Login successful! Session token:', token);
     } catch (error) {
       console.error('Error during login:', error);
       setLoading(false);
-      Alert.alert('Login Failed', 'Please try again.');
+      Alert.alert('Login Failed', 'Could not connect to the backend authentication server.');
     }
   };
 

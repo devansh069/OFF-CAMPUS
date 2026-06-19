@@ -189,7 +189,7 @@ export default function ChatScreen() {
       >
         {loading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator color="#FF1B6B" />
+            <ActivityIndicator color="#ee4d4d" />
           </View>
         ) : (
           <ScrollView
@@ -228,9 +228,9 @@ export default function ChatScreen() {
                   <View style={styles.bubbleWrapper}>
                     {isMine ? (
                       <LinearGradient
-                        colors={['#FF1B6B', '#9D4EDD']}
+                        colors={['#ee4d4d', '#780505']}
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                        end={{ x: 1, y: 0 }}
                         style={[styles.messageBubble, styles.myMessage]}
                       >
                         <Text style={styles.myText}>{msg.content}</Text>
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   sendBtn: {
     width: 38,
     height: 38,
-    backgroundColor: '#FF1B6B',
+    backgroundColor: '#ee4d4d',
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',

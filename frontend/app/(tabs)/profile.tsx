@@ -48,36 +48,68 @@ export default function Profile() {
   };
 
   const addPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo access');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.6,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0].base64) {
-      const photo = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      try {
-        await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-          body: JSON.stringify({ photo }),
-        });
-        await refreshUser();
-      } catch (error) {
-        console.error('Error:', error);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showProfileMockPhotoAlert('Gallery permission denied or not granted.');
+        return;
       }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await uploadPhotoToServer(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      } else if (!result.canceled) {
+        showProfileMockPhotoAlert('Could not read image data.');
+      }
+    } catch (error) {
+      console.warn('addPhoto failed:', error);
+      showProfileMockPhotoAlert('Gallery is not available on this simulator/device.');
     }
+  };
+
+  const uploadPhotoToServer = async (photoData: string) => {
+    try {
+      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ photo: photoData }),
+      });
+      await refreshUser();
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+    }
+  };
+
+  const showProfileMockPhotoAlert = (message: string) => {
+    Alert.alert(
+      'Simulator Mode 📸',
+      `${message} Would you like to add a mock profile photo instead for testing?`,
+      [
+        {
+          text: 'Add Mock Photo',
+          onPress: () => {
+            const randomPhotos = [
+              'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop',
+            ];
+            const randomPhoto = randomPhotos[Math.floor(Math.random() * randomPhotos.length)];
+            uploadPhotoToServer(randomPhoto);
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const deletePhoto = (index: number) => {
@@ -138,7 +170,7 @@ export default function Profile() {
         <View style={styles.headerBar}>
           <View style={styles.logoRow}>
             <View style={styles.logoCircle}>
-              <Ionicons name="flame" size={18} color="#FF1B6B" />
+              <Ionicons name="flame" size={18} color="#ee4d4d" />
             </View>
             <Text style={styles.brandText}>mismatched</Text>
           </View>
@@ -156,7 +188,7 @@ export default function Profile() {
         {/* Profile Avatar Card */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            <LinearGradient colors={['#FF1B6B', '#9D4EDD', '#FFD700']} style={styles.avatarRing}>
+            <LinearGradient colors={['#ee4d4d', '#780505', '#FFD700']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.avatarRing}>
               <View style={styles.avatarInner}>
                 <Image
                   source={{
@@ -187,7 +219,7 @@ export default function Profile() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statIconRow}>
-              <Ionicons name="sparkles" size={20} color="#FF1B6B" />
+              <Ionicons name="sparkles" size={20} color="#ee4d4d" />
             </View>
             <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
             <Text style={styles.statLabel}>VIBE SCORE</Text>
@@ -281,7 +313,7 @@ export default function Profile() {
                   <View style={styles.trackRow}>
                     <Text style={styles.trackIndex}>3</Text>
                     <View style={[styles.trackArt, { backgroundColor: '#2a0c1a' }]}>
-                      <Ionicons name="musical-note" size={14} color="#FF1B6B" />
+                        <Ionicons name="musical-note" size={14} color="#ee4d4d" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.trackTitle}>Peaches</Text>
@@ -363,7 +395,7 @@ export default function Profile() {
           )}
 
           <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/profile-edit')}>
-            <LinearGradient colors={['#9D4EDD', '#FF1B6B']} style={styles.premiumGradient}>
+            <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.premiumGradient}>
               <Ionicons name="create" size={24} color="#FFF" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.premiumTitle}>Edit Profile</Text>
@@ -768,15 +800,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: 'rgba(255, 27, 107, 0.1)',
+    backgroundColor: 'rgba(238, 77, 77, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 27, 107, 0.2)',
+    borderColor: 'rgba(238, 77, 77, 0.2)',
   },
   tagText: {
-    color: '#FF1B6B',
+    color: '#ee4d4d',
     fontSize: 13,
     fontWeight: '600',
   },

@@ -265,7 +265,7 @@ export default function Likes() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#F43F5E" />
+          <ActivityIndicator size="large" color="#ee4d4d" />
         </View>
       </SafeAreaView>
     );
@@ -293,7 +293,7 @@ export default function Likes() {
         {likes.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyHeartGlow}>
-              <Ionicons name="heart-dislike-outline" size={80} color="rgba(244, 63, 94, 0.4)" />
+              <Ionicons name="heart-dislike-outline" size={80} color="rgba(238, 77, 77, 0.4)" />
             </View>
             <Text style={styles.emptyT}>No Likes Yet</Text>
             <Text style={styles.emptyS}>
@@ -422,9 +422,9 @@ export default function Likes() {
                       activeOpacity={0.8}
                     >
                       <LinearGradient
-                        colors={['#FF1B6B', '#9D4EDD']}
+                        colors={['#ee4d4d', '#780505']}
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                        end={{ x: 1, y: 0 }}
                         style={styles.likeGradient}
                       >
                         <MaterialCommunityIcons name="handshake" size={32} color="#FFF" />
@@ -472,9 +472,9 @@ export default function Likes() {
           <Modal transparent={true} visible={showMatch !== null} animationType="fade">
             <View style={styles.matchOverlay}>
               <LinearGradient
-                colors={['#FF1B6B', '#9D4EDD']}
+                colors={['#ee4d4d', '#780505']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.matchInner}
               >
                 <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
@@ -519,12 +519,12 @@ const styles = StyleSheet.create({
   greet: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 12, fontWeight: '600' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   title: { color: '#FFF', fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  countBadge: { backgroundColor: '#F43F5E', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
+  countBadge: { backgroundColor: '#ee4d4d', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
   countText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
   
   // Empty State styles
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16, marginTop: 40 },
-  emptyHeartGlow: { backgroundColor: 'rgba(244, 63, 94, 0.05)', padding: 24, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.15)' },
+  emptyHeartGlow: { backgroundColor: 'rgba(238, 77, 77, 0.05)', padding: 24, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.15)' },
   emptyT: { color: '#FFF', fontSize: 20, fontWeight: '800' },
   emptyS: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
   exploreBtn: { marginTop: 12, backgroundColor: '#1E2030', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
@@ -554,8 +554,8 @@ const styles = StyleSheet.create({
   charText: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, fontWeight: '600' },
   
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  tag: { backgroundColor: 'rgba(244, 63, 94, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.2)' },
-  tagText: { color: '#F43F5E', fontSize: 12, fontWeight: '700' },
+  tag: { backgroundColor: 'rgba(238, 77, 77, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.2)' },
+  tagText: { color: '#ee4d4d', fontSize: 12, fontWeight: '700' },
 
   // Spotify integration styles
   spotifyCard: { backgroundColor: '#102A18', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#1DB95433', marginTop: 12, gap: 10 },
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   matchPic: { width: 180, height: 180, borderRadius: 90, borderWidth: 5, borderColor: '#FFF' },
   matchActions: { gap: 12, width: '100%', marginTop: 8 },
   matchBtn: { backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
-  matchBtnText: { color: '#FF1B6B', fontWeight: '900', fontSize: 16 },
+  matchBtnText: { color: '#ee4d4d', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
 });
