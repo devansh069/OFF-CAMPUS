@@ -187,7 +187,7 @@ export default function Profile() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statIconRow}>
-              <MaterialCommunityIcons name="sparkles" size={20} color="#FF1B6B" />
+              <Ionicons name="sparkles" size={20} color="#FF1B6B" />
             </View>
             <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
             <Text style={styles.statLabel}>VIBE SCORE</Text>

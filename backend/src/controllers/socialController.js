@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
-const { Event, Story, User } = require('../models');
+const { Event, Story, User, Like } = require('../models');
 const { saveBase64Image } = require('../utils/fileUpload');
 
 // ============= EVENTS CONTROLLERS =============
@@ -137,7 +137,7 @@ const eventAttendees = async (req, res) => {
 // ============= STORIES CONTROLLERS =============
 
 const createStory = async (req, res) => {
-  const { image, caption } = req.body; // image as base64 string
+  const { image, caption, audience } = req.body; // image as base64 string, audience: 'matches' | 'college' | 'global'
   const user = req.user;
 
   if (!image) {
@@ -160,6 +160,7 @@ const createStory = async (req, res) => {
       college_id: user.college_id,
       image: imagePath,
       caption: caption || null,
+      audience: audience || 'college',
       views: [],
       expires_at: expiresAt
     });
@@ -176,18 +177,51 @@ const storiesFeed = async (req, res) => {
 
   try {
     const now = new Date();
-    const query = {
-      expires_at: { [Op.gt]: now }
-    };
 
-    // Non-premium see stories only from their own college
-    if (!user.is_premium && user.college_id) {
-      query.college_id = user.college_id;
+    // Fetch user's mutual matches IDs
+    const matches = await Like.findAll({
+      where: { from_user_id: user.user_id, is_match: true },
+      attributes: ['to_user_id']
+    });
+    const matchedUserIds = matches.map(m => m.to_user_id);
+
+    // Build visibility filters for stories:
+    // A story is visible to user B if:
+    // - B is the creator of the story (user_id === B.user_id)
+    // - OR (audience === 'matches' AND creator is in B's matches)
+    // - OR (audience === 'college' AND creator's college_id === B's college_id)
+    // - OR (audience === 'global' AND (B is premium OR creator's college_id === B's college_id))
+    const visibilityConditions = [
+      { user_id: user.user_id },
+      {
+        audience: 'matches',
+        user_id: { [Op.in]: matchedUserIds.length > 0 ? matchedUserIds : [''] }
+      },
+      {
+        audience: 'college',
+        college_id: user.college_id || ''
+      }
+    ];
+
+    if (user.is_premium) {
+      visibilityConditions.push({
+        audience: 'global'
+      });
+    } else {
+      visibilityConditions.push({
+        audience: 'global',
+        college_id: user.college_id || ''
+      });
     }
+
+    const query = {
+      expires_at: { [Op.gt]: now },
+      [Op.or]: visibilityConditions
+    };
 
     const stories = await Story.findAll({
       where: query,
-      order: [['created_at', 'DESC']]
+      order: [['createdAt', 'DESC']]
     });
 
     // Group stories by user
@@ -205,7 +239,11 @@ const storiesFeed = async (req, res) => {
       }
       
       const storyJson = story.toJSON();
-      const viewed = (storyJson.views || []).includes(user.user_id);
+      
+      // Check if user has viewed: support both old user_id strings and new user objects in views array
+      const viewed = (storyJson.views || []).some(v => 
+        typeof v === 'object' ? v.user_id === user.user_id : v === user.user_id
+      );
       storyJson.viewed = viewed;
       
       if (!viewed && uid !== user.user_id) {
@@ -244,10 +282,20 @@ const viewStory = async (req, res) => {
       return res.status(404).json({ detail: 'Story not found' });
     }
 
-    // Add user.user_id to views array if not already present
+    // Add user detailed object to views array if not already present
     const views = [...(story.views || [])];
-    if (!views.includes(user.user_id)) {
-      views.push(user.user_id);
+    const alreadyViewed = views.some(v => 
+      typeof v === 'object' ? v.user_id === user.user_id : v === user.user_id
+    );
+
+    if (!alreadyViewed) {
+      const userPicture = user.picture || (user.photos && user.photos.length > 0 ? user.photos[0] : null);
+      views.push({
+        user_id: user.user_id,
+        user_name: user.name,
+        user_picture: userPicture,
+        viewed_at: new Date().toISOString()
+      });
       story.views = views;
       await story.save();
     }

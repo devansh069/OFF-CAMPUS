@@ -20,6 +20,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static uploaded photos/images locally
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`[Backend Debug] ${req.method} ${req.url}`);
+  next();
+});
+
 // Mount API routes
 app.use('/api', apiRouter);
 

@@ -1,4 +1,5 @@
 const { connectDB, sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 const { User, Like, Confession, Comment, Story, Event, Message } = require('../models');
 const { generateReferralCode } = require('./geo');
 const crypto = require('crypto');
@@ -172,7 +173,10 @@ const otherCollegesDummies = [
 const runDemoSeeder = async () => {
   try {
     await connectDB();
+    // Recreate stories table to add the new 'audience' column
+    await Story.drop().catch(() => {});
     await sequelize.sync({ alter: true });
+    await sequelize.query('SET FOREIGN_KEY_CHECKS = 0;');
 
     // 1. Find the logged-in user (the user whose email does not end with @example.com, @stephens-dummy.com, or @othercollege-dummy.com)
     const users = await User.findAll();
@@ -202,7 +206,7 @@ const runDemoSeeder = async () => {
     await User.destroy({
       where: {
         email: {
-          [sequelize.Sequelize.Op.like]: '%@stephens-dummy.com'
+          [Op.like]: '%@stephens-dummy.com'
         }
       }
     });
@@ -279,12 +283,12 @@ const runDemoSeeder = async () => {
     const priya = await User.findOne({ where: { name: 'Priya Singh' } });
 
     if (aarav && priya) {
-      // Clean old likes with them
+      // Clean all existing likes for the logged-in user to start fresh
       await Like.destroy({
         where: {
           [sequelize.Sequelize.Op.or]: [
-            { from_user_id: user.user_id, to_user_id: [aarav.user_id, priya.user_id] },
-            { from_user_id: [aarav.user_id, priya.user_id], to_user_id: user.user_id }
+            { from_user_id: user.user_id },
+            { to_user_id: user.user_id }
           ]
         }
       });
@@ -318,6 +322,38 @@ const runDemoSeeder = async () => {
       });
 
       console.log('Created mutual matches (matches) with Aarav Sharma and Priya Singh.');
+
+      // Create some incoming one-sided likes (not matched yet)
+      const diyasen = await User.findOne({ where: { name: 'Diya Sen' } });
+      const riyasharma = await User.findOne({ where: { name: 'Riya Sharma' } });
+      const nishapatel = await User.findOne({ where: { name: 'Nisha Patel' } });
+
+      if (diyasen) {
+        await Like.create({
+          like_id: `like_${crypto.randomBytes(6).toString('hex')}`,
+          from_user_id: diyasen.user_id,
+          to_user_id: user.user_id,
+          is_match: false
+        });
+      }
+      if (riyasharma) {
+        await Like.create({
+          like_id: `like_${crypto.randomBytes(6).toString('hex')}`,
+          from_user_id: riyasharma.user_id,
+          to_user_id: user.user_id,
+          is_match: false
+        });
+      }
+      if (nishapatel) {
+        await Like.create({
+          like_id: `like_${crypto.randomBytes(6).toString('hex')}`,
+          from_user_id: nishapatel.user_id,
+          to_user_id: user.user_id,
+          is_match: false
+        });
+      }
+
+      console.log('Created incoming one-sided likes from Diya Sen, Riya Sharma, and Nisha Patel.');
 
       // 5. Create some default chat messages to show in conversations tab
       await Message.destroy({
@@ -405,6 +441,7 @@ const runDemoSeeder = async () => {
       college_id: "col_stephens",
       location: "Main Lawn, St. Stephen's College",
       date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
+      cover_image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80",
       category: "fest",
       host_user_id: aarav ? aarav.user_id : 'system',
       host_name: aarav ? aarav.name : 'St. Stephens',
@@ -412,6 +449,8 @@ const runDemoSeeder = async () => {
       attendee_count: 1
     });
     console.log('Seeded upcoming campus fest event.');
+
+    await sequelize.query('SET FOREIGN_KEY_CHECKS = 1;');
 
     console.log('========================================================');
     console.log('  Demo seeder completed! Open the app to see the data!');

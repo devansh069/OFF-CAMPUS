@@ -31,10 +31,15 @@ const Story = sequelize.define('Story', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  audience: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'college'
+  },
   views: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: () => []
   },
   expires_at: {
     type: DataTypes.DATE,

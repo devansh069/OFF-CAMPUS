@@ -43,7 +43,7 @@ const User = sequelize.define('User', {
   interests: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: () => []
   },
   looking_for: {
     type: DataTypes.ENUM('dating', 'friends', 'networking', 'all'),
@@ -52,7 +52,7 @@ const User = sequelize.define('User', {
   photos: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: [] // Array of image URLs or file paths
+    defaultValue: () => [] // Array of image URLs or file paths
   },
   vibe_score: {
     type: DataTypes.FLOAT,
@@ -62,7 +62,7 @@ const User = sequelize.define('User', {
   spotify_data: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: { top_tracks: [], top_artists: [] }
+    defaultValue: () => ({ top_tracks: [], top_artists: [] })
   },
   is_premium: {
     type: DataTypes.BOOLEAN,

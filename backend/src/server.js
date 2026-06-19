@@ -18,10 +18,11 @@ const startServer = async () => {
     await seedDatabase();
 
     // 4. Start listening for incoming connections
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);
       console.log(`  Off Campus Dating App Server online!`);
       console.log(`  Running on: http://localhost:${PORT}`);
+      console.log(`  Bound to: 0.0.0.0:${PORT} (all IPv4 interfaces)`);
       console.log(`===============================================`);
     });
   } catch (error) {

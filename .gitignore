@@ -86,3 +86,10 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# Expo & Metro cache
+.expo/
+.metro-cache/
+**/_expo/
+**/.expo/
+**/.metro-cache/

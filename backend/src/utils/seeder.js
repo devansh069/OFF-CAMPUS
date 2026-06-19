@@ -13,14 +13,14 @@ const collegesData = [
   { college_id: 'col_ramjas', name: "Ramjas College", short_name: "Ramjas", location: "University Enclave, Delhi", latitude: 28.6897, longitude: 77.2150, email_domains: ["ramjas.du.ac.in"], type: "college" },
   { college_id: 'col_venky', name: "Sri Venkateswara College", short_name: "Venky", location: "Dhaula Kuan, Delhi", latitude: 28.5989, longitude: 77.1621, email_domains: ["svc.ac.in"], type: "college" },
   { college_id: 'col_kmc', name: "Kirori Mal College", short_name: "KMC", location: "University Enclave, Delhi", latitude: 28.6899, longitude: 77.2154, email_domains: ["kmc.du.ac.in"], type: "college" },
-  
+
   // IPU Colleges
   { college_id: 'col_ipu', name: "Guru Gobind Singh Indraprastha University", short_name: "IPU", location: "Dwarka, Delhi", latitude: 28.6049, longitude: 77.0390, email_domains: ["ipu.ac.in"], type: "university" },
   { college_id: 'col_mait', name: "Maharaja Agrasen Institute of Technology", short_name: "MAIT", location: "Rohini, Delhi", latitude: 28.7337, longitude: 77.0907, email_domains: ["mait.ac.in"], type: "college" },
   { college_id: 'col_nsut', name: "Netaji Subhas University of Technology", short_name: "NSUT", location: "Dwarka, Delhi", latitude: 28.6103, longitude: 77.0380, email_domains: ["nsut.ac.in"], type: "university" },
   { college_id: 'col_bvcoe', name: "Bharati Vidyapeeth's College of Engineering", short_name: "BVCOE", location: "Paschim Vihar, Delhi", latitude: 28.6711, longitude: 77.1025, email_domains: ["bvcoend.ac.in"], type: "college" },
   { college_id: 'col_vips', name: "Vivekananda Institute of Professional Studies", short_name: "VIPS", location: "Pitampura, Delhi", latitude: 28.6961, longitude: 77.1370, email_domains: ["vips.edu"], type: "institute" },
-  
+
   // Other prominent Delhi institutions
   { college_id: 'col_iitd', name: "Indian Institute of Technology Delhi", short_name: "IIT Delhi", location: "Hauz Khas, Delhi", latitude: 28.5449, longitude: 77.1927, email_domains: ["iitd.ac.in"], type: "institute" },
   { college_id: 'col_jnu', name: "Jawaharlal Nehru University", short_name: "JNU", location: "New Mehrauli Road, Delhi", latitude: 28.5420, longitude: 77.1669, email_domains: ["jnu.ac.in"], type: "university" },
@@ -33,7 +33,7 @@ const collegesData = [
 const seedDatabase = async () => {
   try {
     console.log('Seeding database colleges...');
-    
+
     // Seed colleges
     for (const col of collegesData) {
       await College.findOrCreate({
@@ -47,7 +47,7 @@ const seedDatabase = async () => {
     const userCount = await User.count();
     if (userCount === 0) {
       console.log('Seeding dummy verified users...');
-      
+
       const dummyUsersData = [
         {
           name: "Aarav Sharma", age: 21, gender: "male", college_id: 'col_stephens',

@@ -43,6 +43,7 @@ router.get('/discovery/profiles', authenticate, discoveryController.getDiscovery
 router.post('/discovery/like', authenticate, discoveryController.likeUser);
 router.post('/discovery/pass', authenticate, discoveryController.passUser);
 router.get('/discovery/matches', authenticate, discoveryController.getMatches);
+router.get('/discovery/likes-received', authenticate, discoveryController.getLikesReceived);
 
 // ============= RATING SYSTEM =============
 router.post('/ratings/create', authenticate, discoveryController.createRating);

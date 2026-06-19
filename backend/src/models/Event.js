@@ -47,7 +47,7 @@ const Event = sequelize.define('Event', {
   attendees: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: () => []
   },
   attendee_count: {
     type: DataTypes.INTEGER,

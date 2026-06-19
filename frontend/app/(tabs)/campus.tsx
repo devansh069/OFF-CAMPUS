@@ -41,24 +41,99 @@ export default function Campus() {
 
   const fetchCollege = async () => {
     if (!user?.college_id) return;
+    if (sessionToken === 'dummy_token') {
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens",
+        location: "University Enclave, Delhi",
+        latitude: 28.6906,
+        longitude: 77.2160
+      });
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user.college_id}`);
+      if (!response.ok) throw new Error('Failed to fetch college');
       const data = await response.json();
       setCollege(data.college);
-    } catch (error) {
-      console.error('Error fetching college:', error);
+    } catch (error: any) {
+      console.warn('Error fetching college, using mock:', error.message);
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens",
+        location: "University Enclave, Delhi",
+        latitude: 28.6906,
+        longitude: 77.2160
+      });
     }
   };
 
   const fetchCampusUsers = async () => {
+    if (sessionToken === 'dummy_token') {
+      setCampusUsers([
+        {
+          user_id: 'user_priya',
+          name: 'Priya Singh',
+          age: 20,
+          year: '2nd Year',
+          course: 'Psychology',
+          vibe_score: 4.9,
+          photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
+          picture: null,
+          is_on_campus: true
+        },
+        {
+          user_id: 'user_ananya',
+          name: 'Ananya Kapoor',
+          age: 19,
+          year: '1st Year',
+          course: 'English Literature',
+          vibe_score: 4.6,
+          photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'],
+          picture: null,
+          is_on_campus: true
+        }
+      ]);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/location/campus-users`, {
         headers: { 'Authorization': `Bearer ${sessionToken}` },
       });
+      if (!response.ok) throw new Error('Failed to fetch campus users');
       const data = await response.json();
       setCampusUsers(data.users || []);
-    } catch (error) {
-      console.error('Error fetching campus users:', error);
+    } catch (error: any) {
+      console.warn('Error fetching campus users, using mock:', error.message);
+      setCampusUsers([
+        {
+          user_id: 'user_priya',
+          name: 'Priya Singh',
+          age: 20,
+          year: '2nd Year',
+          course: 'Psychology',
+          vibe_score: 4.9,
+          photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
+          picture: null,
+          is_on_campus: true
+        },
+        {
+          user_id: 'user_ananya',
+          name: 'Ananya Kapoor',
+          age: 19,
+          year: '1st Year',
+          course: 'English Literature',
+          vibe_score: 4.6,
+          photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'],
+          picture: null,
+          is_on_campus: true
+        }
+      ]);
     } finally {
       setRefreshing(false);
     }

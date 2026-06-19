@@ -4,7 +4,10 @@ import * as Linking from 'expo-linking';
 import { Platform, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
+  console.warn('WARNING: EXPO_PUBLIC_BACKEND_URL env var is not set! Falling back to http://localhost:3000');
+}
 
 interface User {
   user_id: string;
@@ -49,15 +52,35 @@ export const useAuth = () => {
   return context;
 };
 
+const dummyUser: User = {
+  user_id: 'user_dummy',
+  email: 'dummy@test.edu.in',
+  name: 'Dummy Student',
+  age: 21,
+  gender: 'male',
+  college_id: 'col_stephens',
+  year: '3rd Year',
+  course: 'Economics',
+  bio: 'Self-proclaimed foodie & developer 🍕☕',
+  interests: ['Music', 'Travel', 'Coding'],
+  looking_for: 'dating',
+  photos: ['https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'],
+  vibe_score: 4.8,
+  is_premium: true,
+  verification_status: 'verified',
+  is_on_campus: true
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(dummyUser);
+  const [loading, setLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>('dummy_token');
 
   // Check for existing session on mount
   useEffect(() => {
     console.log('AuthProvider mounted. EXPO_PUBLIC_BACKEND_URL is:', EXPO_PUBLIC_BACKEND_URL);
-    checkExistingSession();
+    // checkExistingSession(); // Disabled to bypass login and use mock user
+    setLoading(false);
   }, []);
 
   // Handle deep links (for mobile) - check both on mount and when URL changes
@@ -160,6 +183,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchUserProfile = async (token: string) => {
+    if (token === 'dummy_token') {
+      setUser(dummyUser);
+      setLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.log('fetchUserProfile: Request timed out for URL:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
@@ -203,35 +232,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/bypass-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to login');
-      }
-
-      const data = await response.json();
-      const token = data.session_token;
+      const mockUser: User = {
+        ...dummyUser,
+        email: email || 'dummy@test.edu.in',
+        name: email ? email.split('@')[0] : 'Dummy Student',
+      };
       
       // Store token
       if (Platform.OS === 'web') {
-        localStorage.setItem('session_token', token);
+        localStorage.setItem('session_token', 'dummy_token');
       } else {
-        await SecureStore.setItemAsync('session_token', token);
+        await SecureStore.setItemAsync('session_token', 'dummy_token');
       }
 
-      setSessionToken(token);
-      setUser(data.user);
+      setSessionToken('dummy_token');
+      setUser(mockUser);
       setLoading(false);
     } catch (error) {
       console.error('Error during login:', error);
       setLoading(false);
-      Alert.alert('Login Failed', 'Please make sure the backend is running.');
+      Alert.alert('Login Failed', 'Please try again.');
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -6,9 +6,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 export default function Welcome() {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      if (!user.college_id || !user.age) {
+        router.replace('/onboarding/profile-setup');
+      } else {
+        router.replace('/(tabs)/discover');
+      }
+    }
+  }, [user]);
 
   const handleLogin = () => {
     if (!email.trim()) {

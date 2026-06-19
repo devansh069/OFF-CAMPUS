@@ -62,12 +62,12 @@ export default function Premium() {
   };
 
   const features = [
-    { icon: 'globe', text: 'Browse profiles from ALL colleges across Delhi' },
-    { icon: 'flash', text: 'See top vibes from every campus' },
-    { icon: 'calendar', text: 'RSVP to events at other colleges' },
-    { icon: 'eye', text: 'See who viewed your profile' },
-    { icon: 'star', text: 'Boost your Vibe Score visibility' },
-    { icon: 'sparkles', text: 'No ads, premium-only stories' },
+    { icon: 'school-outline', text: 'All Access to all Delhi colleges (IITD, LSR, MAIT, DTU, and more)' },
+    { icon: 'eye-outline', text: 'See who liked and viewed your profile' },
+    { icon: 'flash-outline', text: '5x higher visibility in campus recommendations' },
+    { icon: 'infinite-outline', text: 'Unlimited swiping and matching' },
+    { icon: 'chatbubbles-outline', text: 'Direct message before matching' },
+    { icon: 'checkmark-circle-outline', text: 'Verified student badge next to your profile' },
   ];
 
   return (
@@ -86,15 +86,22 @@ export default function Premium() {
             </LinearGradient>
           </View>
 
-          <Text style={styles.heroTitle}>Off Campus</Text>
-          <Text style={styles.heroPremium}>PREMIUM</Text>
-          <Text style={styles.heroSub}>Unlock all of Delhi's campuses 🇮🇳</Text>
+          <Text style={styles.heroTitle}>Vivekananda Institute of Professional Studies</Text>
+          <Text style={styles.heroPremium}>OFF CAMPUS PREMIUM</Text>
+          <Text style={styles.heroSub}>All Access to All Delhi Colleges 🎓</Text>
 
           <View style={styles.priceCard}>
             <LinearGradient colors={['#FF1B6B', '#9D4EDD']} style={styles.priceGrad}>
-              <Text style={styles.priceAmt}>₹99</Text>
-              <Text style={styles.pricePer}>per month</Text>
-              <Text style={styles.priceNote}>Cancel anytime</Text>
+              <View style={styles.studentBadge}>
+                <Ionicons name="school" size={12} color="#FFD700" />
+                <Text style={styles.studentBadgeText}>STUDENT SPECIAL OFFER</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={styles.priceOld}>₹399</Text>
+                <Text style={styles.priceAmt}>₹99</Text>
+              </View>
+              <Text style={styles.pricePer}>student pass / month</Text>
+              <Text style={styles.priceNote}>Unlock all Delhi campus networks instantly. Cancel anytime.</Text>
             </LinearGradient>
           </View>
 
@@ -114,7 +121,7 @@ export default function Premium() {
               {loading ? <ActivityIndicator color="#FFF" /> : (
                 <>
                   <Ionicons name="diamond" size={20} color="#FFF" />
-                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Subscribe Now'}</Text>
+                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Buy Student Pass'}</Text>
                 </>
               )}
             </LinearGradient>
@@ -135,14 +142,43 @@ const styles = StyleSheet.create({
   topBar: { padding: 16, flexDirection: 'row', justifyContent: 'flex-end' },
   crown: { alignItems: 'center', marginBottom: 16 },
   crownCircle: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { color: '#FFF', fontSize: 36, fontWeight: '900', textAlign: 'center', letterSpacing: -1 },
-  heroPremium: { color: '#FFD700', fontSize: 24, fontWeight: '900', textAlign: 'center', letterSpacing: 4 },
-  heroSub: { color: '#A899B8', fontSize: 16, textAlign: 'center', marginTop: 8 },
+  heroTitle: { color: '#FFF', fontSize: 24, lineHeight: 30, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 },
+  heroPremium: { color: '#FFD700', fontSize: 16, fontWeight: '900', textAlign: 'center', letterSpacing: 4, marginTop: 12 },
+  heroSub: { color: '#A899B8', fontSize: 14, textAlign: 'center', marginTop: 8 },
   priceCard: { marginTop: 24, borderRadius: 24, overflow: 'hidden' },
   priceGrad: { padding: 24, alignItems: 'center' },
+  studentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  studentBadgeText: {
+    color: '#FFD700',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  pricingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  priceOld: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 32,
+    fontWeight: '700',
+    textDecorationLine: 'line-through',
+  },
   priceAmt: { color: '#FFF', fontSize: 64, fontWeight: '900', letterSpacing: -2 },
   pricePer: { color: '#FFF', fontSize: 16, opacity: 0.9 },
-  priceNote: { color: '#FFF', fontSize: 12, opacity: 0.7, marginTop: 8 },
+  priceNote: { color: '#FFF', fontSize: 12, opacity: 0.7, marginTop: 8, textAlign: 'center' },
   features: { marginTop: 24, gap: 12 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1A0F2A', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#2A1B3D' },
   featIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFD70022', alignItems: 'center', justifyContent: 'center' },

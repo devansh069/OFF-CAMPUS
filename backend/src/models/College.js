@@ -30,7 +30,7 @@ const College = sequelize.define('College', {
   email_domains: {
     type: DataTypes.JSON, // Stores array of email domains: ["ststephens.edu"]
     allowNull: false,
-    defaultValue: []
+    defaultValue: () => []
   },
   type: {
     type: DataTypes.STRING,

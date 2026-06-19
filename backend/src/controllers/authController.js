@@ -10,7 +10,7 @@ const { saveBase64Image } = require('../utils/fileUpload');
  */
 const googleSessionLogin = async (req, res) => {
   const { session_id, referral_code } = req.query; // parameters sent from client
-  
+
   if (!session_id) {
     return res.status(400).json({ detail: 'Session ID is required' });
   }
@@ -45,7 +45,7 @@ const googleSessionLogin = async (req, res) => {
     } else {
       // User registration flow
       const emailDomain = email.split('@')[1]?.toLowerCase() || '';
-      
+
       // Auto-verify if email matches a seeded college domain
       // We search where email_domains JSON array contains emailDomain
       const matchingCollege = await College.findOne({
@@ -180,7 +180,7 @@ const addPhoto = async (req, res) => {
 
   try {
     const relativePath = saveBase64Image(photo, 'photos');
-    
+
     // Append to user photos array
     const photos = [...user.photos, relativePath];
     user.photos = photos;
@@ -257,7 +257,7 @@ const bypassLogin = async (req, res) => {
       const name = email.split('@')[0];
       const refCode = generateReferralCode(name);
       const userId = `user_${crypto.randomBytes(6).toString('hex')}`;
-      
+
       user = await User.create({
         user_id: userId,
         email,
@@ -275,7 +275,7 @@ const bypassLogin = async (req, res) => {
     // Create a new user session
     const sessionToken = `session_${crypto.randomBytes(12).toString('hex')}`;
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    
+
     await Session.create({
       session_token: sessionToken,
       user_id: user.user_id,

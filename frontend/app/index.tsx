@@ -9,13 +9,16 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading) {
-      if (!user) {
-        router.replace('/welcome');
-      } else if (!user.college_id || !user.age) {
-        router.replace('/onboarding/profile-setup');
-      } else {
-        router.replace('/(tabs)/discover');
-      }
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.replace('/welcome');
+        } else if (!user.college_id || !user.age) {
+          router.replace('/onboarding/profile-setup');
+        } else {
+          router.replace('/(tabs)/discover');
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [user, loading]);
 

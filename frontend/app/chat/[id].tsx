@@ -38,30 +38,71 @@ export default function ChatScreen() {
   }, []);
 
   const fetchOtherUser = async () => {
+    const fallbackUsers = [
+      { user_id: 'user_priya', name: 'Priya Singh', photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'], is_on_campus: true },
+      { user_id: 'user_ananya', name: 'Ananya Kapoor', photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'], is_on_campus: true },
+      { user_id: 'user_rohan', name: 'Rohan Mehta', photos: ['https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop'], is_on_campus: false },
+      { user_id: 'user_kabir', name: 'Kabir Malhotra', photos: ['https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop'], is_on_campus: false }
+    ];
+
+    if (sessionToken === 'dummy_token') {
+      const fb = fallbackUsers.find(u => u.user_id === id);
+      if (fb) setOtherUser(fb);
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/conversations`, {
         headers: { 'Authorization': `Bearer ${sessionToken}` },
       });
+      if (!response.ok) throw new Error('Failed to fetch conversations');
       const data = await response.json();
       const conv = data.conversations.find((c: any) => c.user.user_id === id);
-      if (conv) setOtherUser(conv.user);
-    } catch (error) {
-      console.error('Error fetching user:', error);
+      if (conv) {
+        setOtherUser(conv.user);
+      } else {
+        const fb = fallbackUsers.find(u => u.user_id === id);
+        if (fb) setOtherUser(fb);
+      }
+    } catch (error: any) {
+      console.warn('Error fetching user, using mock fallback:', error.message);
+      const fb = fallbackUsers.find(u => u.user_id === id);
+      if (fb) setOtherUser(fb);
     }
   };
 
   const fetchMessages = async () => {
+    if (sessionToken === 'dummy_token') {
+      const mockMsgLogs = [
+        { message_id: 'msg_1', from_user_id: id, to_user_id: user?.user_id, content: 'Hey there! 😊 How is college life going?' },
+        { message_id: 'msg_2', from_user_id: user?.user_id, to_user_id: id, content: 'Hey! It is pretty good. How about you?' },
+        { message_id: 'msg_3', from_user_id: id, to_user_id: user?.user_id, content: 'Not bad, just finished an assignment. What are you up to?' }
+      ];
+      setMessages(mockMsgLogs);
+      setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/${id}`, {
         headers: { 'Authorization': `Bearer ${sessionToken}` },
       });
+      if (!response.ok) throw new Error('Failed to fetch messages');
       const data = await response.json();
       setMessages(data.messages || []);
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+    } catch (error: any) {
+      console.warn('Error fetching messages, using mock fallback:', error.message);
+      const mockMsgLogs = [
+        { message_id: 'msg_1', from_user_id: id, to_user_id: user?.user_id, content: 'Hey there! 😊 How is college life going?' },
+        { message_id: 'msg_2', from_user_id: user?.user_id, to_user_id: id, content: 'Hey! It is pretty good. How about you?' },
+        { message_id: 'msg_3', from_user_id: id, to_user_id: user?.user_id, content: 'Not bad, just finished an assignment. What are you up to?' }
+      ];
+      setMessages(mockMsgLogs);
       setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
   };
 
@@ -71,8 +112,18 @@ export default function ChatScreen() {
     const content = text.trim();
     setText('');
     
+    // Local optimistic append so users can type and see messages instantly in mock mode
+    const newMsg = {
+      message_id: `msg_local_${Date.now()}`,
+      from_user_id: user?.user_id,
+      to_user_id: id,
+      content,
+      created_at: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, newMsg]);
+    
     try {
-      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,10 +131,12 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({ to_user_id: id, content }),
       });
-      await fetchMessages();
-    } catch (error) {
-      console.error('Error sending:', error);
-      setText(content);
+      if (response.ok) {
+        // Refresh with real database state if online
+        await fetchMessages();
+      }
+    } catch (error: any) {
+      console.warn('Error sending message via backend, kept locally in mock state:', error.message);
     } finally {
       setSending(false);
     }
@@ -199,9 +252,6 @@ export default function ChatScreen() {
 
         {/* Input Bar Section */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7}>
-            <Ionicons name="add" size={24} color="rgba(255, 255, 255, 0.6)" />
-          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -211,6 +261,9 @@ export default function ChatScreen() {
             multiline
             maxLength={500}
           />
+          <TouchableOpacity style={styles.micBtn} activeOpacity={0.7}>
+            <Ionicons name="mic" size={20} color="rgba(255, 255, 255, 0.6)" />
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
             onPress={sendMessage}
@@ -405,7 +458,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
-  attachBtn: {
+  micBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,

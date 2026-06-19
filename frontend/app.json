@@ -13,7 +13,11 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Check in to your campus and see classmates",
         "NSCameraUsageDescription": "Upload your ID for verification",
-        "NSPhotoLibraryUsageDescription": "Add photos to your profile"
+        "NSPhotoLibraryUsageDescription": "Add photos to your profile",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {

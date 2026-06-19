@@ -7,6 +7,76 @@ import { useRouter } from 'expo-router';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+const MOCK_EVENTS = [
+  {
+    event_id: 'evt_vips_pulse',
+    title: 'Pulse 2026: Annual Campus Fest 🎉',
+    host_name: 'VIPS Student Council',
+    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days away
+    location: 'Main Auditorium, VIPS Campus',
+    description: 'Get ready for the biggest event of the year! Live band performances, street dance battles, food stalls, and a star-studded DJ night to end the celebration. Free entry for all verified college students.',
+    attendee_count: 342,
+    is_attending: false,
+    category: 'fest',
+    cover_image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80'
+  },
+  {
+    event_id: 'evt_iitd_rendezvous',
+    title: 'Rendezvous: EDM Night 🥂',
+    host_name: 'IIT Delhi Cultural Association',
+    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days away
+    location: 'OAT (Open Air Theatre), IIT Delhi',
+    description: 'Experience the magic of neon lights and high bass beats. Rendezvous presents the EDM Night featuring international DJs. Register now to secure your pass.',
+    attendee_count: 512,
+    is_attending: true,
+    category: 'party',
+    cover_image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80'
+  },
+  {
+    event_id: 'evt_mait_tech',
+    title: 'HackMAIT 4.0 Hackathon 💡',
+    host_name: 'MAIT Coding Club',
+    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1).toISOString(), // Tomorrow
+    location: 'Lab Block 4, MAIT Campus',
+    description: 'A 24-hour sprint to build, pitch, and win. Bring your ideas, form a team, and showcase your solutions to real-world problems. Mentorship and refreshments provided.',
+    attendee_count: 128,
+    is_attending: false,
+    category: 'workshop',
+    cover_image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&auto=format&fit=crop&q=80'
+  },
+  {
+    event_id: 'evt_lsr_sports',
+    title: 'Basketball Championship ⚽',
+    host_name: 'LSR Sports Department',
+    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days away
+    location: 'Basketball Arena, LSR Campus',
+    description: 'Cheer for your college teams in the annual basketball tournament. Finals will be followed by an interactive sports meet-up and networking session.',
+    attendee_count: 85,
+    is_attending: false,
+    category: 'sports',
+    cover_image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=80'
+  }
+];
+
+const getEventFlyer = (e: any) => {
+  if (!e) return '';
+  if (e.cover_image) {
+    if (e.cover_image.startsWith('http')) {
+      return e.cover_image;
+    }
+    return `${EXPO_PUBLIC_BACKEND_URL}/${e.cover_image}`;
+  }
+  
+  // Fallbacks based on category
+  const fallbacks: { [key: string]: string } = {
+    fest: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
+    party: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
+    workshop: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&auto=format&fit=crop&q=80',
+    sports: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=80',
+  };
+  return fallbacks[e.category] || fallbacks.fest;
+};
+
 export default function Events() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
@@ -15,15 +85,27 @@ export default function Events() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
-  useEffect(() => { fetchEvents(); }, []);
+  useEffect(() => { fetchEvents(); }, [sessionToken]);
 
   const fetchEvents = async () => {
+    if (sessionToken === 'dummy_token') {
+      setEvents(MOCK_EVENTS);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/feed`, { headers: { 'Authorization': `Bearer ${sessionToken}` } });
+      if (!r.ok) throw new Error('Failed to fetch events from backend');
       const d = await r.json();
-      setEvents(d.events || []);
-    } catch (e) { console.error(e); }
+      setEvents(d.events && d.events.length > 0 ? d.events : MOCK_EVENTS);
+    } catch (e: any) { 
+      console.warn('fetchEvents failed, using mock events instead:', e.message); 
+      setEvents(MOCK_EVENTS);
+    }
     finally { setLoading(false); setRefreshing(false); }
   };
 
@@ -66,13 +148,18 @@ export default function Events() {
           )}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-          {categories.map(c => (
-            <TouchableOpacity key={c.key} style={[styles.catChip, filter === c.key && { backgroundColor: c.color, borderColor: c.color }]} onPress={() => setFilter(c.key)}>
-              <Text style={[styles.catText, filter === c.key && { color: '#FFF' }]}>{c.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            style={styles.filterMainBtn}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="options-outline" size={16} color="#FF1B6B" />
+            <Text style={styles.filterMainBtnText}>
+              Filter: {categories.find(c => c.key === filter)?.label || 'All'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
           <View style={styles.center}><ActivityIndicator size="large" color="#FF1B6B" /></View>
@@ -85,6 +172,8 @@ export default function Events() {
               const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               return (
                 <TouchableOpacity key={e.event_id} style={styles.card} activeOpacity={0.9} onPress={() => setSelectedEvent(e)}>
+                  {/* Event Flyer / Cover Image */}
+                  <Image source={{ uri: getEventFlyer(e) }} style={styles.cardFlyer} />
                   <View style={styles.cardHeader}>
                     <View style={styles.dateBadge}>
                       <Text style={styles.dateDay}>{eventDate.getDate()}</Text>
@@ -155,6 +244,8 @@ export default function Events() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalContent}>
+              {/* Event Flyer / Cover Image in Details */}
+              <Image source={{ uri: getEventFlyer(selectedEvent) }} style={styles.modalFlyer} />
               <Text style={styles.modalTitle}>{selectedEvent?.title}</Text>
               
               <View style={styles.modalHostRow}>
@@ -221,7 +312,7 @@ export default function Events() {
               <View style={styles.separator} />
 
               <View style={styles.whoIsGoingContainer}>
-                <Text style={styles.sectionTitle}>Who's Going</Text>
+                <Text style={styles.sectionTitle}>{"Who's Going"}</Text>
                 <View style={styles.socialRow}>
                   <View style={styles.avatarStack}>
                     <View style={[styles.stackAvatar, { backgroundColor: '#FF1B6B' }]}><Text style={styles.stackAvatarText}>JD</Text></View>
@@ -253,6 +344,63 @@ export default function Events() {
           </View>
         </View>
       </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showFilterModal}
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={styles.modalCloseBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowFilterModal(false)}
+          />
+          <View style={styles.bottomSheet}>
+            <View style={styles.dragHandle} />
+            
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Filter Events</Text>
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFilterModal(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalContentFilter}>
+              <Text style={styles.filterLabel}>EVENT CATEGORY</Text>
+              <View style={styles.filterOptionsGrid}>
+                {categories.map(c => {
+                  const isSelected = filter === c.key;
+                  return (
+                    <TouchableOpacity
+                      key={c.key}
+                      style={[
+                        styles.filterOpt,
+                        isSelected && { borderColor: c.color, backgroundColor: c.color + '15' }
+                      ]}
+                      onPress={() => setFilter(c.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterOptText, isSelected && { color: c.color }]}>{c.label}</Text>
+                      {isSelected && <Ionicons name="checkmark-circle" size={16} color={c.color} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => setShowFilterModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.applyBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -265,10 +413,19 @@ const styles = StyleSheet.create({
   title: { color: '#FFF', fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
   premBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#120F1D', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#FFD700' },
   premBtnText: { color: '#FFD700', fontSize: 12, fontWeight: '700' },
-  catRow: { marginVertical: 8, flexGrow: 0 },
-  catChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#120F1D', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
-  catText: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 13, fontWeight: '600' },
+  filterRow: { paddingHorizontal: 16, marginVertical: 8, flexDirection: 'row' },
+  filterMainBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255, 255, 255, 0.06)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
+  filterMainBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+  modalTitleText: { color: '#FFF', fontSize: 20, fontWeight: '900' },
+  modalContentFilter: { paddingHorizontal: 20, paddingBottom: 24 },
+  filterLabel: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
+  filterOptionsGrid: { gap: 10, marginBottom: 24 },
+  filterOpt: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' },
+  filterOptText: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 15, fontWeight: '700' },
+  applyBtn: { backgroundColor: '#FF1B6B', paddingVertical: 14, borderRadius: 24, alignItems: 'center', marginTop: 8 },
+  applyBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
   card: { margin: 16, marginVertical: 8, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)' },
+  cardFlyer: { width: '100%', height: 160, resizeMode: 'cover' },
   
   cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.06)' },
   dateBadge: { backgroundColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
@@ -305,6 +462,7 @@ const styles = StyleSheet.create({
   modalCatText: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   closeBtn: { backgroundColor: 'rgba(255, 255, 255, 0.08)', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   modalContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  modalFlyer: { width: '100%', height: 200, borderRadius: 16, marginBottom: 16, resizeMode: 'cover' },
   modalTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', marginBottom: 16, letterSpacing: -0.5 },
   modalHostRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   hostAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' },

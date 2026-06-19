@@ -114,10 +114,28 @@ const likeUser = async (req, res) => {
 };
 
 /**
- * Handles passing on a user (stub only, no storage needed)
+ * Handles passing on a user. If the passed user has liked the current user,
+ * delete that like so they don't show up in the incoming likes.
  */
 const passUser = async (req, res) => {
-  res.json({ message: 'Passed' });
+  const { target_user_id } = req.body;
+  const user = req.user;
+
+  try {
+    if (target_user_id) {
+      await Like.destroy({
+        where: {
+          from_user_id: target_user_id,
+          to_user_id: user.user_id,
+          is_match: false
+        }
+      });
+    }
+    res.json({ message: 'Passed' });
+  } catch (error) {
+    console.error('Pass user error:', error);
+    res.status(500).json({ detail: 'Failed to pass user' });
+  }
 };
 
 /**
@@ -135,7 +153,7 @@ const getMatches = async (req, res) => {
     });
 
     const matchUserIds = matches.map(m => m.to_user_id);
-    
+
     if (matchUserIds.length === 0) {
       return res.json({ matches: [] });
     }
@@ -151,6 +169,53 @@ const getMatches = async (req, res) => {
   } catch (error) {
     console.error('Get matches error:', error);
     res.status(500).json({ detail: 'Failed to retrieve matches' });
+  }
+};
+
+/**
+ * Returns list of user profiles who liked the current user
+ */
+const getLikesReceived = async (req, res) => {
+  const user = req.user;
+
+  try {
+    // Find likes sent to me that are not matches yet
+    const incomingLikes = await Like.findAll({
+      where: {
+        to_user_id: user.user_id,
+        is_match: false
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    const senderIds = incomingLikes.map(like => like.from_user_id);
+
+    if (senderIds.length === 0) {
+      return res.json({ likes: [] });
+    }
+
+    // Fetch the users who sent these likes
+    const likeUsers = await User.findAll({
+      where: {
+        user_id: { [Op.in]: senderIds }
+      },
+      attributes: { exclude: ['email'] }
+    });
+
+    // Order the user objects to match the order of incomingLikes
+    const orderMap = {};
+    senderIds.forEach((id, index) => {
+      orderMap[id] = index;
+    });
+
+    const orderedLikeUsers = likeUsers.map(u => u.toJSON()).sort((a, b) => {
+      return orderMap[a.user_id] - orderMap[b.user_id];
+    });
+
+    res.json({ likes: orderedLikeUsers });
+  } catch (error) {
+    console.error('Get likes received error:', error);
+    res.status(500).json({ detail: 'Failed to retrieve likes received' });
   }
 };
 
@@ -227,5 +292,6 @@ module.exports = {
   likeUser,
   passUser,
   getMatches,
+  getLikesReceived,
   createRating
 };
