@@ -560,6 +560,18 @@ export default function Discover() {
   };
 
   const fetchCollege = async () => {
+    if (sessionToken === 'dummy_token') {
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens",
+        location: "University Enclave, Delhi",
+        latitude: 28.6906,
+        longitude: 77.2160
+      });
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user?.college_id}`);
       const data = await response.json();

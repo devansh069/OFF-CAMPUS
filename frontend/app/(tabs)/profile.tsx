@@ -21,7 +21,7 @@ import { BlurView } from 'expo-blur';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Profile() {
-  const { user, sessionToken, logout, refreshUser } = useAuth();
+  const { user, sessionToken, logout, refreshUser, updateUser } = useAuth();
   const router = useRouter();
   const [college, setCollege] = useState<any>(null);
 
@@ -32,6 +32,16 @@ export default function Profile() {
   }, [user]);
 
   const fetchCollege = async () => {
+    if (sessionToken === 'dummy_token') {
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens",
+        location: "University Enclave, Delhi"
+      });
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user?.college_id}`);
       const data = await response.json();
@@ -76,6 +86,12 @@ export default function Profile() {
   };
 
   const uploadPhotoToServer = async (photoData: string) => {
+    if (sessionToken === 'dummy_token' && updateUser) {
+      if (!user) return;
+      updateUser({ photos: [...(user.photos || []), photoData] });
+      return;
+    }
+
     try {
       await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos`, {
         method: 'POST',
@@ -117,6 +133,14 @@ export default function Profile() {
     Alert.alert('Delete Photo', 'Remove this photo?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
+        if (sessionToken === 'dummy_token' && updateUser) {
+          if (!user) return;
+          const updated = [...(user.photos || [])];
+          updated.splice(index, 1);
+          updateUser({ photos: updated });
+          return;
+        }
+
         try {
           await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos/${index}`, {
             method: 'DELETE',
@@ -138,6 +162,18 @@ export default function Profile() {
         {
           text: 'Add Sample Data',
           onPress: async () => {
+            if (sessionToken === 'dummy_token' && updateUser) {
+              updateUser({
+                spotify_data: {
+                  top_tracks: ['Starboy - The Weeknd', 'Levitating - Dua Lipa', 'Peaches - Justin Bieber'],
+                  top_artists: ['Harry Styles', 'Glass Animals', 'The Weeknd'],
+                },
+                vibe_score: 4.9
+              });
+              Alert.alert('Success', 'Spotify data added! Vibe Score increased!');
+              return;
+            }
+
             try {
               await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/spotify`, {
                 method: 'POST',

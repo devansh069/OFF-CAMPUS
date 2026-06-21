@@ -30,6 +30,86 @@ const getCardBg = (id: string) => {
   return CARD_BG_IMAGES[idx];
 };
 
+const MOCK_CONFESSIONS = [
+  {
+    confession_id: 'conf_1',
+    content: 'Crushing on the girl who sits next to me in English literature. She has the most beautiful laugh! 📖💖',
+    likes: 24,
+    comments: 2,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    college_id: 'col_stephens'
+  },
+  {
+    confession_id: 'conf_2',
+    content: 'Anyone else dynamic-routing their life into chaos, or is it just me? Semester projects are killing me. 💻😭',
+    likes: 12,
+    comments: 0,
+    created_at: new Date(Date.now() - 7200000).toISOString(),
+    college_id: 'col_stephens'
+  },
+  {
+    confession_id: 'conf_3',
+    content: 'Spotted someone super cute at the Hauz Khas Social yesterday wearing a green varsity jacket. Find me! ✨👀',
+    likes: 45,
+    comments: 0,
+    created_at: new Date(Date.now() - 14400000).toISOString(),
+    college_id: 'col_lsr'
+  },
+  {
+    confession_id: 'conf_4',
+    content: 'Can we agree that the canteen food this year is actually better? Best samosas ever. 😋',
+    likes: 8,
+    comments: 0,
+    created_at: new Date(Date.now() - 28800000).toISOString(),
+    college_id: 'col_stephens'
+  }
+];
+
+const MOCK_STORIES = [
+  {
+    user_id: 'user_priya',
+    user_name: 'Priya Sharma',
+    user_picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+    has_unviewed: true,
+    stories: [
+      { image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop', createdAt: new Date(Date.now() - 3600000).toISOString(), audience: 'global', views: [] }
+    ]
+  },
+  {
+    user_id: 'user_ananya',
+    user_name: 'Ananya Kapoor',
+    user_picture: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop',
+    has_unviewed: true,
+    stories: [
+      { image: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop', createdAt: new Date(Date.now() - 7200000).toISOString(), audience: 'college', views: [] }
+    ]
+  }
+];
+
+const MOCK_TOP_VIBES = [
+  {
+    user_id: 'user_priya',
+    name: 'Priya Sharma',
+    bio: 'Late-night coffee dates & indie music ☕📖',
+    vibe_score: 4.9,
+    photos: ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop']
+  },
+  {
+    user_id: 'user_aarav',
+    name: 'Aarav Mehta',
+    bio: 'Football enthusiast, guitar player ⚽🎸',
+    vibe_score: 4.8,
+    photos: ['https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop']
+  },
+  {
+    user_id: 'user_ananya',
+    name: 'Ananya Kapoor',
+    bio: 'Classical dancer and dog lover 🐕💃',
+    vibe_score: 4.7,
+    photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop']
+  }
+];
+
 export default function CampusLive() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
@@ -87,52 +167,9 @@ export default function CampusLive() {
 
   const fetchAll = async () => {
     if (sessionToken === 'dummy_token') {
-      const mockConfessions = [
-        {
-          confession_id: 'conf_1',
-          content: "Anyone else completely unprepared for the internal exams next week? Stephens library is packed 😭",
-          college_id: 'col_stephens',
-          likes: 12,
-          comments: 2,
-          created_at: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          confession_id: 'conf_2',
-          content: "Met someone really cute in the metro today wearing a red hoodie. If you study at DU, please reply!",
-          college_id: null,
-          likes: 34,
-          comments: 0,
-          created_at: new Date(Date.now() - 7200000).toISOString()
-        }
-      ];
-      const mockStories = [
-        {
-          user_id: 'user_priya',
-          user_name: 'Priya Singh',
-          user_picture: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop',
-          has_unviewed: true,
-          stories: [
-            {
-              story_id: 'story_1',
-              image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop',
-              audience: 'college',
-              createdAt: new Date().toISOString()
-            }
-          ]
-        }
-      ];
-      const mockTopVibes = [
-        {
-          user_id: 'user_priya',
-          name: 'Priya Singh',
-          bio: 'Gym rat 💪 | Fitness freak',
-          photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
-          vibe_score: 4.9
-        }
-      ];
-      setConfessions(mockConfessions);
-      setStories(mockStories);
-      setTopVibes(mockTopVibes);
+      setConfessions(MOCK_CONFESSIONS);
+      setStories(MOCK_STORIES);
+      setTopVibes(MOCK_TOP_VIBES);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -159,11 +196,11 @@ export default function CampusLive() {
     if (sessionToken === 'dummy_token') {
       const newConf = {
         confession_id: `conf_mock_${Date.now()}`,
-        content: text,
-        college_id: feedType === 'college' ? user?.college_id : null,
+        content: text.trim(),
         likes: 0,
         comments: 0,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        college_id: feedType === 'college' ? user?.college_id : null
       };
       setConfessions(prev => [newConf, ...prev]);
       setText('');
@@ -200,7 +237,7 @@ export default function CampusLive() {
 
   const likeC = async (id: string) => {
     if (sessionToken === 'dummy_token') {
-      setConfessions(confessions.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
+      setConfessions(prev => prev.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
       setSelectedConfession((prev: any) => prev && prev.confession_id === id ? { ...prev, likes: (prev.likes || 0) + 1 } : prev);
       return;
     }
@@ -364,6 +401,7 @@ export default function CampusLive() {
   const isOwnStory = activeUserWithStories?.user_id === user?.user_id;
 
   const registerStoryView = async (storyId: string) => {
+    if (sessionToken === 'dummy_token') return;
     try {
       await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/${storyId}/view`, {
         method: 'POST',
@@ -471,6 +509,16 @@ export default function CampusLive() {
     }
 
     setLoadingComments(true);
+
+    if (sessionToken === 'dummy_token') {
+      setComments([
+        { comment_id: 'c_1', content: 'Omg yes, totally agree with this! 🙌', created_at: new Date(Date.now() - 1800000).toISOString(), college_name: 'LSR', parent_id: null },
+        { comment_id: 'c_2', content: 'Same here, let’s connect!', created_at: new Date(Date.now() - 900000).toISOString(), college_name: 'Stephens', parent_id: 'c_1' }
+      ]);
+      setLoadingComments(false);
+      return;
+    }
+
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${confession.confession_id}/comments`, { headers });
@@ -488,24 +536,21 @@ export default function CampusLive() {
     setPostingComment(true);
 
     if (sessionToken === 'dummy_token') {
-      const newCmt = {
+      const newComment = {
         comment_id: `cmt_mock_${Date.now()}`,
         confession_id: selectedConfession.confession_id,
-        content: commentText,
-        parent_id: replyingTo ? replyingTo.comment_id : null,
+        content: commentText.trim(),
         created_at: new Date().toISOString(),
-        college_name: user?.college_id ? 'Stephens' : 'Campus'
+        college_name: college?.short_name || 'My Campus',
+        parent_id: replyingTo ? replyingTo.comment_id : null
       };
-      setComments(prev => [...prev, newCmt]);
-      
-      // Update comment count on feed & modal
+      setComments(prev => [...prev, newComment]);
       setConfessions(prev => prev.map(c => 
         c.confession_id === selectedConfession.confession_id 
           ? { ...c, comments: (c.comments || 0) + 1 }
           : c
       ));
       setSelectedConfession((prev: any) => prev ? { ...prev, comments: (prev.comments || 0) + 1 } : null);
-      
       setCommentText('');
       setReplyingTo(null);
       setPostingComment(false);

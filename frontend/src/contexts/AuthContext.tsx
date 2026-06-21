@@ -40,6 +40,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
+  updateUser?: (updatedFields: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -255,40 +256,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    try {
-      if (sessionToken) {
-        await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error during logout:', error);
-    } finally {
-      await clearSession();
-    }
+    await clearSession();
   };
 
   const clearSession = async () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('session_token');
-    } else {
-      await SecureStore.deleteItemAsync('session_token');
-    }
     setSessionToken(null);
     setUser(null);
   };
 
   const refreshUser = async () => {
-    if (sessionToken) {
-      await fetchUserProfile(sessionToken);
-    }
+    // No-op in mock mode
+  };
+
+  const updateUser = (updatedFields: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updatedFields } : null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
