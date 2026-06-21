@@ -3,20 +3,22 @@ const { sequelize } = require('../config/db');
 
 const College = sequelize.define('College', {
   college_id: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     primaryKey: true,
-    allowNull: false
+    allowNull: false,
+    field: 'college_id'
   },
   name: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false
   },
   short_name: {
-    type: DataTypes.STRING,
-    allowNull: false
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    field: 'short_name'
   },
   location: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false
   },
   latitude: {
@@ -28,22 +30,23 @@ const College = sequelize.define('College', {
     allowNull: false
   },
   email_domains: {
-    type: DataTypes.JSON, // Stores array of email domains: ["ststephens.edu"]
+    type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: () => []
+    field: 'email_domains'
   },
   type: {
-    type: DataTypes.STRING,
-    allowNull: false // "university", "college", "institute"
+    type: DataTypes.STRING(255),
+    allowNull: false
   },
   city: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
     defaultValue: 'Delhi'
   }
 }, {
   tableName: 'colleges',
-  timestamps: true
+  timestamps: true,
+  underscored: true
 });
 
 module.exports = College;

@@ -1,304 +1,188 @@
-const axios = require('axios');
-const crypto = require('crypto');
-const { Op } = require('sequelize');
-const { User, Session, College } = require('../models');
-const { generateReferralCode } = require('../utils/geo');
-const { saveBase64Image } = require('../utils/fileUpload');
+const jwt = require('jsonwebtoken');
+const { auth } = require('../config/firebase');
+const User = require('../models/User');
+const College = require('../models/College');
 
-/**
- * Handles Google OAuth session validation and user sign-in/registration
- */
-const googleSessionLogin = async (req, res) => {
-  const { session_id, referral_code } = req.query; // parameters sent from client
+// Helper to generate JWT Token
+const generateToken = (userId, phoneNumber) => {
+  return jwt.sign(
+    { user_id: userId, phone_number: phoneNumber },
+    process.env.JWT_SECRET || 'super-secret-key-change-me',
+    { expiresIn: '30d' }
+  );
+};
 
-  if (!session_id) {
-    return res.status(400).json({ detail: 'Session ID is required' });
-  }
-
+// 1. Verify OTP token from Firebase Client and handle initial login
+exports.verifyOTP = async (req, res) => {
   try {
-    // Fetch session data from Emergent mock OAuth server
-    let sessionData;
-    try {
-      const response = await axios.get(
-        'https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data',
-        {
-          headers: { 'X-Session-ID': session_id }
-        }
-      );
-      sessionData = response.data;
-    } catch (err) {
-      console.error('Failed to fetch session data:', err.message);
-      return res.status(401).json({ detail: 'Invalid session ID' });
+    const { firebaseToken } = req.body;
+
+    if (!firebaseToken) {
+      return res.status(400).json({ detail: 'Firebase ID token is required' });
     }
 
-    const { email, name, picture, session_token } = sessionData;
+    // Verify token using Firebase Admin SDK
+    const decodedToken = await auth.verifyIdToken(firebaseToken);
+    const { uid, phone_number } = decodedToken;
 
-    // Check if user already exists
-    let user = await User.findOne({ where: { email } });
-
-    if (user) {
-      // Update picture if it has changed
-      if (picture && picture !== user.picture) {
-        user.picture = picture;
-        await user.save();
-      }
-    } else {
-      // User registration flow
-      const emailDomain = email.split('@')[1]?.toLowerCase() || '';
-
-      // Auto-verify if email matches a seeded college domain
-      // We search where email_domains JSON array contains emailDomain
-      const matchingCollege = await College.findOne({
-        where: {
-          email_domains: {
-            [Op.substring]: emailDomain // Simple substring search inside JSON or manual check
-          }
-        }
-      });
-
-      const refCode = generateReferralCode(name);
-      const userId = `user_${crypto.randomBytes(6).toString('hex')}`;
-      const verificationStatus = matchingCollege ? 'verified' : 'pending';
-      const collegeId = matchingCollege ? matchingCollege.college_id : null;
-
-      user = await User.create({
-        user_id: userId,
-        email,
-        name,
-        picture,
-        verification_status: verificationStatus,
-        college_id: collegeId,
-        referral_code: refCode,
-        referred_by: null,
-        referral_count: 0,
-        is_premium: false,
-        premium_until: null
-      });
-
-      // Handle referral code processing
-      if (referral_code) {
-        const referrer = await User.findOne({ where: { referral_code } });
-        if (referrer) {
-          user.referred_by = referrer.user_id;
-          await user.save();
-
-          // Reward referrer with 7 days of premium
-          let currentPremium = referrer.premium_until;
-          let newPremiumDate;
-
-          if (currentPremium && new Date(currentPremium) > new Date()) {
-            newPremiumDate = new Date(new Date(currentPremium).getTime() + 7 * 24 * 60 * 60 * 1000);
-          } else {
-            newPremiumDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-          }
-
-          referrer.premium_until = newPremiumDate;
-          referrer.is_premium = true;
-          referrer.referral_count += 1;
-          await referrer.save();
-        }
-      }
+    if (!phone_number) {
+      return res.status(400).json({ detail: 'Firebase token must contain a verified phone number' });
     }
 
-    // Create a new user session (expires in 7 days)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await Session.create({
-      session_token,
-      user_id: user.user_id,
-      expires_at: expiresAt
+    // Check if user exists by firebase_uid or phone_number
+    let user = await User.findOne({
+      where: { firebase_uid: uid }
     });
-
-    res.json({
-      session_token,
-      user: user.toJSON()
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ detail: 'Internal server error during authentication' });
-  }
-};
-
-/**
- * Returns currently authenticated user profile
- */
-const getMe = async (req, res) => {
-  // req.user populated by authenticate middleware
-  res.json({ user: req.user });
-};
-
-/**
- * Logs out and deletes active user session
- */
-const logout = async (req, res) => {
-  try {
-    await Session.destroy({
-      where: { session_token: req.token }
-    });
-    res.json({ message: 'Logged out successfully' });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ detail: 'Failed to logout' });
-  }
-};
-
-/**
- * Updates profile properties of active user
- */
-const updateProfile = async (req, res) => {
-  const { name, age, gender, college_id, year, course, bio, interests, looking_for } = req.body;
-  const user = req.user;
-
-  try {
-    if (name !== undefined) user.name = name;
-    if (age !== undefined) user.age = age;
-    if (gender !== undefined) user.gender = gender;
-    if (college_id !== undefined) user.college_id = college_id;
-    if (year !== undefined) user.year = year;
-    if (course !== undefined) user.course = course;
-    if (bio !== undefined) user.bio = bio;
-    if (interests !== undefined) user.interests = interests;
-    if (looking_for !== undefined) user.looking_for = looking_for;
-
-    await user.save();
-    res.json({ user });
-  } catch (error) {
-    console.error('Profile update error:', error);
-    res.status(500).json({ detail: 'Failed to update profile' });
-  }
-};
-
-/**
- * Uploads/adds profile photo to user photos array
- */
-const addPhoto = async (req, res) => {
-  const { photo } = req.body; // base64 string
-  const user = req.user;
-
-  if (!photo) {
-    return res.status(400).json({ detail: 'Photo base64 data is required' });
-  }
-
-  try {
-    const relativePath = saveBase64Image(photo, 'photos');
-
-    // Append to user photos array
-    const photos = [...user.photos, relativePath];
-    user.photos = photos;
-    await user.save();
-
-    res.json({ user });
-  } catch (error) {
-    console.error('Add photo error:', error);
-    res.status(500).json({ detail: 'Failed to upload photo' });
-  }
-};
-
-/**
- * Removes photo by index from user photos array
- */
-const deletePhoto = async (req, res) => {
-  const index = parseInt(req.params.index);
-  const user = req.user;
-
-  try {
-    const photos = [...user.photos];
-    if (index >= 0 && index < photos.length) {
-      photos.splice(index, 1);
-      user.photos = photos;
-      await user.save();
-    }
-    res.json({ user });
-  } catch (error) {
-    console.error('Delete photo error:', error);
-    res.status(500).json({ detail: 'Failed to delete photo' });
-  }
-};
-
-/**
- * Updates user spotify tracks & artists, awards vibe score bonus
- */
-const updateSpotify = async (req, res) => {
-  const { top_tracks, top_artists } = req.body;
-  const user = req.user;
-
-  try {
-    user.spotify_data = {
-      top_tracks: top_tracks || [],
-      top_artists: top_artists || []
-    };
-
-    // Bonus vibe score (+0.5) if spotify data provided
-    if ((top_tracks && top_tracks.length > 0) || (top_artists && top_artists.length > 0)) {
-      user.vibe_score = Math.min(5.0, user.vibe_score + 0.5);
-    }
-
-    await user.save();
-    res.json({ user });
-  } catch (error) {
-    console.error('Spotify update error:', error);
-    res.status(500).json({ detail: 'Failed to update Spotify data' });
-  }
-};
-
-/**
- * Bypasses Google OAuth for development, logging in directly with email
- */
-const bypassLogin = async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ detail: 'Email is required' });
-  }
-
-  try {
-    let user = await User.findOne({ where: { email } });
 
     if (!user) {
-      // Create user automatically
-      const name = email.split('@')[0];
-      const refCode = generateReferralCode(name);
-      const userId = `user_${crypto.randomBytes(6).toString('hex')}`;
+      user = await User.findOne({
+        where: { phone_number: phone_number }
+      });
+      
+      if (user) {
+        // Link firebase_uid if it wasn't set yet
+        user.firebase_uid = uid;
+        await user.save();
+      }
+    }
 
+    let exists = false;
+    
+    // User already exists in database
+    if (user) {
+      // Check if profile is complete (using name as proxy)
+      exists = !!user.name;
+    } else {
+      // Create a shell user record
+      const uniqueSuffix = Math.random().toString(36).substring(2, 9);
       user = await User.create({
-        user_id: userId,
-        email,
-        name,
-        verification_status: 'verified',
-        college_id: 'col_stephens', // default college
-        referral_code: refCode,
-        referred_by: null,
-        referral_count: 0,
-        is_premium: true,
-        premium_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        user_id: uid,
+        firebase_uid: uid,
+        phone_number: phone_number,
+        verification_status: 'pending',
+        vibe_score: 5,
+        interests: [],
+        photos: [],
+        spotify_data: {},
+        is_premium: false,
+        is_on_campus: false,
+        referral_code: `REF_${phone_number.replace(/\D/g, '') || uniqueSuffix}`
       });
     }
 
-    // Create a new user session
-    const sessionToken = `session_${crypto.randomBytes(12).toString('hex')}`;
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Generate session JWT token
+    const token = generateToken(user.user_id, user.phone_number);
 
-    await Session.create({
-      session_token: sessionToken,
-      user_id: user.user_id,
-      expires_at: expiresAt
-    });
-
-    res.json({
-      session_token: sessionToken,
-      user: user.toJSON()
+    return res.status(200).json({
+      exists,
+      user,
+      token
     });
   } catch (error) {
-    console.error('Bypass login error:', error);
-    res.status(500).json({ detail: 'Internal server error during bypass login' });
+    console.error('[verifyOTP Error]:', error);
+    return res.status(401).json({ detail: 'Authentication failed: ' + error.message });
   }
 };
 
-module.exports = {
-  googleSessionLogin,
-  bypassLogin,
-  getMe,
-  logout,
-  updateProfile,
-  addPhoto,
-  deletePhoto,
-  updateSpotify
+// 2. Onboarding profile completion (Section 1 & 2)
+exports.onboard = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    // Fetch shell user profile
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    const {
+      name,
+      age,
+      gender,
+      looking_for,
+      height,
+      location,
+      latitude,
+      longitude,
+      photos,
+      prompts,
+      interests,
+      religion,
+      drink,
+      smoke,
+      weed,
+      college_name,
+      course,
+      year
+    } = req.body;
+
+    // --- Onboarding Section 2: College Setup ---
+    let collegeId = null;
+
+    if (college_name) {
+      // Search case-insensitively for existing college
+      let college = await College.findOne({
+        where: { name: college_name }
+      });
+
+      if (!college) {
+        // If not found, dynamically generate a new college with auto-generated college_id
+        const newCollegeId = 'col_' + Math.random().toString(36).substring(2, 9);
+        const shortName = college_name.split(' ').map(w => w[0]).join('').toUpperCase() || 'COL';
+        
+        college = await College.create({
+          college_id: newCollegeId,
+          name: college_name,
+          short_name: shortName,
+          location: location || 'Unknown',
+          latitude: latitude ? parseFloat(latitude) : 0.0,
+          longitude: longitude ? parseFloat(longitude) : 0.0,
+          email_domains: [],
+          type: 'Other',
+          city: 'Delhi' // default city fallback
+        });
+        console.log(`[Onboarding] Dynamically created new college: ${college_name} (${newCollegeId})`);
+      }
+
+      collegeId = college.college_id;
+    }
+
+    // --- Onboarding Section 1: Personal Profile Data ---
+    // Update user details
+    user.name = name || user.name;
+    user.age = age ? parseInt(age, 10) : user.age;
+    user.gender = gender || user.gender;
+    user.looking_for = looking_for || user.looking_for;
+    user.height = height ? parseInt(height, 10) : user.height;
+    user.location = location || user.location;
+    user.latitude = latitude ? parseFloat(latitude) : user.latitude;
+    user.longitude = longitude ? parseFloat(longitude) : user.longitude;
+    user.religion = religion || user.religion;
+    user.drink = drink || user.drink;
+    user.smoke = smoke || user.smoke;
+    user.weed = weed || user.weed;
+    user.course = course || user.course;
+    user.year = year || user.year;
+    user.college_id = collegeId || user.college_id;
+
+    // Handle array / JSON types
+    if (photos) user.photos = Array.isArray(photos) ? photos : JSON.parse(photos);
+    if (prompts) user.prompts = typeof prompts === 'object' ? prompts : JSON.parse(prompts);
+    if (interests) user.interests = Array.isArray(interests) ? interests : JSON.parse(interests);
+
+    await user.save();
+
+    // Fetch refreshed user record including associated college details
+    const updatedUser = await User.findByPk(userId, {
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({
+      detail: 'Profile onboarding completed successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('[Onboarding Error]:', error);
+    return res.status(500).json({ detail: 'Failed to complete profile onboarding: ' + error.message });
+  }
 };

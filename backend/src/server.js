@@ -1,3 +1,4 @@
+require('dotenv').config();
 const app = require('./app');
 const { connectDB, sequelize } = require('./config/db');
 const { seedDatabase } = require('./utils/seeder');

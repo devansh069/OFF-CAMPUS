@@ -40,6 +40,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
+  updateUser?: (updatedFields: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,14 +73,13 @@ const dummyUser: User = {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(dummyUser);
+  const [loading, setLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>('dummy_token');
 
   // Check for existing session on mount
   useEffect(() => {
-    console.log('AuthProvider mounted. EXPO_PUBLIC_BACKEND_URL is:', EXPO_PUBLIC_BACKEND_URL);
-    checkExistingSession();
+    console.log('AuthProvider mounted in standalone Mock Mode. EXPO_PUBLIC_BACKEND_URL is ignored.');
   }, []);
 
   // Handle deep links (for mobile) - check both on mount and when URL changes
@@ -229,73 +229,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = async (email: string) => {
-    try {
-      setLoading(true);
-      console.log('Logging in via bypass endpoint for email:', email);
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/bypass-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email || 'dummy@test.edu.in' })
-      });
-      if (!response.ok) {
-        throw new Error('Bypass login failed with status ' + response.status);
-      }
-      const data = await response.json();
-      const token = data.session_token;
-      
-      // Store token
-      if (Platform.OS === 'web') {
-        localStorage.setItem('session_token', token);
-      } else {
-        await SecureStore.setItemAsync('session_token', token);
-      }
-
-      setSessionToken(token);
-      setUser(data.user);
+    setLoading(true);
+    setTimeout(() => {
+      setSessionToken('dummy_token');
+      setUser(dummyUser);
       setLoading(false);
-      console.log('Login successful! Session token:', token);
-    } catch (error) {
-      console.error('Error during login:', error);
-      setLoading(false);
-      Alert.alert('Login Failed', 'Could not connect to the backend authentication server.');
-    }
+      console.log('Mock login successful!');
+    }, 300);
   };
 
   const logout = async () => {
-    try {
-      if (sessionToken) {
-        await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error during logout:', error);
-    } finally {
-      await clearSession();
-    }
+    await clearSession();
   };
 
   const clearSession = async () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('session_token');
-    } else {
-      await SecureStore.deleteItemAsync('session_token');
-    }
     setSessionToken(null);
     setUser(null);
   };
 
   const refreshUser = async () => {
-    if (sessionToken) {
-      await fetchUserProfile(sessionToken);
-    }
+    // No-op in mock mode
+  };
+
+  const updateUser = (updatedFields: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updatedFields } : null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
