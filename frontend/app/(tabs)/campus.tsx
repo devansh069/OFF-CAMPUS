@@ -16,6 +16,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import { BlurView } from 'expo-blur';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -202,27 +203,36 @@ export default function Campus() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3366" />
-        }
-      >
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C2FF3D" />
+            }
+          >
         <View style={styles.header}>
           <Text style={styles.title}>Campus</Text>
           <Text style={styles.subtitle}>{college?.name || 'Loading...'}</Text>
         </View>
 
         <LinearGradient
-          colors={isOnCampus ? ['#4FC3F7', '#1E88E5'] : ['#FF3366', '#FF6B35']}
+          colors={['rgba(255, 255, 255, 0.06)', 'rgba(255, 255, 255, 0.03)']}
           style={styles.statusCard}
         >
           <View style={styles.statusIcon}>
             <Ionicons
               name={isOnCampus ? 'checkmark-circle' : 'location'}
               size={48}
-              color="#FFF"
+              color="#C2FF3D"
             />
           </View>
           <Text style={styles.statusTitle}>
@@ -237,7 +247,7 @@ export default function Campus() {
             <Text style={styles.distanceText}>{distance} km away</Text>
           )}
           <TouchableOpacity style={styles.checkInButton} onPress={requestLocationAndCheckIn} testID="checkin-btn">
-            <Ionicons name="navigate" size={20} color="#FF3366" />
+            <Ionicons name="navigate" size={20} color="#000" />
             <Text style={styles.checkInButtonText}>
               {isOnCampus ? 'Update Location' : 'Check In Now'}
             </Text>
@@ -284,7 +294,9 @@ export default function Campus() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -305,6 +317,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   statusIcon: { marginBottom: 8 },
   statusTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
@@ -313,14 +327,14 @@ const styles = StyleSheet.create({
   checkInButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#C2FF3D',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
     gap: 8,
     marginTop: 12,
   },
-  checkInButtonText: { color: '#FF3366', fontSize: 16, fontWeight: 'bold' },
+  checkInButtonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   section: { padding: 16 },
   sectionHeader: {
     flexDirection: 'row',
@@ -330,22 +344,24 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
   badge: {
-    backgroundColor: '#FF3366',
+    backgroundColor: '#C2FF3D',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     minWidth: 24,
     alignItems: 'center',
   },
-  badgeText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  badgeText: { color: '#000', fontSize: 12, fontWeight: 'bold' },
   usersList: { gap: 12 },
   userCard: {
     flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     padding: 12,
     borderRadius: 12,
     gap: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   userImage: { width: 60, height: 60, borderRadius: 30 },
   userInfo: { flex: 1, gap: 2 },

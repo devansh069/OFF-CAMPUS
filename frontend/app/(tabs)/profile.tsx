@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { BlurView } from 'expo-blur';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -164,31 +165,40 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Brand Header */}
-        <View style={styles.headerBar}>
-          <View style={styles.logoRow}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="flame" size={18} color="#ee4d4d" />
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Brand Header */}
+            <View style={styles.headerBar}>
+              <View style={styles.logoRow}>
+                <View style={styles.logoCircle}>
+                  <Ionicons name="flame" size={18} color="#C2FF3D" />
+                </View>
+                <Text style={styles.brandText}>mismatched</Text>
+              </View>
+              <View style={styles.headerRight}>
+                <TouchableOpacity style={styles.globalPill} onPress={() => router.push('/premium')}>
+                  <MaterialCommunityIcons name="crown" size={14} color="#C2FF3D" style={{ marginRight: 4 }} />
+                  <Text style={styles.globalText}>Global</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
+                  <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
+                </TouchableOpacity>
+              </View>
             </View>
-            <Text style={styles.brandText}>mismatched</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.globalPill} onPress={() => router.push('/premium')}>
-              <MaterialCommunityIcons name="crown" size={14} color="#FFD700" style={{ marginRight: 4 }} />
-              <Text style={styles.globalText}>Global</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Profile Avatar Card */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            <LinearGradient colors={['#ee4d4d', '#780505', '#FFD700']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.avatarRing}>
+            <LinearGradient colors={['#C2FF3D', 'rgba(194, 255, 61, 0.3)', '#C2FF3D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.avatarRing}>
               <View style={styles.avatarInner}>
                 <Image
                   source={{
@@ -199,7 +209,7 @@ export default function Profile() {
               </View>
             </LinearGradient>
             <View style={styles.crownBadge}>
-              <MaterialCommunityIcons name="crown" size={12} color="#FFF" />
+              <MaterialCommunityIcons name="crown" size={12} color="#000" />
             </View>
           </View>
 
@@ -219,7 +229,7 @@ export default function Profile() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statIconRow}>
-              <Ionicons name="sparkles" size={20} color="#ee4d4d" />
+              <Ionicons name="sparkles" size={20} color="#C2FF3D" />
             </View>
             <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
             <Text style={styles.statLabel}>VIBE SCORE</Text>
@@ -381,45 +391,47 @@ export default function Profile() {
           {!user.is_premium && (
             <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
               <LinearGradient
-                colors={['#FFD700', '#FFA500']}
+                colors={['#C2FF3D', '#C2FF3D']}
                 style={styles.premiumGradient}
               >
-                <Ionicons name="diamond" size={24} color="#FFF" />
+                <Ionicons name="diamond" size={24} color="#000" />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.premiumTitle}>Go Premium - ₹99/mo</Text>
                   <Text style={styles.premiumSubtitle}>Access ALL Delhi colleges + perks</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#FFF" />
+                <Ionicons name="chevron-forward" size={18} color="#000" />
               </LinearGradient>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/profile-edit')}>
-            <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.premiumGradient}>
-              <Ionicons name="create" size={24} color="#FFF" />
+            <LinearGradient colors={['#C2FF3D', '#C2FF3D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.premiumGradient}>
+              <Ionicons name="create" size={24} color="#000" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.premiumTitle}>Edit Profile</Text>
                 <Text style={styles.premiumSubtitle}>Update bio, interests & academics</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#FFF" />
+              <Ionicons name="chevron-forward" size={18} color="#000" />
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/referrals')}>
-            <LinearGradient colors={['#06D6A0', '#118AB2']} style={styles.premiumGradient}>
-              <Ionicons name="gift" size={24} color="#FFF" />
+            <LinearGradient colors={['#C2FF3D', '#C2FF3D']} style={styles.premiumGradient}>
+              <Ionicons name="gift" size={24} color="#000" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.premiumTitle}>Refer Friends</Text>
                 <Text style={styles.premiumSubtitle}>Earn 7 days premium per referral!</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#FFF" />
+              <Ionicons name="chevron-forward" size={18} color="#000" />
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -463,15 +475,15 @@ const styles = StyleSheet.create({
   globalPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A1E08',
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FFD700',
+    borderColor: '#C2FF3D',
   },
   globalText: {
-    color: '#FFD700',
+    color: '#C2FF3D',
     fontSize: 12,
     fontWeight: '900',
   },
@@ -514,7 +526,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 4,
-    backgroundColor: '#FFA500',
+    backgroundColor: '#C2FF3D',
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -557,7 +569,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#120F1D',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
@@ -580,7 +592,7 @@ const styles = StyleSheet.create({
   },
 
   dnaCard: {
-    backgroundColor: '#120F1D',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     marginHorizontal: 16,
     marginVertical: 12,
     padding: 16,
@@ -659,7 +671,7 @@ const styles = StyleSheet.create({
   },
 
   integrationsCard: {
-    backgroundColor: '#120F1D',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     marginHorizontal: 16,
     marginVertical: 12,
     padding: 16,
@@ -776,7 +788,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#120F1D',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     gap: 6,
   },
   addPhotoText: {
@@ -788,7 +800,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     lineHeight: 22,
-    backgroundColor: '#120F1D',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
@@ -800,15 +812,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: 'rgba(238, 77, 77, 0.1)',
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(238, 77, 77, 0.2)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
   },
   tagText: {
-    color: '#ee4d4d',
+    color: '#C2FF3D',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -825,12 +837,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   premiumTitle: {
-    color: '#FFF',
+    color: '#000',
     fontSize: 16,
     fontWeight: '900',
   },
   premiumSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(0, 0, 0, 0.7)',
     fontSize: 12,
     marginTop: 2,
   },

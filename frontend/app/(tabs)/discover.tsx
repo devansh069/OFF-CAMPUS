@@ -12,7 +12,8 @@ import {
   Animated,
   Modal,
   Switch,
-  PanResponder
+  PanResponder,
+  Platform
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -693,8 +694,17 @@ export default function Discover() {
   const profilePhotos = hasProfile ? getProfilePhotos(currentProfile) : [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.bg}>
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.bg}>
 
         {/* Top Header Bar */}
         <View style={styles.topBar}>
@@ -935,7 +945,7 @@ export default function Discover() {
                     }}
                   >
                     <LinearGradient
-                     colors={['#ee4d4d', '#780505']}
+                      colors={['#C2FF3D', '#C2FF3D']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.applyBtnGrad}
@@ -954,7 +964,7 @@ export default function Discover() {
         {hasProfile ? (
           <View style={styles.cardWrapper}>
             <Animated.View style={[styles.cardContainer, { transform: [{ translateX: slideAnim }] }]}>
-              <View style={styles.profileCard}>
+              <BlurView intensity={55} tint="dark" style={styles.profileCard}>
                 <ScrollView
                   ref={scrollViewRef}
                   style={styles.profileScrollView}
@@ -989,12 +999,12 @@ export default function Discover() {
                         activeOpacity={0.8}
                       >
                         <LinearGradient
-                          colors={['#ee4d4d', '#780505']}
+                          colors={['#C2FF3D', '#C2FF3D']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={styles.photoHandshakeGrad}
                         >
-                          <MaterialCommunityIcons name="handshake" size={24} color="#FFF" />
+                          <MaterialCommunityIcons name="handshake" size={24} color="#000" />
                         </LinearGradient>
                       </TouchableOpacity>
                     </View>
@@ -1114,7 +1124,7 @@ export default function Discover() {
                     })}
                   </View>
                 </ScrollView>
-              </View>
+              </BlurView>
             </Animated.View>
             {/* Floating Action Overlay Buttons */}
             <View style={styles.floatingActions}>
@@ -1141,7 +1151,7 @@ export default function Discover() {
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={16} color="#FFF" />
+              <Ionicons name="refresh" size={16} color="#000" />
               <Text style={styles.refreshText}>Refresh Feed</Text>
             </TouchableOpacity>
           </View>
@@ -1181,14 +1191,16 @@ export default function Discover() {
             </LinearGradient>
           </View>
         )}
-      </View>
-    </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
-  bg: { flex: 1, backgroundColor: '#000000' },
+  bg: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   topBar: {
     flexDirection: 'row',
@@ -1239,11 +1251,11 @@ const styles = StyleSheet.create({
   },
   globalToggleContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 20,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   globalToggleOption: {
     paddingHorizontal: 12,
@@ -1266,7 +1278,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
@@ -1289,11 +1301,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 15, 22, 0.94)',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     maxHeight: '85%',
   },
   modalHeader: {
@@ -1306,7 +1318,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalTitle: {
-    color: '#000000',
+    color: '#FFF',
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
@@ -1454,7 +1466,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
     gap: 12,
-    backgroundColor: '#0F0E17',
+    backgroundColor: 'rgba(15, 15, 22, 0.96)',
   },
   resetBtn: {
     flex: 1,
@@ -1484,7 +1496,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   applyBtnText: {
-    color: '#FFF',
+    color: '#000',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1501,14 +1513,14 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     flex: 1,
-    backgroundColor: '#0A0B14',
+    backgroundColor: 'rgba(7, 8, 15, 0.35)',
     borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
   },
@@ -1677,9 +1689,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#0B0A11',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   secondaryPhotoContainer: {
     width: '100%',
@@ -1687,11 +1699,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   promptHeader: {
-    backgroundColor: '#0B0A11',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   photoHandshakeBtn: {
     position: 'absolute',
@@ -1765,13 +1777,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
-    backgroundColor: '#FF1B6B',
+    backgroundColor: '#C2FF3D',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
     marginTop: 16
   },
-  refreshText: { color: '#FFF', fontWeight: '700' },
+  refreshText: { color: '#000', fontWeight: '700' },
 
   // Match Overlay
   matchOverlay: {
@@ -1791,8 +1803,8 @@ const styles = StyleSheet.create({
   matchSub: { color: '#FFF', fontSize: 14, opacity: 0.95 },
   matchPic: { width: 180, height: 180, borderRadius: 90, borderWidth: 5, borderColor: '#FFF' },
   matchActions: { gap: 12, width: '100%' },
-  matchBtn: { backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
-  matchBtnText: { color: '#ee4d4d', fontWeight: '900', fontSize: 16 },
+  matchBtn: { backgroundColor: '#C2FF3D', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
+  matchBtnText: { color: '#000', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
 });

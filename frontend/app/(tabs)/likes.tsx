@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -275,8 +276,17 @@ export default function Likes() {
   const remainingLikes = likes.slice(1);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.bg}>
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={[styles.bg, { backgroundColor: 'transparent' }]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.greet}>People Who</Text>
@@ -293,7 +303,7 @@ export default function Likes() {
         {likes.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyHeartGlow}>
-              <Ionicons name="heart-dislike-outline" size={80} color="rgba(238, 77, 77, 0.4)" />
+              <Ionicons name="heart-dislike-outline" size={80} color="rgba(194, 255, 61, 0.55)" />
             </View>
             <Text style={styles.emptyT}>No Likes Yet</Text>
             <Text style={styles.emptyS}>
@@ -422,12 +432,12 @@ export default function Likes() {
                       activeOpacity={0.8}
                     >
                       <LinearGradient
-                        colors={['#ee4d4d', '#780505']}
+                        colors={['#C2FF3D', '#C2FF3D']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.likeGradient}
                       >
-                        <MaterialCommunityIcons name="handshake" size={32} color="#FFF" />
+                        <MaterialCommunityIcons name="handshake" size={32} color="#000" />
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -472,7 +482,7 @@ export default function Likes() {
           <Modal transparent={true} visible={showMatch !== null} animationType="fade">
             <View style={styles.matchOverlay}>
               <LinearGradient
-                colors={['#ee4d4d', '#780505']}
+                colors={['#1F1D2B', '#0F0E17']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.matchInner}
@@ -504,8 +514,10 @@ export default function Likes() {
             </View>
           </Modal>
         )}
-      </View>
-    </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -519,16 +531,16 @@ const styles = StyleSheet.create({
   greet: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 12, fontWeight: '600' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   title: { color: '#FFF', fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  countBadge: { backgroundColor: '#ee4d4d', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
-  countText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
+  countBadge: { backgroundColor: '#C2FF3D', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
+  countText: { color: '#000', fontSize: 12, fontWeight: '900' },
   
   // Empty State styles
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16, marginTop: 40 },
-  emptyHeartGlow: { backgroundColor: 'rgba(238, 77, 77, 0.05)', padding: 24, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.15)' },
+  emptyHeartGlow: { backgroundColor: 'rgba(194, 255, 61, 0.06)', padding: 24, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.2)' },
   emptyT: { color: '#FFF', fontSize: 20, fontWeight: '800' },
   emptyS: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  exploreBtn: { marginTop: 12, backgroundColor: '#1E2030', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  exploreText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  exploreBtn: { marginTop: 12, backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#C2FF3D' },
+  exploreText: { color: '#000', fontWeight: '800', fontSize: 14 },
 
   scrollContainer: { paddingBottom: 60 },
   sectionHeading: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, marginTop: 8 },
@@ -554,8 +566,8 @@ const styles = StyleSheet.create({
   charText: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, fontWeight: '600' },
   
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  tag: { backgroundColor: 'rgba(238, 77, 77, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.2)' },
-  tagText: { color: '#ee4d4d', fontSize: 12, fontWeight: '700' },
+  tag: { backgroundColor: 'rgba(194, 255, 61, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
+  tagText: { color: '#C2FF3D', fontSize: 12, fontWeight: '700' },
 
   // Spotify integration styles
   spotifyCard: { backgroundColor: '#102A18', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#1DB95433', marginTop: 12, gap: 10 },
@@ -589,13 +601,13 @@ const styles = StyleSheet.create({
 
   // Match Screen Overlay
   matchOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 999 },
-  matchInner: { padding: 30, borderRadius: 24, alignItems: 'center', gap: 16, width: '100%' },
+  matchInner: { padding: 30, borderRadius: 24, alignItems: 'center', gap: 16, width: '100%', borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
   matchTitle: { color: '#FFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
   matchSub: { color: '#FFF', fontSize: 14, opacity: 0.95 },
   matchPic: { width: 180, height: 180, borderRadius: 90, borderWidth: 5, borderColor: '#FFF' },
   matchActions: { gap: 12, width: '100%', marginTop: 8 },
-  matchBtn: { backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
-  matchBtnText: { color: '#ee4d4d', fontWeight: '900', fontSize: 16 },
+  matchBtn: { backgroundColor: '#C2FF3D', paddingVertical: 14, borderRadius: 25, alignItems: 'center' },
+  matchBtnText: { color: '#000', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
 });

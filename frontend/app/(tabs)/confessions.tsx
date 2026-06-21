@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,25 @@ import { useRouter } from 'expo-router';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+const CARD_BG_IMAGES = [
+  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
+  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&q=80',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80',
+  'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&q=80',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80',
+  'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&q=80'
+];
+
+const getCardBg = (id: string) => {
+  if (!id) return CARD_BG_IMAGES[0];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % CARD_BG_IMAGES.length;
+  return CARD_BG_IMAGES[idx];
+};
 
 export default function CampusLive() {
   const { user, sessionToken } = useAuth();
@@ -440,7 +460,7 @@ export default function CampusLive() {
             onPress={() => setReplyingTo(node)}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-undo-outline" size={14} color="#A899B8" />
+            <Ionicons name="arrow-undo-outline" size={14} color="#C2FF3D" />
             <Text style={styles.commentReplyText}>Reply</Text>
           </TouchableOpacity>
         </View>
@@ -464,50 +484,116 @@ export default function CampusLive() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.bg}>
-        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor="#FF1B6B" />}>
-          <View style={styles.headerBar}>
-            <View style={{ flex: 1 }} />
-            <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>{feedType === 'global' ? '142 Live' : '18 Live'}</Text></View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.headerTitleContainer}
-            onPress={() => setFeedType(prev => prev === 'global' ? 'college' : 'global')}
-            activeOpacity={0.7}
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => { setRefreshing(true); fetchAll(); }}
+                tintColor="#FF1B6B"
+              />
+            }
           >
-            <Text style={styles.heroT} numberOfLines={1}>
-              {feedType === 'global' ? 'Global' : (college?.short_name || college?.name || 'My Campus')}
-            </Text>
-            <Ionicons name="chevron-down" size={24} color="#FFF" style={styles.chevronIcon} />
-          </TouchableOpacity>
-
-          {/* Stories List */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 14 }}>
-            {/* Create Story Button */}
-            <TouchableOpacity style={styles.storyItem} onPress={() => setShowPickModal(true)}>
-              <View style={styles.addStoryCircle}>
-                <Ionicons name="camera" size={28} color="#FF1B6B" />
-                <View style={styles.addPlus}><Ionicons name="add" size={14} color="#FFF" /></View>
-              </View>
-              <Text style={styles.storyName}>Your Story</Text>
-            </TouchableOpacity>
-
-            {/* Display Active Stories */}
-            {stories.map((s: any, userIndex: number) => (
-              <TouchableOpacity key={s.user_id} style={styles.storyItem} onPress={() => openStoryViewer(userIndex)}>
-                <LinearGradient colors={s.has_unviewed ? ['#ee4d4d', '#780505', '#FFD700'] : ['#3D2B4F', '#3D2B4F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.storyRing}>
-                  <View style={styles.storyInner}>
-                    {s.user_picture ? <Image source={{ uri: s.user_picture }} style={styles.storyImg} /> : <View style={[styles.storyImg, { backgroundColor: '#ee4d4d', alignItems: 'center', justifyContent: 'center' }]}><Text style={{ color: '#FFF', fontWeight: '900', fontSize: 24 }}>{s.user_name?.[0]}</Text></View>}
-                  </View>
+            {/* Redesigned Premium Header Bar */}
+            <View style={styles.newHeaderBar}>
+              <View style={styles.newHeaderLeft}>
+                <LinearGradient
+                  colors={['#FF007F', '#7F00FF', '#00FFFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.logoGradient}
+                >
+                  <Ionicons name="sparkles" size={15} color="#FFF" />
                 </LinearGradient>
-                <Text style={styles.storyName} numberOfLines={1}>
-                  {s.user_id === user?.user_id ? 'My Stories' : s.user_name?.split(' ')[0]}
-                </Text>
+                <TouchableOpacity
+                  style={styles.newHeaderDropdown}
+                  onPress={() => setFeedType(prev => prev === 'global' ? 'college' : 'global')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.newHeaderTitle} numberOfLines={1}>
+                    {feedType === 'global' ? 'Global Live' : (college?.short_name || college?.name || 'My Campus')}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.newHeaderRight}>
+                {/* Live count badge */}
+                <View style={styles.newLiveBadge}>
+                  <View style={styles.newLiveDot} />
+                  <Text style={styles.newLiveText}>{feedType === 'global' ? '142 Live' : '18 Live'}</Text>
+                </View>
+                <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+                  <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
+                  {user?.picture || user?.photos?.[0] ? (
+                    <Image source={{ uri: user.picture || user.photos[0] }} style={styles.headerAvatar} />
+                  ) : (
+                    <View style={[styles.headerAvatar, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{user?.name?.[0] || 'U'}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Section Title: Stories */}
+            <View style={styles.sectionHeadMini}>
+              <Text style={styles.sectionHeadLabel}>Stories on Live</Text>
+            </View>
+
+            {/* Stories List */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}>
+              {/* Create Story Button */}
+              <TouchableOpacity style={styles.storyItem} onPress={() => setShowPickModal(true)}>
+                <View style={styles.addStoryCircle}>
+                  <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFillObject} />
+                  <Ionicons name="camera" size={24} color="#FF1B6B" />
+                  <View style={styles.addPlus}><Ionicons name="add" size={14} color="#FFF" /></View>
+                </View>
+                <Text style={styles.storyName}>Your Story</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+
+              {/* Display Active Stories */}
+              {stories.map((s: any, userIndex: number) => (
+                <TouchableOpacity key={s.user_id} style={styles.storyItem} onPress={() => openStoryViewer(userIndex)}>
+                  <View style={{ position: 'relative' }}>
+                    <LinearGradient
+                      colors={s.has_unviewed ? ['#FF007F', '#7F00FF', '#00FFFF'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.15)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.storyRing}
+                    >
+                      <View style={styles.storyInner}>
+                        {s.user_picture ? (
+                          <Image source={{ uri: s.user_picture }} style={styles.storyImg} />
+                        ) : (
+                          <View style={[styles.storyImg, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                            <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 24 }}>{s.user_name?.[0]}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </LinearGradient>
+                    {/* Green Online Dot */}
+                    <View style={styles.storyOnlineDot} />
+                  </View>
+                  <Text style={styles.storyName} numberOfLines={1}>
+                    {s.user_id === user?.user_id ? 'My Stories' : s.user_name?.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
           {/* Slim Line Divider */}
           <View style={styles.divider} />
@@ -516,92 +602,171 @@ export default function CampusLive() {
           {topVibes.length > 0 && (
             <>
               <View style={styles.sectionHead}>
-                <View style={styles.trophyIc}><Ionicons name="trophy" size={20} color="#06D6A0" /></View>
-                <Text style={styles.sectionT}>Top Vibes</Text>
+                <View style={styles.trophyIc}><Ionicons name="trophy" size={18} color="#FFD700" /></View>
+                <Text style={styles.sectionT}>Top Campus Vibes</Text>
               </View>
-              {topVibes.map((u, i) => (
-                <View key={u.user_id} style={styles.vibeCard}>
-                  <LinearGradient colors={i === 0 ? ['#FFD700', '#FFA500'] : i === 1 ? ['#C0C0C0', '#A8A8A8'] : ['#CD7F32', '#A05A2C']} style={styles.rankBadge}>
-                    <Text style={styles.rankText}>#{i + 1}</Text>
-                  </LinearGradient>
-                  {u.photos?.[0] || u.picture ? <Image source={{ uri: u.photos?.[0] || u.picture }} style={styles.vibePic} /> : <View style={[styles.vibePic, { backgroundColor: '#3D2B4F' }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.vibeName}>{u.name}</Text>
-                    <Text style={styles.vibeBio} numberOfLines={1}>{u.bio || u.course || 'Campus star ⭐'}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+                style={{ marginBottom: 8, marginTop: 4 }}
+              >
+                {topVibes.map((u, i) => (
+                  <View key={u.user_id} style={styles.newVibeCard}>
+                    {u.photos?.[0] || u.picture ? (
+                      <Image source={{ uri: u.photos?.[0] || u.picture }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    ) : (
+                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
+                    )}
+                    <LinearGradient
+                      colors={['rgba(7, 8, 15, 0.1)', 'rgba(7, 8, 15, 0.85)']}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    
+                    {/* Rank tag floating on top */}
+                    <LinearGradient
+                      colors={i === 0 ? ['#007AFF', '#0055D0'] : i === 1 ? ['#9D4EDD', '#7B2CBF'] : ['#E29578', '#D76A03']}
+                      style={styles.newRankTag}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={styles.newRankTagText}>
+                        {i === 0 ? '🏆 #1 Vibe' : i === 1 ? '✨ #2 Vibe' : '⭐ #3 Vibe'}
+                      </Text>
+                    </LinearGradient>
+
+                    {/* User Info at the bottom of card */}
+                    <View style={styles.newVibeCardBottom}>
+                      <Text style={styles.newVibeName} numberOfLines={1}>{u.name}</Text>
+                      <Text style={styles.newVibeBio} numberOfLines={1}>{u.bio || u.course || 'Campus star'}</Text>
+                      
+                      <View style={styles.newVibeScoreRow}>
+                        <Ionicons name="sparkles" size={11} color="#FFD700" style={{ marginRight: 2 }} />
+                        <Text style={styles.newVibeScoreText}>{u.vibe_score?.toFixed(1)}</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.vibeScoreBox}>
-                    <Ionicons name="sparkles" size={14} color="#FFD700" />
-                    <Text style={styles.vibeScoreT}>{u.vibe_score?.toFixed(1)}</Text>
-                  </View>
-                </View>
-              ))}
+                ))}
+              </ScrollView>
             </>
           )}
 
-          {/* Confessions */}
+          {/* Confessions Title */}
           <View style={styles.sectionHead}>
-            <Ionicons name="megaphone" size={20} color="#ee4d4d" />
-            <Text style={styles.sectionT}>Confessions</Text>
+            <View style={styles.megaphoneIc}>
+              <Ionicons name="megaphone" size={18} color="#FF1B6B" />
+            </View>
+            <Text style={styles.sectionT}>Live Confessions</Text>
           </View>
 
-          {/* Sleek Inline Input below heading, no emoji circle */}
-          <View style={styles.inlineInputRow}>
-            <TextInput
-              style={styles.inlineInput}
-              placeholder="Drop an anonymous confession..."
-              placeholderTextColor="#6B5B7A"
-              value={text}
-              onChangeText={setText}
-              maxLength={300}
-              returnKeyType="send"
-              onSubmitEditing={post}
-            />
-            <TouchableOpacity
-              style={[styles.plusButton, !text.trim() && styles.plusButtonDisabled]}
-              onPress={post}
-              disabled={!text.trim() || posting}
-              activeOpacity={0.7}
-            >
-              {posting ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Ionicons name="add" size={24} color="#FFF" />
-              )}
-            </TouchableOpacity>
+          {/* Premium Frosted Composer */}
+          <View style={styles.premiumComposerWrapper}>
+            <BlurView intensity={35} tint="light" style={styles.composerGlass}>
+              <TextInput
+                style={styles.composerInput}
+                placeholder="Drop an anonymous confession..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={text}
+                onChangeText={setText}
+                maxLength={300}
+                returnKeyType="send"
+                onSubmitEditing={post}
+              />
+              <TouchableOpacity
+                style={[styles.composerSendBtn, !text.trim() && styles.composerSendBtnDisabled]}
+                onPress={post}
+                disabled={!text.trim() || posting}
+                activeOpacity={0.7}
+              >
+                {posting ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <LinearGradient
+                    colors={['#C2FF3D', '#C2FF3D']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.sendBtnGrad}
+                  >
+                    <Ionicons name="arrow-up" size={18} color="#000" />
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            </BlurView>
           </View>
 
-          {/* Slim Line Divider after input */}
-          <View style={styles.divider} />
+          {/* Confessions Grid */}
+          <View style={styles.gridContainer}>
+            {filteredConfessions.map((c: any) => {
+              const bgImage = getCardBg(c.confession_id);
+              return (
+                <TouchableOpacity
+                  key={c.confession_id}
+                  style={styles.newConfGridCard}
+                  onPress={() => openComments(c)}
+                  activeOpacity={0.9}
+                >
+                  <Image source={{ uri: bgImage }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                  <LinearGradient
+                    colors={['rgba(7, 8, 15, 0.4)', 'rgba(7, 8, 15, 0.88)']}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  
+                  {/* Card Header Overlay */}
+                  <View style={styles.cardHeader}>
+                    <LinearGradient
+                      colors={['#FF1B6B', '#FF8C00']}
+                      style={styles.cardHeaderAvatar}
+                    >
+                      <Ionicons name="eye" size={10} color="#FFF" />
+                    </LinearGradient>
+                    <View style={{ flex: 1, marginLeft: 6 }}>
+                      <Text style={styles.cardHeaderName} numberOfLines={1}>Anon</Text>
+                      <Text style={styles.cardHeaderSub} numberOfLines={1}>
+                        {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.cardFollowBtn} 
+                      onPress={(e) => { e.stopPropagation(); openComments(c); }}
+                      activeOpacity={0.8}
+                    >
+                      <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFillObject} />
+                      <Text style={styles.cardFollowBtnText}>Reply</Text>
+                    </TouchableOpacity>
+                  </View>
 
-          {filteredConfessions.map((c: any) => (
-            <TouchableOpacity 
-              key={c.confession_id} 
-              style={styles.confCard}
-              onPress={() => openComments(c)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.confTop}>
-                <Text style={styles.confHeaderAnon}>
-                  Anonymous • {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
-                </Text>
-                <Text style={styles.confTime}>{c.created_at && formatDistanceToNow(new Date(c.created_at), { addSuffix: false })}</Text>
-              </View>
-              <View style={styles.messageBubble}>
-                <Text style={styles.confTxt}>{c.content}</Text>
-              </View>
-              <View style={styles.confActions}>
-                <TouchableOpacity style={styles.confAct} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                  <Ionicons name="heart" size={18} color="#ee4d4d" />
-                  <Text style={styles.confActT}>{c.likes || 0}</Text>
+                  {/* Card Confession Text Body */}
+                  <View style={styles.cardTextContainer}>
+                    <Text style={styles.cardTxt} numberOfLines={4}>
+                      {c.content}
+                    </Text>
+                  </View>
+
+                  {/* Bottom overlay badges */}
+                  <View style={styles.cardBottomRow}>
+                    <View style={styles.liveBadgeMini}>
+                      <Text style={styles.liveBadgeMiniText}>LIVE</Text>
+                    </View>
+                    <Text style={styles.cardTimeText}>
+                      {c.created_at && formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim()}
+                    </Text>
+                    
+                    <View style={styles.cardStatsGroup}>
+                      <TouchableOpacity style={styles.cardStatIconBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
+                        <Ionicons name="heart" size={11} color="#FF2D55" />
+                        <Text style={styles.cardStatText}>{c.likes || 0}</Text>
+                      </TouchableOpacity>
+                      <View style={styles.cardStatIconBtn}>
+                        <Ionicons name="chatbubble" size={10} color="#FFF" />
+                        <Text style={styles.cardStatText}>{c.comments || 0}</Text>
+                      </View>
+                    </View>
+                  </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.confAct} onPress={() => openComments(c)}>
-                  <Ionicons name="chatbubble" size={16} color="#A899B8" />
-                  <Text style={styles.confActT}>{c.comments || 0}</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <View style={{ height: 40 }} />
+              );
+            })}
+          </View>
+          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* REDDIT STYLE COMMENTS THREAD MODAL */}
@@ -629,26 +794,26 @@ export default function CampusLive() {
               showsVerticalScrollIndicator={false}
             >
               {selectedConfession && (
-                <View style={[styles.confCard, { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', marginHorizontal: 0, marginTop: 10 }]}>
-                  <View style={styles.confTop}>
-                    <Text style={styles.confHeaderAnon}>
+                <View style={styles.modalConfCard}>
+                  <View style={styles.modalConfTop}>
+                    <Text style={styles.modalConfHeaderAnon}>
                       Anonymous • {selectedConfession.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
                     </Text>
-                    <Text style={styles.confTime}>
-                      {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })}
+                    <Text style={styles.modalConfTime}>
+                      {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
                     </Text>
                   </View>
-                  <View style={styles.messageBubble}>
-                    <Text style={styles.confTxt}>{selectedConfession.content}</Text>
+                  <View style={styles.modalMessageBubble}>
+                    <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
                   </View>
-                  <View style={styles.confActions}>
-                    <TouchableOpacity style={styles.confAct} onPress={() => likeC(selectedConfession.confession_id)}>
-                      <Ionicons name="heart" size={18} color="#ee4d4d" />
-                      <Text style={styles.confActT}>{selectedConfession.likes || 0}</Text>
+                  <View style={styles.modalConfActions}>
+                    <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
+                      <Ionicons name="heart" size={16} color="#FF2D55" />
+                      <Text style={styles.modalConfActT}>{selectedConfession.likes || 0}</Text>
                     </TouchableOpacity>
-                    <View style={styles.confAct}>
-                      <Ionicons name="chatbubble" size={16} color="#A899B8" />
-                      <Text style={styles.confActT}>{selectedConfession.comments || 0}</Text>
+                    <View style={styles.modalConfAct}>
+                      <Ionicons name="chatbubble" size={14} color="#FFF" />
+                      <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
                     </View>
                   </View>
                 </View>
@@ -701,12 +866,12 @@ export default function CampusLive() {
                     <ActivityIndicator color="#FFF" size="small" />
                   ) : (
                     <LinearGradient 
-                      colors={['#ee4d4d', '#780505']} 
+                      colors={['#C2FF3D', '#C2FF3D']} 
                       start={{ x: 0, y: 0 }} 
                       end={{ x: 1, y: 0 }} 
                       style={styles.sendGrad}
                     >
-                      <Ionicons name="send" size={16} color="#FFF" />
+                      <Ionicons name="send" size={16} color="#000" />
                     </LinearGradient>
                   )}
                 </TouchableOpacity>
@@ -943,134 +1108,429 @@ export default function CampusLive() {
             )}
           </View>
         </Modal>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurView>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
-  bg: { flex: 1, backgroundColor: '#000000' },
+  bg: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
-  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3D1A2E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#ee4d4d' },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ee4d4d' },
-  liveText: { color: '#ee4d4d', fontSize: 12, fontWeight: '900' },
-  headerTitleContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
-  heroT: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
-  chevronIcon: { marginLeft: 8 },
+
+  // Redesigned Header Styles
+  newHeaderBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 12 : 36,
+    paddingBottom: 16,
+  },
+  newHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoGradient: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newHeaderDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newHeaderTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  newHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  newLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 45, 85, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 45, 85, 0.35)',
+  },
+  newLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FF2D55',
+  },
+  newLiveText: {
+    color: '#FF2D55',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+
+  // Stories Section Headers & Items
+  sectionHeadMini: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  sectionHeadLabel: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   storiesScroll: { flexGrow: 0, marginBottom: 16 },
   storyItem: { alignItems: 'center', gap: 6, width: 72 },
-  addStoryCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: '#ee4d4d', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', position: 'relative' },
-  addPlus: { position: 'absolute', bottom: 0, right: 4, backgroundColor: '#ee4d4d', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000000' },
+  addStoryCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  addPlus: {
+    position: 'absolute',
+    bottom: 0,
+    right: 4,
+    backgroundColor: '#FF1B6B',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0B0B0C',
+  },
   storyRing: { width: 72, height: 72, borderRadius: 36, padding: 2, alignItems: 'center', justifyContent: 'center' },
-  storyInner: { width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#000000', padding: 2 },
+  storyInner: { width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#0B0B0C', padding: 2 },
   storyImg: { width: '100%', height: '100%', borderRadius: 32 },
-  storyName: { color: '#C5B6D6', fontSize: 11, fontWeight: '600', textAlign: 'center' },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255, 255, 255, 0.15)', marginHorizontal: 16, marginVertical: 12 },
-  inlineInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 12 },
-  inlineEmojiCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
-  inlineInput: { flex: 1, color: '#FFF', fontSize: 15, paddingVertical: 10, paddingHorizontal: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
-  plusButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#ee4d4d', alignItems: 'center', justifyContent: 'center' },
-  plusButtonDisabled: { backgroundColor: 'rgba(255, 255, 255, 0.2)', opacity: 0.5 },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
-  trophyIc: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#06D6A022', alignItems: 'center', justifyContent: 'center' },
-  sectionT: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  vibeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 6, marginHorizontal: 16, padding: 12, backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: 18, borderWidth: 1, borderColor: '#2A1B3D' },
-  rankBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  rankText: { color: '#FFF', fontWeight: '900', fontSize: 13 },
-  vibePic: { width: 50, height: 50, borderRadius: 25 },
-  vibeName: { color: '#FFF', fontWeight: '900', fontSize: 16 },
-  vibeBio: { color: '#A899B8', fontSize: 12 },
-  vibeScoreBox: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFD70022', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  vibeScoreT: { color: '#FFD700', fontWeight: '900' },
-  confCard: { marginVertical: 8, marginHorizontal: 16, padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 20, borderWidth: 1, borderColor: '#2A1B3D' },
-  confTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  confAv: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  confAvT: { fontSize: 16, color: '#FFF' },
-  confAnon: { backgroundColor: '#2A1B3D', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  confAnonT: { color: '#A899B8', fontSize: 12, fontWeight: '700' },
-  confHeaderAnon: { color: '#A899B8', fontSize: 13, fontWeight: '600' },
-  messageBubble: { backgroundColor: 'rgba(255, 255, 255, 0.06)', borderRadius: 16, borderBottomLeftRadius: 4, padding: 14, marginTop: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.04)' },
-  confTime: { color: '#6B5B7A', fontSize: 12, marginLeft: 'auto' },
-  confTxt: { color: '#FFF', fontSize: 16, lineHeight: 22 },
-  confActions: { flexDirection: 'row', gap: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' },
-  confAct: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  confActT: { color: '#A899B8', fontWeight: '600' },
-  
+  storyName: { color: 'rgba(255, 255, 255, 0.65)', fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  storyOnlineDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#0B0B0C',
+    zIndex: 10,
+  },
+
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginHorizontal: 16, marginVertical: 12 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 14, marginBottom: 8 },
+  trophyIc: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255, 215, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  megaphoneIc: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255, 27, 107, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  sectionT: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+
+  // Redesigned Top Vibes Card (Horizontal Scroll)
+  newVibeCard: {
+    width: 130,
+    height: 170,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  newRankTag: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    zIndex: 5,
+  },
+  newRankTagText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  newVibeCardBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 10,
+  },
+  newVibeName: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  newVibeBio: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  newVibeScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  newVibeScoreText: {
+    color: '#FFD700',
+    fontWeight: '800',
+    fontSize: 10,
+  },
+
+  // Premium Composer Styles
+  premiumComposerWrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  composerGlass: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 24,
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  composerInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    paddingVertical: 8,
+  },
+  composerSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  composerSendBtnDisabled: {
+    opacity: 0.35,
+  },
+  sendBtnGrad: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Confessions Grid Styles
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  newConfGridCard: {
+    width: (width - 44) / 2,
+    height: width * 0.62,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    position: 'relative',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  cardHeaderAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderName: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  cardHeaderSub: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 9,
+    fontWeight: '500',
+    marginTop: -1,
+  },
+  cardFollowBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.4)',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardFollowBtnText: {
+    color: '#C2FF3D',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  cardTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 6,
+    zIndex: 5,
+  },
+  cardTxt: {
+    color: '#FFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  liveBadgeMini: {
+    backgroundColor: '#FF2D55',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  liveBadgeMiniText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  cardTimeText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 9,
+    marginLeft: 5,
+    fontWeight: '600',
+  },
+  cardStatsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    gap: 8,
+  },
+  cardStatIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  cardStatText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
   // Comments modal & threads styles
-  commentsModalContainer: { flex: 1, backgroundColor: '#000000' },
-  commentsModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  commentsModalContainer: { flex: 1, backgroundColor: 'rgba(7, 8, 15, 0.98)' },
+  commentsModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   modalCloseBtn: { padding: 4 },
-  modalHeaderTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  modalHeaderTitle: { color: '#FFF', fontSize: 16, fontWeight: '800' },
   commentsScrollView: { flex: 1 },
   commentsContentContainer: { paddingHorizontal: 16, paddingBottom: 40 },
-  repliesTitleHeader: { color: '#FFF', fontSize: 16, fontWeight: '800', marginTop: 20, marginBottom: 12 },
+  repliesTitleHeader: { color: '#FFF', fontSize: 15, fontWeight: '800', marginTop: 20, marginBottom: 12 },
   emptyCommentsBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
-  emptyCommentsText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
+  emptyCommentsText: { color: 'rgba(255,255,255,0.3)', fontSize: 13 },
   commentsTreeBox: { paddingBottom: 20 },
   commentNodeContainer: { marginVertical: 8 },
   commentTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  commentAnon: { color: '#A899B8', fontSize: 13, fontWeight: '700' },
-  commentTime: { color: '#6B5B7A', fontSize: 11 },
+  commentAnon: { color: '#A899B8', fontSize: 12, fontWeight: '700' },
+  commentTime: { color: 'rgba(255,255,255,0.35)', fontSize: 10 },
   commentBodyRow: { paddingLeft: 2 },
-  commentText: { color: '#FFF', fontSize: 14, lineHeight: 18 },
-  commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 4 },
+  commentText: { color: '#FFF', fontSize: 13, lineHeight: 17 },
+  commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 4 },
   commentReplyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 },
-  commentReplyText: { color: '#A899B8', fontSize: 12, fontWeight: '600' },
-  nestedRepliesContainer: { borderLeftWidth: 1.5, borderLeftColor: 'rgba(255, 255, 255, 0.12)', marginLeft: 6, paddingLeft: 12, marginTop: 4 },
-  commentInputWrapper: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', padding: 12, backgroundColor: '#0A0A0B' },
+  commentReplyText: { color: '#C2FF3D', fontSize: 11, fontWeight: '600' },
+  nestedRepliesContainer: { borderLeftWidth: 1.5, borderLeftColor: 'rgba(255, 255, 255, 0.1)', marginLeft: 6, paddingLeft: 10, marginTop: 4 },
+  commentInputWrapper: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', padding: 12, backgroundColor: 'rgba(15, 15, 20, 0.95)' },
   commentInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  commentTextInput: { flex: 1, color: '#FFF', fontSize: 14, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', maxHeight: 100 },
-  commentSendBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  commentTextInput: { flex: 1, color: '#FFF', fontSize: 13, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', maxHeight: 100 },
+  commentSendBtn: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   commentSendBtnDisabled: { opacity: 0.5 },
   sendGrad: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  replyingToHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(238, 77, 77, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 8 },
-  replyingToText: { color: '#ee4d4d', fontSize: 12, flex: 1, marginRight: 8 },
+  replyingToHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255, 45, 85, 0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginBottom: 8 },
+  replyingToText: { color: '#FF2D55', fontSize: 11, flex: 1, marginRight: 8 },
 
   // Picker modal and popups
-  dialogBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.82)', justifyContent: 'center', alignItems: 'center' },
-  dialogCard: { backgroundColor: '#0B0B0C', width: width - 48, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 24, gap: 16 },
-  dialogTitle: { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  dialogDesc: { color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 20 },
-  dialogOptBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 18, padding: 14 },
-  dialogOptIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  dialogOptText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  dialogBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'center', alignItems: 'center' },
+  dialogCard: { backgroundColor: '#0B0B0C', width: width - 48, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 24, gap: 16 },
+  dialogTitle: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  dialogDesc: { color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 18 },
+  dialogOptBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: 12 },
+  dialogOptIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  dialogOptText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 
   // Audience settings styles
-  audienceSheet: { backgroundColor: '#0B0B0C', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: 36, gap: 16 },
-  dragHandle: { width: 40, height: 4, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
-  sheetTitle: { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  sheetDesc: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
-  audienceOpt: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: 14 },
-  audienceIconWrapper: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  audienceName: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  audienceDetail: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 },
-  premiumBadge: { backgroundColor: 'rgba(255, 215, 0, 0.1)', borderWidth: 1, borderColor: '#FFD700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  audienceSheet: { backgroundColor: '#0B0B0C', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: 36, gap: 16 },
+  dragHandle: { width: 40, height: 4, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  sheetTitle: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  sheetDesc: { color: 'rgba(255,255,255,0.45)', fontSize: 13 },
+  audienceOpt: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', borderRadius: 18, padding: 12 },
+  audienceIconWrapper: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center' },
+  audienceName: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  audienceDetail: { color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 2 },
+  premiumBadge: { backgroundColor: 'rgba(255, 215, 0, 0.08)', borderWidth: 1, borderColor: '#FFD700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   premiumBadgeText: { color: '#FFD700', fontSize: 8, fontWeight: '900' },
-  sheetCancelBtn: { backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 24, alignItems: 'center', marginTop: 8 },
-  sheetCancelText: { color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: '700' },
+  sheetCancelBtn: { backgroundColor: 'rgba(255,255,255,0.04)', paddingVertical: 12, borderRadius: 24, alignItems: 'center', marginTop: 8 },
+  sheetCancelText: { color: 'rgba(255,255,255,0.5)', fontSize: 14, fontWeight: '700' },
 
   // Premium buy dialog
-  premiumDialog: { backgroundColor: '#0B0B0C', width: width - 48, borderRadius: 28, borderWidth: 1, borderColor: '#FFD70022', padding: 28, alignItems: 'center', gap: 18 },
-  diamondWrapper: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255, 215, 0, 0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.2)' },
-  premiumTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
-  premiumDesc: { color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 22, textAlign: 'center' },
+  premiumDialog: { backgroundColor: '#0B0B0C', width: width - 48, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.15)', padding: 28, alignItems: 'center', gap: 18 },
+  diamondWrapper: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255, 215, 0, 0.06)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.15)' },
+  premiumTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  premiumDesc: { color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 20, textAlign: 'center' },
   buyBtn: { width: '100%', borderRadius: 24, overflow: 'hidden', marginTop: 8 },
-  buyBtnGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  buyBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
+  buyBtnGradient: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  buyBtnText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   premiumCloseBtn: { paddingVertical: 10, alignSelf: 'center' },
-  premiumCloseText: { color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '600' },
+  premiumCloseText: { color: 'rgba(255,255,255,0.35)', fontSize: 13, fontWeight: '600' },
 
   // Story fullscreen view overlay
   storyViewContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
   progBarRow: { position: 'absolute', top: 50, left: 16, right: 16, flexDirection: 'row', gap: 6, zIndex: 100 },
-  progBarWrapper: { flex: 1, height: 3, backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 2, overflow: 'hidden' },
+  progBarWrapper: { flex: 1, height: 3, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 2, overflow: 'hidden' },
   progBarFill: { height: '100%', backgroundColor: '#FFF' },
   storyHeader: { position: 'absolute', top: 64, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', zIndex: 100 },
-  storyHeadPic: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
-  storyHeadName: { color: '#FFF', fontSize: 14, fontWeight: '800' },
-  storyHeadTime: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 11, fontWeight: '600', marginTop: 1 },
+  storyHeadPic: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' },
+  storyHeadName: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  storyHeadTime: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 10, fontWeight: '600', marginTop: 1 },
   storyClose: { marginLeft: 'auto', padding: 4 },
   storyLeftTap: { position: 'absolute', left: 0, top: 120, bottom: 120, width: width * 0.3, zIndex: 90 },
   storyRightTap: { position: 'absolute', right: 0, top: 120, bottom: 120, width: width * 0.7, zIndex: 90 },
@@ -1078,22 +1538,79 @@ const styles = StyleSheet.create({
 
   // Viewers list drawer activator
   viewersIndicator: { position: 'absolute', bottom: 36, alignSelf: 'center', zIndex: 100, alignItems: 'center', gap: 6 },
-  bounceUpIcon: { color: 'rgba(255,255,255,0.6)' },
-  viewsCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  viewsCountText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  bounceUpIcon: { color: 'rgba(255,255,255,0.5)' },
+  viewsCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  viewsCountText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
 
   // Viewers listing drawer sheet
   viewsDrawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  viewsDrawerSheet: { backgroundColor: '#0B0B0C', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: screenHeight * 0.6, paddingBottom: 24 },
-  viewsDrawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  viewsDrawerTitle: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-  viewsDrawerClose: { backgroundColor: 'rgba(255,255,255,0.08)', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  viewsDrawerSheet: { backgroundColor: '#0B0B0C', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', height: screenHeight * 0.6, paddingBottom: 24 },
+  viewsDrawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
+  viewsDrawerTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+  viewsDrawerClose: { backgroundColor: 'rgba(255,255,255,0.05)', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   viewsDrawerContent: { padding: 20, paddingBottom: 40 },
   emptyViewers: { paddingVertical: 60, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyViewersText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  emptyViewersSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', paddingHorizontal: 30 },
-  viewerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 10 },
-  viewerPic: { width: 44, height: 44, borderRadius: 22 },
-  viewerName: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  viewerTime: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 },
+  emptyViewersText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
+  emptyViewersSub: { color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'center', paddingHorizontal: 30 },
+  viewerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 8 },
+  viewerPic: { width: 38, height: 38, borderRadius: 19 },
+  viewerName: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  viewerTime: { color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 2 },
+
+  // Comments modal confession banner styles
+  modalConfCard: {
+    marginVertical: 10,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalConfTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  modalConfHeaderAnon: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalConfTime: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  modalMessageBubble: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  modalConfTxt: {
+    color: '#FFF',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  modalConfActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  modalConfAct: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modalConfActT: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontWeight: '700',
+    fontSize: 12,
+  },
 });

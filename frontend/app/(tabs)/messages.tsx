@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -168,16 +170,25 @@ export default function Messages() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <Text style={styles.title}>Inbox 💬</Text>
-          <View style={styles.pulseBadge}>
-            <View style={styles.activeDot} />
-            <Text style={styles.pulseText}>{matches.length} Matches</Text>
+    <View style={styles.container}>
+      {/* Grayscale aesthetic dark portrait background image */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+        blurRadius={Platform.OS === 'android' ? 25 : 0}
+      />
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.header}>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.title}>Inbox 💬</Text>
+              <View style={styles.pulseBadge}>
+                <View style={styles.activeDot} />
+                <Text style={styles.pulseText}>{matches.length} Matches</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </View>
 
 
 
@@ -202,7 +213,7 @@ export default function Messages() {
                       style={styles.matchAvatar}
                     />
                     <LinearGradient
-                      colors={['#ee4d4d', '#780505']}
+                      colors={['#C2FF3D', '#C2FF3D']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.matchRing}
@@ -283,7 +294,7 @@ export default function Messages() {
                     </Text>
                     {hasUnread && (
                       <LinearGradient
-                        colors={['#ee4d4d', '#780505']}
+                        colors={['#C2FF3D', '#C2FF3D']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.unreadBadge}
@@ -298,7 +309,9 @@ export default function Messages() {
           })
         )}
       </ScrollView>
-    </SafeAreaView>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -315,9 +328,9 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   brandLogo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
-  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(238, 77, 77, 0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(238, 77, 77, 0.25)' },
-  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ee4d4d' },
-  pulseText: { color: '#ee4d4d', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(194, 255, 61, 0.08)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#C2FF3D' },
+  pulseText: { color: '#C2FF3D', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
   title: { fontSize: 32, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
 
   // Search Bar
@@ -347,15 +360,15 @@ const styles = StyleSheet.create({
   convHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   convName: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   convTime: { fontSize: 11, color: 'rgba(255, 255, 255, 0.35)' },
-  convTimeUnread: { color: '#ee4d4d', fontWeight: '700' },
+  convTimeUnread: { color: '#C2FF3D', fontWeight: '700' },
   convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   convMessage: { fontSize: 13, color: 'rgba(255, 255, 255, 0.5)', flex: 1 },
   convMessageUnread: { color: '#FFF', fontWeight: '700' },
   unreadBadge: { paddingHorizontal: 6, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  unreadCount: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  unreadCount: { color: '#000', fontSize: 10, fontWeight: '900' },
   emptyState: { padding: 60, alignItems: 'center', gap: 12, justifyContent: 'center' },
   emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18 },
-  exploreBtn: { backgroundColor: '#ee4d4d', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
-  exploreBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
+  exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14 },
 });
