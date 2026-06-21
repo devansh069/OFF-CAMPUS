@@ -8,6 +8,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306', 10),
     dialect: 'mysql',
+    dialectModulePath: require.resolve('./mysql2-compat'), // Force using patched mysql2 driver for Sequelize v3 compatibility
     logging: false,
     pool: {
       max: 5,

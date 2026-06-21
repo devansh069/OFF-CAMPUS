@@ -88,8 +88,11 @@ credentials.json
 .credentials
 
 # Expo & Metro cache
-.expo/
-.metro-cache/
 **/_expo/
 **/.expo/
 **/.metro-cache/
+
+# Firebase Admin SDK Credentials
+**/*firebase-adminsdk*.json
+**/off-campus-*-firebase-adminsdk-*.json
+*.firebase-adminsdk.json

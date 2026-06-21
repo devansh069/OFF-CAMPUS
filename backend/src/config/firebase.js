@@ -6,6 +6,7 @@ const app = initializeApp({
   credential: cert(serviceAccount)
 });
 
+
 const auth = getAuth(app);
 
 module.exports = {
