@@ -67,7 +67,7 @@ export default function CampusLive() {
 
   useEffect(() => {
     fetchAll();
-    if (user?.college_id) {
+    if (user?.college_id && sessionToken !== 'dummy_token') {
       fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user.college_id}`)
         .then(r => r.json())
         .then(data => {
@@ -76,10 +76,68 @@ export default function CampusLive() {
           }
         })
         .catch(e => console.error('Error fetching college:', e));
+    } else if (sessionToken === 'dummy_token') {
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens"
+      });
     }
   }, [user?.college_id]);
 
   const fetchAll = async () => {
+    if (sessionToken === 'dummy_token') {
+      const mockConfessions = [
+        {
+          confession_id: 'conf_1',
+          content: "Anyone else completely unprepared for the internal exams next week? Stephens library is packed 😭",
+          college_id: 'col_stephens',
+          likes: 12,
+          comments: 2,
+          created_at: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          confession_id: 'conf_2',
+          content: "Met someone really cute in the metro today wearing a red hoodie. If you study at DU, please reply!",
+          college_id: null,
+          likes: 34,
+          comments: 0,
+          created_at: new Date(Date.now() - 7200000).toISOString()
+        }
+      ];
+      const mockStories = [
+        {
+          user_id: 'user_priya',
+          user_name: 'Priya Singh',
+          user_picture: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop',
+          has_unviewed: true,
+          stories: [
+            {
+              story_id: 'story_1',
+              image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop',
+              audience: 'college',
+              createdAt: new Date().toISOString()
+            }
+          ]
+        }
+      ];
+      const mockTopVibes = [
+        {
+          user_id: 'user_priya',
+          name: 'Priya Singh',
+          bio: 'Gym rat 💪 | Fitness freak',
+          photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
+          vibe_score: 4.9
+        }
+      ];
+      setConfessions(mockConfessions);
+      setStories(mockStories);
+      setTopVibes(mockTopVibes);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
       const [c, s, l] = await Promise.all([
@@ -97,6 +155,22 @@ export default function CampusLive() {
   const post = async () => {
     if (!text.trim()) return;
     setPosting(true);
+
+    if (sessionToken === 'dummy_token') {
+      const newConf = {
+        confession_id: `conf_mock_${Date.now()}`,
+        content: text,
+        college_id: feedType === 'college' ? user?.college_id : null,
+        likes: 0,
+        comments: 0,
+        created_at: new Date().toISOString()
+      };
+      setConfessions(prev => [newConf, ...prev]);
+      setText('');
+      setPosting(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
         method: 'POST',
@@ -125,9 +199,16 @@ export default function CampusLive() {
   };
 
   const likeC = async (id: string) => {
+    if (sessionToken === 'dummy_token') {
+      setConfessions(confessions.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
+      setSelectedConfession((prev: any) => prev && prev.confession_id === id ? { ...prev, likes: (prev.likes || 0) + 1 } : prev);
+      return;
+    }
+
     try {
       await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${id}/like`, { method: 'POST', headers: { 'Authorization': `Bearer ${sessionToken}` } });
       setConfessions(confessions.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
+      setSelectedConfession((prev: any) => prev && prev.confession_id === id ? { ...prev, likes: (prev.likes || 0) + 1 } : prev);
     } catch (e) { console.error(e); }
   };
 
@@ -364,6 +445,31 @@ export default function CampusLive() {
     setReplyingTo(null);
     setCommentText('');
     setComments([]);
+
+    if (sessionToken === 'dummy_token') {
+      const mockComments = [
+        {
+          comment_id: 'cmt_1',
+          confession_id: confession.confession_id,
+          content: "Same here... I have read zero chapters for psychology.",
+          parent_id: null,
+          created_at: new Date(Date.now() - 1800000).toISOString(),
+          college_name: 'LSR'
+        },
+        {
+          comment_id: 'cmt_2',
+          confession_id: confession.confession_id,
+          content: "Wait, isn't exam cancelled? 😮",
+          parent_id: 'cmt_1',
+          created_at: new Date(Date.now() - 900000).toISOString(),
+          college_name: 'Stephens'
+        }
+      ];
+      setComments(mockComments);
+      setLoadingComments(false);
+      return;
+    }
+
     setLoadingComments(true);
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
@@ -380,6 +486,32 @@ export default function CampusLive() {
   const postComment = async () => {
     if (!commentText.trim() || !selectedConfession) return;
     setPostingComment(true);
+
+    if (sessionToken === 'dummy_token') {
+      const newCmt = {
+        comment_id: `cmt_mock_${Date.now()}`,
+        confession_id: selectedConfession.confession_id,
+        content: commentText,
+        parent_id: replyingTo ? replyingTo.comment_id : null,
+        created_at: new Date().toISOString(),
+        college_name: user?.college_id ? 'Stephens' : 'Campus'
+      };
+      setComments(prev => [...prev, newCmt]);
+      
+      // Update comment count on feed & modal
+      setConfessions(prev => prev.map(c => 
+        c.confession_id === selectedConfession.confession_id 
+          ? { ...c, comments: (c.comments || 0) + 1 }
+          : c
+      ));
+      setSelectedConfession((prev: any) => prev ? { ...prev, comments: (prev.comments || 0) + 1 } : null);
+      
+      setCommentText('');
+      setReplyingTo(null);
+      setPostingComment(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${selectedConfession.confession_id}/comment`, {
         method: 'POST',

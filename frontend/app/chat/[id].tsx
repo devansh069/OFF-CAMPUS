@@ -122,6 +122,11 @@ export default function ChatScreen() {
     };
     setMessages(prev => [...prev, newMsg]);
     
+    if (sessionToken === 'dummy_token') {
+      setSending(false);
+      return;
+    }
+    
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
         method: 'POST',

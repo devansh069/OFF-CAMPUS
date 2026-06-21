@@ -242,6 +242,34 @@ export default function Events() {
   };
 
   const handleRSVP = async (eventId: string) => {
+    if (sessionToken === 'dummy_token') {
+      setEvents(events.map(e => {
+        if (e.event_id === eventId) {
+          const isAttending = !e.is_attending;
+          const countChange = isAttending ? 1 : -1;
+          return {
+            ...e,
+            is_attending: isAttending,
+            attendee_count: Math.max(0, (e.attendee_count || 0) + countChange)
+          };
+        }
+        return e;
+      }));
+      setSelectedEvent((prev: any) => {
+        if (prev && prev.event_id === eventId) {
+          const isAttending = !prev.is_attending;
+          const countChange = isAttending ? 1 : -1;
+          return {
+            ...prev,
+            is_attending: isAttending,
+            attendee_count: Math.max(0, (prev.attendee_count || 0) + countChange)
+          };
+        }
+        return prev;
+      });
+      return;
+    }
+
     try {
       if (sessionToken === 'dummy_token') {
         // Mock toggle
