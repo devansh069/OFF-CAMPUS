@@ -11,7 +11,8 @@ if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
 
 interface User {
   user_id: string;
-  email: string;
+  phone_number?: string;
+  email?: string;
   name: string;
   age?: number;
   gender?: string;
@@ -36,7 +37,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string) => Promise<void>;
+  login: (phoneNumber: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
@@ -73,9 +74,9 @@ const dummyUser: User = {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(dummyUser);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sessionToken, setSessionToken] = useState<string | null>('dummy_token');
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -107,11 +108,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check for session_id in URL first (redirect from auth)
         const url = window.location.href;
         const sessionIdMatch = url.match(/[#?&]session_id=([^&]+)/);
-        
+
         if (sessionIdMatch) {
           const sessionId = sessionIdMatch[1];
           await processSessionId(sessionId);
-          
+
           // Clean URL
           window.history.replaceState(null, '', window.location.pathname);
           return;
@@ -140,9 +141,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const url = event.url;
       console.log('Deep link received:', url);
-      
+
       const sessionIdMatch = url.match(/[#?&]session_id=([^&]+)/);
-      
+
       if (sessionIdMatch) {
         const sessionId = sessionIdMatch[1];
         console.log('Processing session ID from deep link');
@@ -165,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const data = await response.json();
       const token = data.session_token;
-      
+
       // Store token
       if (Platform.OS === 'web') {
         localStorage.setItem('session_token', token);
@@ -229,15 +230,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const login = async (email: string) => {
+  const login = async (phoneNumber: string) => {
     try {
       setLoading(true);
       const mockUser: User = {
         ...dummyUser,
-        email: email || 'dummy@test.edu.in',
-        name: email ? email.split('@')[0] : 'Dummy Student',
+        phone_number: phoneNumber,
+        name: 'Vibe Student',
       };
-      
+
       // Store token
       if (Platform.OS === 'web') {
         localStorage.setItem('session_token', 'dummy_token');

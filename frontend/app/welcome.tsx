@@ -1,15 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  Image, 
+  ScrollView, 
+  TextInput, 
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
 
 export default function Welcome() {
-  const { user, login } = useAuth();
+  const { user, login, loading } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState('');
 
+  // Navigation steps: 'phone' | 'otp'
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  
+  // OTP States
+  const [otpCode, setOtpCode] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const [timer, setTimer] = useState(30);
+  const otpInputRef = useRef<TextInput>(null);
+
+  // Redirect if user is already authenticated
   useEffect(() => {
     if (user) {
       if (!user.college_id || !user.age) {
@@ -20,21 +44,97 @@ export default function Welcome() {
     }
   }, [user]);
 
-  const handleLogin = () => {
-    if (!email.trim()) {
-      Alert.alert('Email Required', 'Please enter your email to continue');
+  // Resend OTP countdown timer
+  useEffect(() => {
+    let interval: any;
+    if (step === 'otp' && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
+
+  const handleSendOTP = () => {
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.length < 10) {
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
-    login(email.trim().toLowerCase());
+    setStep('otp');
+    setTimer(30);
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otpCode.length < 6) {
+      Alert.alert('Incomplete Code', 'Please enter the 6-digit verification code.');
+      return;
+    }
+
+    const fullNumber = `+91${phoneNumber.replace(/\D/g, '')}`;
+    await login(fullNumber);
+  };
+
+  const handleResend = () => {
+    if (timer === 0) {
+      setTimer(30);
+      Alert.alert('Code Sent', 'A new verification code has been sent to your device.');
+    }
+  };
+
+  // Render 6-digit OTP code boxes
+  const renderOTPslices = () => {
+    const slots = Array(6).fill('');
+    return (
+      <TouchableOpacity 
+        style={styles.otpGrid} 
+        activeOpacity={1}
+        onPress={() => otpInputRef.current?.focus()}
+      >
+        {slots.map((_, index) => {
+          const char = otpCode[index] || '';
+          const isActive = index === otpCode.length && isFocused;
+          return (
+            <View 
+              key={index} 
+              style={[
+                styles.otpSlot, 
+                isActive && styles.otpSlotActive,
+                char.length > 0 && styles.otpSlotFilled
+              ]}
+            >
+              <Text style={styles.otpChar}>{char}</Text>
+              {isActive && <View style={styles.blinkingCursor} />}
+            </View>
+          );
+        })}
+      </TouchableOpacity>
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#0C0D18', '#050507']} style={styles.gradient}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.blackBackground}>
         <SafeAreaView style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            contentContainerStyle={{ flexGrow: 1 }} 
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.content}>
-              <View style={styles.header}>
+              
+              {/* Back Button for OTP step */}
+              {step === 'otp' && (
+                <TouchableOpacity style={styles.backButton} onPress={() => setStep('phone')}>
+                  <Ionicons name="arrow-back-outline" size={24} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+
+              {/* Large Centered Logo and Tagline (matching the splash screen style) */}
+              <View style={styles.logoContainer}>
                 <Image 
                   source={require('../assets/images/logo.png')} 
                   style={styles.logoImage} 
@@ -43,83 +143,239 @@ export default function Welcome() {
                 <Text style={styles.tagline}>where college life gets real 🔥</Text>
               </View>
 
-              <View style={styles.features}>
-                <Feature icon="heart" color="#F43F5E" t="Match Your Campus Crush" s="Swipe through verified students" />
-                <Feature icon="planet" color="#8B5CF6" t="Live Campus Pulse" s="Stories, confessions & top vibes" />
-                <Feature icon="calendar" color="#10B981" t="Fests & Events" s="Never miss the big nights out" />
-                <Feature icon="diamond" color="#FFD700" t="Go Global" s="Premium ₹99/mo: All Delhi colleges" />
+              {/* Glassmorphic iPhone-style login card */}
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 50 : 85} 
+                tint="dark" 
+                style={styles.glassCard}
+              >
+                {step === 'phone' ? (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.cardHeader}>Login with Phone</Text>
+                    <Text style={styles.cardSub}>Enter your mobile number to get started</Text>
+
+                    <View style={styles.phoneInputRow}>
+                      <View style={styles.prefixBox}>
+                        <Text style={styles.prefixText}>🇮🇳 +91</Text>
+                      </View>
+                      <TextInput
+                        style={styles.phoneInput}
+                        placeholder="Enter mobile number"
+                        placeholderTextColor="#71717A"
+                        value={phoneNumber}
+                        onChangeText={setPhoneNumber}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        autoCorrect={false}
+                      />
+                    </View>
+
+                    <TouchableOpacity style={styles.actionBtn} onPress={handleSendOTP}>
+                      <LinearGradient colors={['#8B5CF6', '#F43F5E']} style={styles.btnGrad}>
+                        <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
+                        <Text style={styles.btnText}>Send Verification Code</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.cardHeader}>Verify Code</Text>
+                    <Text style={styles.cardSub}>We sent a 6-digit code to</Text>
+                    
+                    <View style={styles.numberRow}>
+                      <Text style={styles.numberText}>+91 {phoneNumber}</Text>
+                      <TouchableOpacity onPress={() => setStep('phone')}>
+                        <Text style={styles.editText}>Edit</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Hidden input to capture keypad strokes */}
+                    <TextInput
+                      ref={otpInputRef}
+                      style={styles.hiddenInput}
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      autoFocus
+                    />
+                    
+                    {renderOTPslices()}
+
+                    <View style={styles.timerRow}>
+                      {timer > 0 ? (
+                        <Text style={styles.timerText}>Resend code in {timer}s</Text>
+                      ) : (
+                        <TouchableOpacity onPress={handleResend}>
+                          <Text style={styles.resendText}>Resend Code</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <TouchableOpacity 
+                      style={styles.actionBtn} 
+                      onPress={handleVerifyOTP}
+                      disabled={loading}
+                    >
+                      <LinearGradient colors={['#8B5CF6', '#F43F5E']} style={styles.btnGrad}>
+                        {loading ? (
+                          <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                          <>
+                            <Ionicons name="sparkles" size={18} color="#FFF" />
+                            <Text style={styles.btnText}>Verify & Start Vibing</Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </BlurView>
+
+              {/* Disclaimer and Admin links at the bottom */}
+              <View style={styles.footerContainer}>
+                <Text style={styles.disclaimer}>verified students only • 18+</Text>
+                
+                {step === 'phone' && (
+                  <TouchableOpacity onPress={() => router.push('/admin')}>
+                    <Text style={styles.adminLink}>Admin Portal</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <View style={styles.bottomBox}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter college or personal email"
-                  placeholderTextColor="#4B5563"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity style={styles.googleBtn} onPress={handleLogin}>
-                  <LinearGradient colors={['#3B82F6', '#8B5CF6', '#EF4444']} style={styles.btnGrad}>
-                    <Ionicons name="log-in-outline" size={22} color="#FFF" />
-                    <Text style={styles.btnText}>Login / Register</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                <Text style={styles.disclaimer}>verified students only • 18+</Text>
-                <TouchableOpacity onPress={() => router.push('/admin')}>
-                  <Text style={styles.adminLink}>Admin Portal</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </ScrollView>
         </SafeAreaView>
-      </LinearGradient>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-const Feature = ({ icon, color, t, s }: any) => (
-  <View style={styles.feature}>
-    <View style={[styles.featIcon, { backgroundColor: color + '22', borderColor: color }]}>
-      <Ionicons name={icon} size={22} color={color} />
-    </View>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.featT}>{t}</Text>
-      <Text style={styles.featS}>{s}</Text>
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07080F' },
-  gradient: { flex: 1 },
-  content: { flex: 1, padding: 24, justifyContent: 'space-between' },
-  header: { alignItems: 'center', marginTop: 40, gap: 8 },
-  logoImage: { width: 220, height: 75, alignSelf: 'center', marginBottom: 8 },
-  tagline: { fontSize: 16, color: '#94A3B8', fontWeight: '600' },
-  features: { gap: 12, marginVertical: 30 },
-  feature: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#12131F', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#1E2030' },
-  featIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  featT: { color: '#FFF', fontSize: 15, fontWeight: '900' },
-  featS: { color: '#94A3B8', fontSize: 12 },
-  bottomBox: { gap: 12, alignItems: 'center', width: '100%' },
-  input: {
+  container: { flex: 1, backgroundColor: '#000000' },
+  blackBackground: { flex: 1, backgroundColor: '#000000' },
+  content: { flex: 1, padding: 24, justifyContent: 'space-between', alignItems: 'center', minHeight: 650 },
+  
+  backButton: { position: 'absolute', left: 24, top: 12, padding: 4, zIndex: 10 },
+  
+  // Center logo layout
+  logoContainer: { alignItems: 'center', marginTop: 80, flex: 1, justifyContent: 'center', gap: 8, width: '100%' },
+  logoImage: { width: 280, height: 160, alignSelf: 'center' }, 
+  tagline: { fontSize: 16, color: '#94A3B8', fontWeight: '600', letterSpacing: 0.5, marginTop: -15 },
+  
+  // iPhone glassmorphic card style
+  glassCard: {
     width: '100%',
-    backgroundColor: '#12131F',
-    borderWidth: 1,
-    borderColor: '#1E2030',
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+    padding: 24,
+    marginVertical: 40,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  formContainer: { width: '100%', alignItems: 'center', gap: 12 },
+  cardHeader: { color: '#FFF', fontSize: 22, fontWeight: '900', letterSpacing: 0.5 },
+  cardSub: { color: '#E4E4E7', fontSize: 14, textAlign: 'center', fontWeight: '500' }, // Increased contrast & font weight
+
+  // Phone input row (glassmorphic input style)
+  phoneInputRow: { 
+    flexDirection: 'row', 
+    width: '100%', 
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+    borderWidth: 1.2, 
+    borderColor: 'rgba(255, 255, 255, 0.1)', 
     borderRadius: 30,
-    paddingHorizontal: 20,
+    overflow: 'hidden',
+    marginVertical: 8,
+  },
+  prefixBox: { 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingLeft: 20, 
+    paddingRight: 12,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.1)'
+  },
+  prefixText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 15,
     paddingVertical: 14,
     color: '#FFF',
     fontSize: 16,
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  googleBtn: { width: '100%', borderRadius: 30, overflow: 'hidden' },
-  btnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18 },
-  btnText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
-  disclaimer: { color: '#4B5563', fontSize: 12 },
-  adminLink: { color: '#6B7280', fontSize: 12, textDecorationLine: 'underline', marginTop: 8 },
+
+  // Hidden inputs & OTP passcode box system
+  hiddenInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: 1,
+    height: 1,
+  },
+  otpGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginVertical: 12,
+  },
+  otpSlot: {
+    width: 44,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  otpSlotActive: {
+    borderColor: '#F43F5E',
+    backgroundColor: 'rgba(244, 63, 94, 0.08)',
+  },
+  otpSlotFilled: {
+    borderColor: '#8B5CF6',
+  },
+  otpChar: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  blinkingCursor: {
+    position: 'absolute',
+    bottom: 12,
+    width: 16,
+    height: 2,
+    backgroundColor: '#F43F5E',
+  },
+  timerRow: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  timerText: { color: '#94A3B8', fontSize: 14 },
+  resendText: { color: '#F43F5E', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
+
+  // Purple-to-pink gradient button style with white text
+  actionBtn: { width: '100%', borderRadius: 30, overflow: 'hidden', marginTop: 10 },
+  btnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16 },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  
+  // OTP Number setup
+  numberRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginVertical: 4 },
+  numberText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+  editText: { color: '#3B82F6', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
+
+  // Footer section with extra breathing room & cleaner weight
+  footerContainer: { alignItems: 'center', width: '100%', gap: 14, marginBottom: 50 }, // Spacing increased from 20 to 50
+  disclaimer: { color: '#4B5563', fontSize: 12, fontWeight: '500' },
+  adminLink: { color: '#94A3B8', fontSize: 12, fontWeight: '600', textDecorationLine: 'underline', marginTop: 4 }, // Increased contrast & font weight
 });

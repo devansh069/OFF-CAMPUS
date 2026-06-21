@@ -38,7 +38,7 @@ exports.verifyOTP = async (req, res) => {
       user = await User.findOne({
         where: { phone_number: phone_number }
       });
-      
+
       if (user) {
         // Link firebase_uid if it wasn't set yet
         user.firebase_uid = uid;
@@ -47,7 +47,7 @@ exports.verifyOTP = async (req, res) => {
     }
 
     let exists = false;
-    
+
     // User already exists in database
     if (user) {
       // Check if profile is complete (using name as proxy)
@@ -129,7 +129,7 @@ exports.onboard = async (req, res) => {
         // If not found, dynamically generate a new college with auto-generated college_id
         const newCollegeId = 'col_' + Math.random().toString(36).substring(2, 9);
         const shortName = college_name.split(' ').map(w => w[0]).join('').toUpperCase() || 'COL';
-        
+
         college = await College.create({
           college_id: newCollegeId,
           name: college_name,
