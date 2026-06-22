@@ -32,6 +32,15 @@ interface User {
   verification_status: string;
   picture?: string;
   is_on_campus: boolean;
+  height?: number;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  prompts?: Record<string, string>;
+  religion?: string;
+  drink?: string;
+  smoke?: string;
+  weed?: string;
 }
 
 interface AuthContextType {
@@ -237,6 +246,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ...dummyUser,
         phone_number: phoneNumber,
         name: 'Vibe Student',
+        age: undefined,
+        college_id: undefined,
       };
 
       // Store token

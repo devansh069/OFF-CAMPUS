@@ -90,7 +90,7 @@ exports.onboard = async (req, res) => {
     const userId = req.user.user_id;
 
     // Fetch shell user profile
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({ where: { user_id: userId } });
     if (!user) {
       return res.status(404).json({ detail: 'User profile not found' });
     }
@@ -173,7 +173,8 @@ exports.onboard = async (req, res) => {
     await user.save();
 
     // Fetch refreshed user record including associated college details
-    const updatedUser = await User.findByPk(userId, {
+    const updatedUser = await User.findOne({
+      where: { user_id: userId },
       include: [{ model: College, as: 'college' }]
     });
 

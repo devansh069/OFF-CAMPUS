@@ -9,6 +9,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -19,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Verification() {
-  const { user, sessionToken, refreshUser } = useAuth();
+  const { user, sessionToken, refreshUser, updateUser } = useAuth();
   const router = useRouter();
   const [idImage, setIdImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -75,20 +76,37 @@ export default function Verification() {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/verification/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({
-          college_id: user.college_id,
-          id_card_image: idImage,
-        }),
-      });
+      let isSuccess = false;
+      try {
+        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/verification/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({
+            college_id: user.college_id,
+            id_card_image: idImage,
+          }),
+        });
 
-      if (response.ok) {
-        await refreshUser();
+        if (response.ok) {
+          isSuccess = true;
+          await refreshUser();
+        }
+      } catch (fetchError) {
+        console.warn('Backend verification failed, falling back to local mock:', fetchError);
+        if (sessionToken === 'dummy_token' || !EXPO_PUBLIC_BACKEND_URL) {
+          isSuccess = true;
+        }
+      }
+
+      if (isSuccess) {
+        if (updateUser) {
+          updateUser({
+            verification_status: 'pending'
+          });
+        }
         Alert.alert(
           'Submitted! 🎉',
           'Your ID is being reviewed. You\'ll get full access once approved by our team (usually within 24 hours).',
@@ -107,138 +125,324 @@ export default function Verification() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#0A0A0A', '#1A1A1A']} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.blackBackground}>
+        {/* Simple Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>VERIFICATION</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Glowing Badge */}
           <View style={styles.iconContainer}>
             <LinearGradient
-              colors={['#FF3366', '#FF6B35']}
+              colors={['#8B5CF6', '#F43F5E']}
               style={styles.iconCircle}
             >
-              <Ionicons name="shield-checkmark" size={48} color="#FFF" />
+              <Ionicons name="shield-checkmark" size={44} color="#FFF" />
             </LinearGradient>
+            <View style={styles.glowOverlay} />
           </View>
 
+          {/* Heading */}
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            Upload your college ID card to verify you're a student. We manually review all submissions to keep Off Campus safe.
+            Upload your college ID card to confirm your student status. We manually review all accounts to keep the community safe.
           </Text>
 
+          {/* Frosted Info Box */}
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle" size={20} color="#4FC3F7" />
-              <Text style={styles.infoText}>Make sure your name is visible</Text>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
+              <Text style={styles.infoText}>Make sure your full name is clear</Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle" size={20} color="#4FC3F7" />
+              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
               <Text style={styles.infoText}>College name should be readable</Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle" size={20} color="#4FC3F7" />
-              <Text style={styles.infoText}>Photo should be clear & well-lit</Text>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
+              <Text style={styles.infoText}>Upload a clear, well-lit photo</Text>
             </View>
           </View>
 
+          {/* Photo upload widgets */}
           {idImage ? (
             <View style={styles.previewContainer}>
               <Image source={{ uri: idImage }} style={styles.preview} />
               <TouchableOpacity style={styles.removeBtn} onPress={() => setIdImage(null)}>
-                <Ionicons name="close-circle" size={32} color="#FF3366" />
+                <LinearGradient 
+                  colors={['#F43F5E', '#8B5CF6']} 
+                  style={styles.removeBtnGrad}
+                >
+                  <Ionicons name="close" size={20} color="#FFF" />
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.uploadOptions}>
               <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
-                <Ionicons name="camera" size={32} color="#FF3366" />
-                <Text style={styles.uploadText}>Take Photo</Text>
+                <View style={styles.uploadIconBox}>
+                  <Ionicons name="camera-outline" size={28} color="#C2FF3D" />
+                </View>
+                <Text style={styles.uploadBtnTitle}>Take Photo</Text>
+                <Text style={styles.uploadBtnSub}>Use your camera</Text>
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                <Ionicons name="image" size={32} color="#FF3366" />
-                <Text style={styles.uploadText}>Choose from Gallery</Text>
+                <View style={styles.uploadIconBox}>
+                  <Ionicons name="image-outline" size={28} color="#C2FF3D" />
+                </View>
+                <Text style={styles.uploadBtnTitle}>Gallery</Text>
+                <Text style={styles.uploadBtnSub}>Choose from phone</Text>
               </TouchableOpacity>
             </View>
           )}
 
+          {/* Action buttons */}
           <TouchableOpacity
             style={[styles.submitBtn, (!idImage || submitting) && styles.submitBtnDisabled]}
             onPress={handleSubmit}
             disabled={!idImage || submitting}
           >
-            {submitting ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.submitText}>Submit for Verification</Text>
-            )}
+            <LinearGradient
+              colors={['#8B5CF6', '#F43F5E']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitBtnGrad}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#FFF" />
+                  <Text style={styles.submitText}>SUBMIT FOR VERIFICATION</Text>
+                </>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.replace('/(tabs)/discover')}>
             <Text style={styles.skipText}>Skip for now (limited access)</Text>
           </TouchableOpacity>
         </ScrollView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  gradient: { flex: 1 },
-  content: { padding: 24, alignItems: 'center', gap: 16 },
-  iconContainer: { marginTop: 20 },
-  iconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  container: { flex: 1, backgroundColor: '#000000' },
+  blackBackground: { flex: 1, backgroundColor: '#000000' },
+  
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', textAlign: 'center' },
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#A899B8',
+    letterSpacing: 2,
+  },
+
+  // Main scroll content
+  content: { 
+    paddingHorizontal: 24, 
+    paddingTop: 32,
+    paddingBottom: 48,
+    alignItems: 'center', 
+    gap: 20 
+  },
+  
+  // Glowing Icon
+  iconContainer: { 
+    position: 'relative',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  iconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  glowOverlay: {
+    position: 'absolute',
+    top: 5,
+    left: 5,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#8B5CF6',
+    opacity: 0.3,
+    filter: Platform.OS === 'ios' ? 'blur(15px)' : undefined,
+    zIndex: 1,
+  },
+
+  title: { 
+    fontSize: 28, 
+    fontWeight: '900', 
+    color: '#FFF', 
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
   subtitle: {
     fontSize: 14,
-    color: '#AAA',
+    color: '#94A3B8',
     textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
+    lineHeight: 22,
+    paddingHorizontal: 12,
   },
+
+  // Frosted Guidelines Card
   infoCard: {
-    backgroundColor: '#1E1E1E',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 18,
+    borderRadius: 22,
     gap: 12,
     width: '100%',
     marginVertical: 8,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  infoText: { color: '#DDD', fontSize: 14, flex: 1 },
-  uploadOptions: { flexDirection: 'row', gap: 12, width: '100%' },
+  infoRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12 
+  },
+  infoText: { 
+    color: '#E4E4E7', 
+    fontSize: 14, 
+    fontWeight: '600',
+    flex: 1 
+  },
+
+  // Image Upload Boxes
+  uploadOptions: { 
+    flexDirection: 'row', 
+    gap: 14, 
+    width: '100%',
+    marginVertical: 8,
+  },
   uploadBtn: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    borderWidth: 2,
-    borderColor: '#FF3366',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 255, 61, 0.35)',
     borderStyle: 'dashed',
-    padding: 24,
-    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     alignItems: 'center',
     gap: 8,
   },
-  uploadText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  previewContainer: { width: '100%', position: 'relative' },
+  uploadIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(194, 255, 61, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  uploadBtnTitle: { 
+    color: '#FFF', 
+    fontSize: 15, 
+    fontWeight: '800' 
+  },
+  uploadBtnSub: {
+    color: '#A899B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // ID Card Preview
+  previewContainer: { 
+    width: '100%', 
+    position: 'relative',
+    marginVertical: 8,
+  },
   preview: {
     width: '100%',
-    height: 240,
-    borderRadius: 12,
+    height: 220,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#C2FF3D',
     backgroundColor: '#1E1E1E',
   },
-  removeBtn: { position: 'absolute', top: 8, right: 8 },
-  submitBtn: {
-    backgroundColor: '#FF3366',
-    paddingVertical: 16,
-    borderRadius: 30,
-    width: '100%',
+  removeBtn: { 
+    position: 'absolute', 
+    top: 10, 
+    right: 10,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  removeBtnGrad: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Submit Button
+  submitBtn: {
+    width: '100%',
+    borderRadius: 30,
+    overflow: 'hidden',
     marginTop: 16,
   },
-  submitBtnDisabled: { opacity: 0.5 },
-  submitText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  skipText: { color: '#999', fontSize: 14, marginTop: 12 },
+  submitBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+  },
+  submitBtnDisabled: { 
+    opacity: 0.6 
+  },
+  submitText: { 
+    color: '#FFF', 
+    fontSize: 14, 
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  skipText: { 
+    color: '#71717A', 
+    fontSize: 14, 
+    fontWeight: '700', 
+    textDecorationLine: 'underline',
+    marginTop: 8,
+  },
 });
