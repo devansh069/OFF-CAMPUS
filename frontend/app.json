@@ -61,7 +61,8 @@
         {
           "photosPermission": "Allow Off Campus to access your photos to upload profile pictures."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

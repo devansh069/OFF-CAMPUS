@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -19,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { BlurView } from 'expo-blur';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -78,6 +81,10 @@ export default function ProfileSetup() {
 
   // Step 1: Basics
   const [name, setName] = useState(user?.name || '');
+  const [dob, setDob] = useState<Date | null>(
+    user?.age ? new Date(new Date().getFullYear() - user.age, 0, 1) : null
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [gender, setGender] = useState(user?.gender || '');
   const [lookingFor, setLookingFor] = useState(user?.looking_for || '');
@@ -147,6 +154,37 @@ export default function ProfileSetup() {
     setColleges(prev => [newCollege, ...prev]);
     setCollegeId(customId);
     setCollegeSearch('');
+  };
+
+  const calculateAge = (birthDate: Date) => {
+    const today = new Date();
+    let computedAge = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      computedAge--;
+    }
+    return computedAge;
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      const calculatedAge = calculateAge(selectedDate);
+      if (calculatedAge < 18) {
+        Alert.alert(
+          'Access Denied 🔞',
+          'Users below 18 years of age are not allowed on Off Campus. Please select a valid birth date.',
+          [{ text: 'OK' }]
+        );
+        setDob(null);
+        setAge('');
+      } else {
+        setDob(selectedDate);
+        setAge(calculatedAge.toString());
+      }
+    }
   };
 
   const filteredColleges = colleges.filter((c) =>
@@ -231,8 +269,13 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please enter your name');
         return;
       }
-      if (!age || isNaN(parseInt(age)) || parseInt(age) < 18) {
-        Alert.alert('Age Limit', 'You must be at least 18 years old to join.');
+      if (!dob) {
+        Alert.alert('Required', 'Please select your Date of Birth');
+        return;
+      }
+      const calculatedAge = calculateAge(dob);
+      if (calculatedAge < 18) {
+        Alert.alert('Access Denied 🔞', 'Users below 18 years of age are not allowed on Off Campus.');
         return;
       }
       if (!gender) {
@@ -374,7 +417,19 @@ export default function ProfileSetup() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.blackBackground}>
+      {/* Mesh ambient glow blobs */}
+      <View style={styles.ambientBlobContainer}>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.22)', 'transparent']}
+          style={styles.purpleBlob}
+        />
+        <LinearGradient
+          colors={['rgba(244, 63, 94, 0.22)', 'transparent']}
+          style={styles.pinkBlob}
+        />
+      </View>
+
+      <View style={styles.overlayContainer}>
         {/* Header Navigation */}
         <View style={styles.header}>
           <TouchableOpacity 
@@ -412,7 +467,11 @@ export default function ProfileSetup() {
           >
             {/* Step 1: Basics */}
             {step === 1 && (
-              <View style={styles.stepContainer}>
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 25 : 85} 
+                tint="dark" 
+                style={styles.glassStepCard}
+              >
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>The Basics</Text>
                   <Text style={styles.stepSubtitle}>Tell us the foundational details to match you accurately</Text>
@@ -433,21 +492,29 @@ export default function ProfileSetup() {
                   </View>
                 </View>
 
-                {/* Age */}
+                {/* DOB Picker */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>AGE</Text>
-                  <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>DATE OF BIRTH</Text>
+                  <TouchableOpacity 
+                    style={styles.inputWrapper} 
+                    onPress={() => setShowDatePicker(true)}
+                    activeOpacity={0.8}
+                  >
                     <Ionicons name="calendar-outline" size={20} color="#A899B8" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Must be 18+"
-                      placeholderTextColor="#71717A"
-                      value={age}
-                      onChangeText={setAge}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                    />
-                  </View>
+                    <Text style={[styles.dobText, !dob && styles.placeholderText]}>
+                      {dob ? dob.toLocaleDateString('en-GB') : 'Select your date of birth'}
+                    </Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#A899B8" style={styles.chevronIcon} />
+                  </TouchableOpacity>
+                  
+                  {dob && (
+                    <View style={styles.ageBadge}>
+                      <Ionicons name="sparkles" size={14} color="#C2FF3D" style={{ marginRight: 6 }} />
+                      <Text style={styles.ageBadgeText}>
+                        Calculated Age: {calculateAge(dob)} years old
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Height */}
@@ -516,12 +583,16 @@ export default function ProfileSetup() {
                     })}
                   </View>
                 </View>
-              </View>
+              </BlurView>
             )}
 
             {/* Step 2: Vibe, Habits & Location */}
             {step === 2 && (
-              <View style={styles.stepContainer}>
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 25 : 85} 
+                tint="dark" 
+                style={styles.glassStepCard}
+              >
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Vibe & Habits</Text>
                   <Text style={styles.stepSubtitle}>Location, lifestyle preferences, and bio info</Text>
@@ -648,12 +719,16 @@ export default function ProfileSetup() {
                     })}
                   </View>
                 </View>
-              </View>
+              </BlurView>
             )}
 
             {/* Step 3: College Connection */}
             {step === 3 && (
-              <View style={styles.stepContainer}>
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 25 : 85} 
+                tint="dark" 
+                style={styles.glassStepCard}
+              >
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Your College</Text>
                   <Text style={styles.stepSubtitle}>Find and select your current institution</Text>
@@ -768,12 +843,16 @@ export default function ProfileSetup() {
                     />
                   </View>
                 </View>
-              </View>
+              </BlurView>
             )}
 
             {/* Step 4: Prompts */}
             {step === 4 && (
-              <View style={styles.stepContainer}>
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 25 : 85} 
+                tint="dark" 
+                style={styles.glassStepCard}
+              >
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Select a Prompt</Text>
                   <Text style={styles.stepSubtitle}>Answer an icebreaker to give matches a conversation starter</Text>
@@ -818,12 +897,16 @@ export default function ProfileSetup() {
                     />
                   </View>
                 </View>
-              </View>
+              </BlurView>
             )}
 
             {/* Step 5: Photos */}
             {step === 5 && (
-              <View style={styles.stepContainer}>
+              <BlurView 
+                intensity={Platform.OS === 'ios' ? 25 : 85} 
+                tint="dark" 
+                style={styles.glassStepCard}
+              >
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Upload Photos</Text>
                   <Text style={styles.stepSubtitle}>Add up to 6 photos. Drag/tap to pick. At least 1 photo is required.</Text>
@@ -851,9 +934,46 @@ export default function ProfileSetup() {
                     );
                   })}
                 </View>
-              </View>
+              </BlurView>
             )}
           </ScrollView>
+
+          {/* Android Date Picker */}
+          {showDatePicker && Platform.OS === 'android' && (
+            <DateTimePicker
+              value={dob || new Date(new Date().getFullYear() - 18, 0, 1)}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+              maximumDate={new Date()}
+            />
+          )}
+
+          {/* iOS Date Picker Modal */}
+          {showDatePicker && Platform.OS === 'ios' && (
+            <Modal transparent animationType="slide" visible={showDatePicker}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.datePickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                      <Text style={styles.pickerConfirmText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={dob || new Date(new Date().getFullYear() - 18, 0, 1)}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleDateChange}
+                    maximumDate={new Date()}
+                    textColor="#FFF"
+                  />
+                </View>
+              </View>
+            </Modal>
+          )}
 
           {/* Footer Next Button */}
           <View style={styles.footer}>
@@ -890,7 +1010,31 @@ export default function ProfileSetup() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   blackBackground: { flex: 1, backgroundColor: '#000000' },
+  overlayContainer: { flex: 1, zIndex: 2 },
   
+  // Ambient glow blobs (mesh gradient)
+  ambientBlobContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  purpleBlob: {
+    position: 'absolute',
+    top: -120,
+    left: -120,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+  },
+  pinkBlob: {
+    position: 'absolute',
+    bottom: 80,
+    right: -120,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+  },
+
   // Header
   header: {
     flexDirection: 'row',
@@ -939,34 +1083,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
   },
 
-  // Steps
-  stepContainer: {
-    gap: 24,
+  // Glass floating step card
+  glassStepCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 28,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+    marginVertical: 10,
+    overflow: 'hidden',
   },
+
+  // Step Header
   textHeader: {
-    marginBottom: 8,
+    marginBottom: 20,
   },
   stepTitle: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 0.5,
   },
   stepSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#A899B8',
     marginTop: 6,
-    lineHeight: 20,
+    lineHeight: 18,
   },
 
-  // Input fields
+  // Inputs
   inputGroup: {
-    gap: 10,
+    gap: 8,
+    marginBottom: 16,
   },
   labelRow: {
     flexDirection: 'row',
@@ -982,7 +1135,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 16,
@@ -993,21 +1146,53 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 14,
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
+  chevronIcon: {
+    marginLeft: 'auto',
+  },
 
-  // Location auto-detect row
+  // DOB text styles
+  dobText: {
+    flex: 1,
+    paddingVertical: 14,
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  placeholderText: {
+    color: '#71717A',
+  },
+  ageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(194, 255, 61, 0.06)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 2,
+  },
+  ageBadgeText: {
+    color: '#C2FF3D',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Location Auto-Detect
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
   locationBtn: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     backgroundColor: 'rgba(194, 255, 61, 0.05)',
     borderWidth: 1.2,
@@ -1016,7 +1201,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Custom Options Selection List
+  // Selections
   optionsColumn: {
     gap: 12,
   },
@@ -1045,15 +1230,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // Grid/Row Selection Buttons
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   optionGridButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -1073,7 +1257,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // Habits Section
+  // Habits
   habitsColumn: {
     gap: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.01)',
@@ -1097,13 +1281,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   habitBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 14,
-    width: 60,
+    width: 54,
     alignItems: 'center',
   },
   habitBtnActive: {
@@ -1120,7 +1304,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // Textarea input
+  // Textarea
   textAreaWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
@@ -1130,7 +1314,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   textArea: {
-    height: 100,
+    height: 90,
     color: '#FFF',
     fontSize: 15,
     fontWeight: '600',
@@ -1142,7 +1326,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // College List search
+  // College List
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1160,13 +1344,11 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: '600',
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   clearSearch: {
     padding: 4,
   },
-
-  // College list
   collegeList: {
     gap: 10,
   },
@@ -1177,7 +1359,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   noResultsText: {
     color: '#A899B8',
@@ -1191,16 +1373,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
-    padding: 16,
-    gap: 14,
+    padding: 14,
+    gap: 12,
   },
   collegeItemActive: {
     borderColor: '#C2FF3D',
     backgroundColor: 'rgba(194, 255, 61, 0.04)',
   },
   collegeIconBox: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
@@ -1213,7 +1395,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(194, 255, 61, 0.3)',
   },
   collegeName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFF',
   },
@@ -1227,33 +1409,51 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   collegeUncheckCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
+  addCustomBtn: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  addCustomGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  addCustomBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
 
-  // Interests Chip List
+  // Interests
   interestsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   interestChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 22,
+    borderRadius: 20,
   },
   interestChipActive: {
     borderColor: '#F43F5E',
     backgroundColor: 'rgba(244, 63, 94, 0.06)',
   },
   interestText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#A899B8',
   },
@@ -1262,24 +1462,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // 6 Photos grid styles
+  // 6 Photos grid
   photosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
     marginTop: 10,
   },
   photoSlotWrapper: {
-    width: '47%',
+    width: '48%',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   photoCard: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#C2FF3D',
     overflow: 'hidden',
@@ -1289,7 +1489,7 @@ const styles = StyleSheet.create({
   photoAddCard: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: 'rgba(194, 255, 61, 0.3)',
     borderStyle: 'dashed',
@@ -1308,9 +1508,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1321,7 +1521,38 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Fixed Bottom Button
+  // Modal Datepicker on iOS
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: '#1E1E1E',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+  },
+  pickerCancelText: {
+    color: '#A899B8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  pickerConfirmText: {
+    color: '#C2FF3D',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+
+  // Footer Button
   footer: {
     paddingHorizontal: 24,
     paddingTop: 16,
@@ -1350,23 +1581,5 @@ const styles = StyleSheet.create({
   },
   nextButtonDisabled: {
     opacity: 0.6,
-  },
-  addCustomBtn: {
-    marginTop: 14,
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  addCustomGrad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-  },
-  addCustomBtnText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '800',
   },
 });
