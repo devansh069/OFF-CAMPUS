@@ -338,15 +338,55 @@ export default function Events() {
 
   return (
     <View style={styles.container}>
-      {/* Grayscale aesthetic dark portrait background image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        blurRadius={Platform.OS === 'android' ? 25 : 0}
-      />
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
+      {/* ─── BACKGROUND LAYER ─── */}
+      <View style={StyleSheet.absoluteFillObject}>
+        {/* 1. Pure black base */}
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#050005' }]} />
+
+        {/* 2. Top-left orb — deep purple/violet, very large, low opacity */}
+        <View style={styles.orbTopLeft} pointerEvents="none">
+          <LinearGradient
+            colors={[
+              'rgba(140, 80, 255, 0.9)',
+              'rgba(162, 60, 220, 0.7)',
+              'rgba(100, 20, 160, 0.7)',
+              'transparent',
+            ]}
+            locations={[0, 0.35, 0.65, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+
+        {/* 3. Bottom-right orb — pink/magenta, very large, low opacity */}
+        <View style={styles.orbBottomRight} pointerEvents="none">
+          <LinearGradient
+            colors={[
+              'rgba(226, 80, 200, 0.9)',
+              'rgba(180, 50, 180, 0.7)',
+              'rgba(120, 20, 140, 0.5)',
+              'transparent',
+            ]}
+            locations={[0, 0.35, 0.65, 1]}
+            start={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+
+        {/* 4. Heavy blur to fully diffuse the orbs — makes them look like soft ambient glow */}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 90 : 120}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        {/* 5. Subtle dark veil — just enough to keep text crisp, not so much it kills the color */}
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.45)' }]} />
+      </View>
+
+      <SafeAreaView style={{ flex: 1 }}>
           {/* Title & Header */}
           <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
@@ -711,7 +751,6 @@ export default function Events() {
         )}
       </Modal>
         </SafeAreaView>
-      </BlurView>
     </View>
   );
 }
@@ -720,6 +759,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  orbTopLeft: {
+    position: 'absolute',
+    top: -160,
+    left: -160,
+    width: 560,
+    height: 560,
+    borderRadius: 280,
+    overflow: 'hidden',
+  },
+  orbBottomRight: {
+    position: 'absolute',
+    bottom: -160,
+    right: -160,
+    width: 560,
+    height: 560,
+    borderRadius: 280,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',

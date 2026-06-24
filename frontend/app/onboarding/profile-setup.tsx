@@ -212,9 +212,8 @@ export default function ProfileSetup() {
         setDob(null);
         setAge('');
       } else {
-        // Show age confirmation popup
         Alert.alert(
-          'Confirm Age 🎂',
+          'Confirm Age ',
           `You are calculated to be ${calculatedAge} years old (born ${selectedDate.toLocaleDateString('en-GB')}). Is this correct?`,
           [
             { 
@@ -277,7 +276,6 @@ export default function ProfileSetup() {
       setLatitude(lat);
       setLongitude(lon);
 
-      // Reverse geocoding to fetch City name
       const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
       if (geocode && geocode.length > 0) {
         const city = geocode[0].city || geocode[0].district || geocode[0].region || 'Delhi';
@@ -382,7 +380,6 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please select who you are looking for');
         return;
       }
-      // Calculate cm from feet & inches for database compatibility
       const calculatedHeightCm = Math.round((heightFeet * 12 + heightInches) * 2.54);
       if (calculatedHeightCm <= 0) {
         Alert.alert('Required', 'Please select a valid height');
@@ -435,8 +432,28 @@ export default function ProfileSetup() {
   const handleComplete = async () => {
     setLoading(true);
     try {
+      // Helper function to handle fetch with timeout
+      const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 5000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+          });
+          clearTimeout(id);
+          return response;
+        } catch (err) {
+          clearTimeout(id);
+          throw err;
+        }
+      };
+
       let isSuccess = false;
       let checkVerification = false;
+
+      const selectedCollege = colleges.find(c => c.college_id === collegeId);
+      const collegeName = selectedCollege ? selectedCollege.name : '';
 
       const payload = {
         name,
@@ -455,40 +472,43 @@ export default function ProfileSetup() {
         smoke,
         weed,
         college_id: collegeId,
+        college_name: collegeName,
         course,
         year,
       };
 
       try {
-        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/update`, {
+        console.log('[Onboarding] Submitting profile setup payload to backend...');
+        const response = await fetchWithTimeout(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/update`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${sessionToken}`,
           },
           body: JSON.stringify(payload),
-        });
+        }, 5000); // 5s timeout
 
         if (response.ok) {
+          console.log('[Onboarding] Backend update succeeded.');
           isSuccess = true;
           try {
             await refreshUser();
-            const updatedUser = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`, {
+            const updatedUser = await fetchWithTimeout(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`, {
               headers: { 'Authorization': `Bearer ${sessionToken}` },
-            }).then(r => r.json());
+            }, 3000).then(r => r.json());
 
             if (updatedUser.user?.verification_status === 'verified') {
               checkVerification = true;
             }
           } catch (meError) {
-            console.warn('Failed to fetch user profile, proceeding anyway:', meError);
+            console.warn('Failed to refresh user or fetch updated profile:', meError);
           }
         } else {
           console.warn(`Backend returned non-ok status: ${response.status}. Falling back to local success.`);
           isSuccess = true;
         }
       } catch (fetchError) {
-        console.warn('Backend update failed, falling back to local update:', fetchError);
+        console.warn('Backend update failed/timed out, falling back to local update:', fetchError);
         isSuccess = true;
       }
 
@@ -498,8 +518,10 @@ export default function ProfileSetup() {
         }
 
         if (checkVerification) {
+          console.log('[Onboarding] User verified, routing to discover...');
           router.replace('/(tabs)/discover');
         } else {
+          console.log('[Onboarding] User not verified, routing to verification screen...');
           router.replace('/onboarding/verification');
         }
       } else {
@@ -515,32 +537,60 @@ export default function ProfileSetup() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Full-Screen Gradient Background with Blur Overlay */}
+      {/* ─── BACKGROUND LAYER ─── */}
       <View style={StyleSheet.absoluteFillObject}>
-        <LinearGradient
-          colors={['#000000', '#160024', '#9F3EBF', '#E26FFF', '#8C7EFF']}
-          locations={[0, 0.3, 0.65, 0.85, 1]}
+        {/* 1. Pure black base */}
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#050005' }]} />
+
+        {/* 2. Top-left orb — deep purple/violet, very large, low opacity */}
+        <View style={styles.orbTopLeft} pointerEvents="none">
+          <LinearGradient
+            colors={[
+              'rgba(140, 80, 255, 0.9)',   // bright violet core
+              'rgba(162, 60, 220, 0.7)',   // purple mid
+              'rgba(100, 20, 160, 0.7)',   // deep purple fade
+              'transparent',
+            ]}
+            locations={[0, 0.35, 0.65, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+
+        {/* 3. Bottom-right orb — pink/magenta, very large, low opacity */}
+        <View style={styles.orbBottomRight} pointerEvents="none">
+          <LinearGradient
+            colors={[
+              'rgba(226, 80, 200, 0.9)',   // magenta-pink core
+              'rgba(180, 50, 180, 0.7)',   // purple-pink mid
+              'rgba(120, 20, 140, 0.5)',   // deep fade
+              'transparent',
+            ]}
+            locations={[0, 0.35, 0.65, 1]}
+            start={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+
+        {/* 4. Heavy blur to fully diffuse the orbs — makes them look like soft ambient glow */}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 90 : 120}
+          tint="dark"
           style={StyleSheet.absoluteFillObject}
         />
-        <BlurView 
-          intensity={Platform.OS === 'ios' ? 40 : 80} 
-          tint="dark" 
-          style={StyleSheet.absoluteFillObject} 
-        />
-        {/* Dark overlay to enhance glass card contrast and make white text pop */}
-        <View 
-          style={[
-            StyleSheet.absoluteFillObject, 
-            { backgroundColor: 'rgba(0, 0, 0, 0.45)' }
-          ]} 
-        />
+
+        {/* 5. Subtle dark veil — just enough to keep text crisp, not so much it kills the color */}
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.45)' }]} />
       </View>
+      {/* ─── END BACKGROUND ─── */}
 
       <View style={styles.overlayContainer}>
         {/* Header Navigation */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={handleBack}
           >
             <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
@@ -568,11 +618,10 @@ export default function ProfileSetup() {
           >
             {/* Step 1: Basics */}
             {step === 1 && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 25 : 85}
-                tint="dark"
-                style={styles.glassStepCard}
-              >
+              <View style={styles.glassCard}>
+                {/* Glass top-edge highlight */}
+                <View style={styles.glassTopHighlight} />
+
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>The Basics</Text>
                   <Text style={styles.stepSubtitle}>Tell us the foundational details to match you accurately</Text>
@@ -607,22 +656,13 @@ export default function ProfileSetup() {
                     </Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#A899B8" style={styles.chevronIcon} />
                   </TouchableOpacity>
-
-                  {dob && (
-                    <View style={styles.ageBadge}>
-                      <Ionicons name="sparkles" size={14} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.ageBadgeText}>
-                        Calculated Age: {calculateAge(dob)} years old
-                      </Text>
-                    </View>
-                  )}
                 </View>
 
-                {/* Height Selector (Feet & Inches) */}
+                {/* Height Selector */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>HEIGHT</Text>
-                  <TouchableOpacity 
-                    style={styles.inputWrapper} 
+                  <TouchableOpacity
+                    style={styles.inputWrapper}
                     onPress={openHeightPicker}
                     activeOpacity={0.8}
                   >
@@ -630,11 +670,11 @@ export default function ProfileSetup() {
                     <Text style={styles.dobText}>
                       {heightFeet} ft {heightInches} in
                     </Text>
-                    <Ionicons 
-                      name="chevron-down-outline" 
-                      size={18} 
-                      color="#A899B8" 
-                      style={styles.chevronIcon} 
+                    <Ionicons
+                      name="chevron-down-outline"
+                      size={18}
+                      color="#A899B8"
+                      style={styles.chevronIcon}
                     />
                   </TouchableOpacity>
                 </View>
@@ -688,16 +728,14 @@ export default function ProfileSetup() {
                     })}
                   </View>
                 </View>
-              </BlurView>
+              </View>
             )}
 
             {/* Step 2: Vibe, Habits & Location */}
             {step === 2 && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 25 : 85}
-                tint="dark"
-                style={styles.glassStepCard}
-              >
+              <View style={styles.glassCard}>
+                <View style={styles.glassTopHighlight} />
+
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Vibe & Habits</Text>
                   <Text style={styles.stepSubtitle}>Location, lifestyle preferences, and bio info</Text>
@@ -708,7 +746,6 @@ export default function ProfileSetup() {
                   <Text style={styles.label}>CURRENT LOCATION</Text>
                   <View style={styles.locationRow}>
                     <View style={[styles.inputWrapper, { flex: 1 }]}>
-                      <Ionicons name="location-outline" size={20} color="#A899B8" style={styles.inputIcon} />
                       <TextInput
                         style={styles.input}
                         placeholder="City, State"
@@ -733,12 +770,11 @@ export default function ProfileSetup() {
 
                 {/* Religion */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>RELIGION / SPIRITUALITY</Text>
+                  <Text style={styles.label}>RELIGION</Text>
                   <View style={styles.inputWrapper}>
-                    <Ionicons name="sparkles-outline" size={20} color="#A899B8" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="e.g. Spiritual, Agnostic, Hindu"
+                      placeholder="e.g. Hindu, Muslim, Christian, Sikh, etc."
                       placeholderTextColor="#71717A"
                       value={religion}
                       onChangeText={setReligion}
@@ -817,29 +853,26 @@ export default function ProfileSetup() {
                             styles.interestText,
                             isActive && styles.interestTextActive
                           ]}>
-                            {isActive ? `🔥 ${interest}` : interest}
+                            {isActive ? ` ${interest}` : interest}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
                 </View>
-              </BlurView>
+              </View>
             )}
 
             {/* Step 3: College Connection */}
             {step === 3 && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 25 : 85}
-                tint="dark"
-                style={styles.glassStepCard}
-              >
+              <View style={styles.glassCard}>
+                <View style={styles.glassTopHighlight} />
+
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Your College</Text>
                   <Text style={styles.stepSubtitle}>Find and select your current institution</Text>
                 </View>
 
-                {/* College Search input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>SELECT YOUR CAMPUS</Text>
                   <View style={styles.searchContainer}>
@@ -859,7 +892,6 @@ export default function ProfileSetup() {
                   </View>
                 </View>
 
-                {/* Colleges list view */}
                 <View style={styles.collegeList}>
                   {filteredColleges.length === 0 ? (
                     <View style={styles.noResults}>
@@ -909,7 +941,6 @@ export default function ProfileSetup() {
                   )}
                 </View>
 
-                {/* Year picker */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>YEAR OF STUDY</Text>
                   <View style={styles.optionsRow}>
@@ -930,7 +961,6 @@ export default function ProfileSetup() {
                   </View>
                 </View>
 
-                {/* Course input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>COURSE / MAJOR</Text>
                   <View style={styles.inputWrapper}>
@@ -945,16 +975,14 @@ export default function ProfileSetup() {
                     />
                   </View>
                 </View>
-              </BlurView>
+              </View>
             )}
 
             {/* Step 4: Prompts */}
             {step === 4 && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 25 : 85}
-                tint="dark"
-                style={styles.glassStepCard}
-              >
+              <View style={styles.glassCard}>
+                <View style={styles.glassTopHighlight} />
+
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Select a Prompt</Text>
                   <Text style={styles.stepSubtitle}>Answer an icebreaker to give matches a conversation starter</Text>
@@ -974,10 +1002,10 @@ export default function ProfileSetup() {
                           <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
                             {p}
                           </Text>
-                          <Ionicons 
-                            name={isSel ? 'radio-button-on' : 'radio-button-off'} 
-                            size={20} 
-                            color={isSel ? '#FFF' : '#A899B8'} 
+                          <Ionicons
+                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
+                            size={20}
+                            color={isSel ? '#FFF' : '#A899B8'}
                           />
                         </TouchableOpacity>
                       );
@@ -999,16 +1027,14 @@ export default function ProfileSetup() {
                     />
                   </View>
                 </View>
-              </BlurView>
+              </View>
             )}
 
             {/* Step 5: Photos */}
             {step === 5 && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 25 : 85}
-                tint="dark"
-                style={styles.glassStepCard}
-              >
+              <View style={styles.glassCard}>
+                <View style={styles.glassTopHighlight} />
+
                 <View style={styles.textHeader}>
                   <Text style={styles.stepTitle}>Upload Photos</Text>
                   <Text style={styles.stepSubtitle}>Add up to 6 photos. Drag/tap to pick. At least 1 photo is required.</Text>
@@ -1036,7 +1062,7 @@ export default function ProfileSetup() {
                     );
                   })}
                 </View>
-              </BlurView>
+              </View>
             )}
           </ScrollView>
 
@@ -1189,34 +1215,59 @@ export default function ProfileSetup() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  blackBackground: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#050005' },
   overlayContainer: { flex: 1, zIndex: 2 },
 
-  // Ambient glow blobs (mesh gradient)
-  
-  ambientBlobContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-    zIndex: 1,
-  },
-  purpleBlob: {
+  // ─── AMBIENT ORB BLOBS ───
+  // Large, soft, radial gradient circles placed in corners.
+  // Heavily blurred so they melt into the black background.
+  orbTopLeft: {
     position: 'absolute',
-    top: -120,
-    left: -120,
-    width: 380,
-    height: 380,
-    borderRadius: 190,
+    top: -160,
+    left: -160,
+    width: 560,
+    height: 560,
+    borderRadius: 280,
     overflow: 'hidden',
   },
-  pinkBlob: {
+  orbBottomRight: {
     position: 'absolute',
-    bottom: 80,
-    right: -120,
-    width: 380,
-    height: 380,
-    borderRadius: 190,
+    bottom: -160,
+    right: -160,
+    width: 560,
+    height: 560,
+    borderRadius: 280,
     overflow: 'hidden',
+  },
+
+  // ─── GLASS CARD ───
+  // Pure View (no BlurView) for better cross-platform consistency.
+  // Border + top highlight strip simulate the frosted glass look.
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',  // very faint white fill
+    borderRadius: 28,
+    // Outer border — thin, barely-visible white line
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
+    padding: 20,
+    marginVertical: 10,
+    overflow: 'hidden',
+    // Subtle shadow to lift the card off the background
+    shadowColor: '#8C50FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  // Thin bright line at the very top edge of the card — the "glass reflection" highlight
+  glassTopHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.30)',
+    borderRadius: 1,
   },
 
   // Header
@@ -1233,9 +1284,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1264,30 +1315,15 @@ const styles = StyleSheet.create({
   },
 
   // Scroll View
-  scrollView: {
-    flex: 1,
-  },
+  scrollView: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 32,
   },
 
-  // Glass floating step card
-  glassStepCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 28,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 20,
-    marginVertical: 10,
-    overflow: 'hidden',
-  },
-
   // Step Header
-  textHeader: {
-    marginBottom: 20,
-  },
+  textHeader: { marginBottom: 20 },
   stepTitle: {
     fontSize: 30,
     fontWeight: '900',
@@ -1296,16 +1332,13 @@ const styles = StyleSheet.create({
   },
   stepSubtitle: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.65)',
     marginTop: 6,
     lineHeight: 18,
   },
 
   // Inputs
-  inputGroup: {
-    gap: 8,
-    marginBottom: 16,
-  },
+  inputGroup: { gap: 8, marginBottom: 16 },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1320,16 +1353,13 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20, // Match the pill-like smooth corners from the photos
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderRadius: 20,
     paddingHorizontal: 16,
-    // Removed shadows for that clean flat glass look
   },
-  inputIcon: {
-    marginRight: 12,
-  },
+  inputIcon: { marginRight: 12 },
   input: {
     flex: 1,
     paddingVertical: 14,
@@ -1337,11 +1367,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  chevronIcon: {
-    marginLeft: 'auto',
-  },
-
-  // DOB text styles
+  chevronIcon: { marginLeft: 'auto' },
   dobText: {
     flex: 1,
     paddingVertical: 14,
@@ -1349,9 +1375,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  placeholderText: {
-    color: '#71717A',
-  },
+  placeholderText: { color: '#71717A' },
   ageBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1369,23 +1393,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  heightPickerBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
-    marginTop: 6,
-  },
-  pickerSubLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#A899B8',
-    letterSpacing: 1,
-  },
 
-  // Location Auto-Detect
+  // Location
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1395,22 +1404,20 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.20)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Selections
-  optionsColumn: {
-    gap: 12,
-  },
+  optionsColumn: { gap: 12 },
   optionRowButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
@@ -1430,7 +1437,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
   },
-
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1439,14 +1445,14 @@ const styles = StyleSheet.create({
   optionGridButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
   },
   optionGridButtonActive: {
     borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   optionGridText: {
     fontSize: 13,
@@ -1461,9 +1467,9 @@ const styles = StyleSheet.create({
   // Habits
   habitsColumn: {
     gap: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     borderRadius: 20,
     padding: 16,
   },
@@ -1477,10 +1483,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  habitButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  habitButtons: { flexDirection: 'row', gap: 8 },
   habitBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -1493,7 +1496,7 @@ const styles = StyleSheet.create({
   },
   habitBtnActive: {
     borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   habitBtnText: {
     fontSize: 11,
@@ -1507,9 +1510,9 @@ const styles = StyleSheet.create({
 
   // Textarea
   textAreaWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1527,19 +1530,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // College List
+  // College Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 24, // Even more pill-like for search
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+    borderRadius: 24,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
-  searchIcon: {
-    marginRight: 10,
-  },
+  searchIcon: { marginRight: 10 },
   searchInput: {
     flex: 1,
     color: '#FFF',
@@ -1547,12 +1548,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingVertical: 12,
   },
-  clearSearch: {
-    padding: 4,
-  },
-  collegeList: {
-    gap: 10,
-  },
+  clearSearch: { padding: 4 },
+  collegeList: { gap: 10 },
   noResults: {
     padding: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -1570,7 +1567,7 @@ const styles = StyleSheet.create({
   collegeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
@@ -1585,7 +1582,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
@@ -1600,10 +1597,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
-  collegeNameActive: {
-    color: '#FFF',
-    fontWeight: '800',
-  },
+  collegeNameActive: { color: '#FFF', fontWeight: '800' },
   collegeLocation: {
     fontSize: 11,
     color: '#A899B8',
@@ -1645,14 +1639,14 @@ const styles = StyleSheet.create({
   interestChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
   },
   interestChipActive: {
     borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   interestText: {
     fontSize: 12,
@@ -1664,7 +1658,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // 6 Photos grid
+  // Photos
   photosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1697,12 +1691,9 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
-  photoImg: {
-    width: '100%',
-    height: '100%',
-  },
+  photoImg: { width: '100%', height: '100%' },
   photoDeleteBtn: {
     position: 'absolute',
     top: 8,
@@ -1723,7 +1714,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Modal Datepicker on iOS
+  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1744,7 +1735,7 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
   pickerCancelText: {
-    color: '#A899B8',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1754,7 +1745,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Footer Button
+  // Footer
   footer: {
     paddingHorizontal: 24,
     paddingTop: 16,
@@ -1781,12 +1772,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.8,
   },
-  nextButtonDisabled: {
-    opacity: 0.6,
-  },
+  nextButtonDisabled: { opacity: 0.6 },
+
+  // Height Picker
   heightPickerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -1798,7 +1789,7 @@ const styles = StyleSheet.create({
   },
   pickerColLabel: {
     fontSize: 12,
-    color: '#A899B8',
+    color: '#FFFFFF',
     fontWeight: '800',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -1816,14 +1807,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     height: Platform.OS === 'ios' ? 200 : 50,
   },
+  heightPickerBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+    marginTop: 6,
+  },
+  pickerSubLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#A899B8',
+    letterSpacing: 1,
+  },
   androidPickerWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 16,
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    height: 50,
+    padding: 6,
   },
   customPickerScroll: {
     height: 180,
@@ -1842,16 +1846,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   customPickerItemActive: {
-    backgroundColor: 'rgba(194, 255, 61, 0.1)',
-    borderColor: 'rgba(194, 255, 61, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   customPickerText: {
-    color: '#A899B8',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 16,
     fontWeight: '600',
   },
   customPickerTextActive: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontWeight: '800',
   },
 });

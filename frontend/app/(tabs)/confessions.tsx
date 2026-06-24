@@ -662,14 +662,17 @@ export default function CampusLive() {
 
   return (
     <View style={styles.container}>
-      {/* Grayscale aesthetic dark portrait background image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+      {/* Ambient background linear gradient */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        blurRadius={Platform.OS === 'android' ? 25 : 0}
       />
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <ScrollView
             showsVerticalScrollIndicator={false}

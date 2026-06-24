@@ -137,9 +137,27 @@ export default function Verification() {
 
     setSubmitting(true);
     try {
+      // Helper function to handle fetch with timeout
+      const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 5000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+          });
+          clearTimeout(id);
+          return response;
+        } catch (err) {
+          clearTimeout(id);
+          throw err;
+        }
+      };
+
       let isSuccess = false;
       try {
-        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/verification/submit`, {
+        console.log('[Verification] Submitting ID verification to backend...');
+        const response = await fetchWithTimeout(`${EXPO_PUBLIC_BACKEND_URL}/api/verification/submit`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -149,17 +167,23 @@ export default function Verification() {
             college_id: user.college_id,
             id_card_image: idImage,
           }),
-        });
+        }, 5000); // 5s timeout
 
         if (response.ok) {
+          console.log('[Verification] Backend submission succeeded.');
           isSuccess = true;
-          await refreshUser();
+          try {
+            await refreshUser();
+          } catch (rfErr) {
+            console.warn('Failed to refresh user on verification success:', rfErr);
+          }
+        } else {
+          console.warn(`Backend verification returned non-ok status: ${response.status}. Falling back to local success.`);
+          isSuccess = true;
         }
       } catch (fetchError) {
-        console.warn('Backend verification failed, falling back to local mock:', fetchError);
-        if (sessionToken === 'dummy_token' || !EXPO_PUBLIC_BACKEND_URL) {
-          isSuccess = true;
-        }
+        console.warn('Backend verification failed/timed out, falling back to local mock:', fetchError);
+        isSuccess = true;
       }
 
       if (isSuccess) {

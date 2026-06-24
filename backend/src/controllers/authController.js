@@ -111,6 +111,7 @@ exports.onboard = async (req, res) => {
       drink,
       smoke,
       weed,
+      college_id,
       college_name,
       course,
       year
@@ -119,7 +120,14 @@ exports.onboard = async (req, res) => {
     // --- Onboarding Section 2: College Setup ---
     let collegeId = null;
 
-    if (college_name) {
+    if (college_id) {
+      const collegeExists = await College.findOne({ where: { college_id } });
+      if (collegeExists) {
+        collegeId = collegeExists.college_id;
+      }
+    }
+
+    if (!collegeId && college_name) {
       // Search case-insensitively for existing college
       let college = await College.findOne({
         where: { name: college_name }
@@ -185,5 +193,35 @@ exports.onboard = async (req, res) => {
   } catch (error) {
     console.error('[Onboarding Error]:', error);
     return res.status(500).json({ detail: 'Failed to complete profile onboarding: ' + error.message });
+  }
+};
+
+// 3. Submit ID Verification
+exports.submitVerification = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { college_id, id_card_image } = req.body;
+
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    if (college_id) {
+      user.college_id = college_id;
+    }
+    if (id_card_image) {
+      user.picture = id_card_image;
+    }
+    user.verification_status = 'pending';
+    await user.save();
+
+    return res.status(200).json({
+      detail: 'Verification submitted successfully',
+      user
+    });
+  } catch (error) {
+    console.error('[Submit Verification Error]:', error);
+    return res.status(500).json({ detail: 'Failed to submit verification: ' + error.message });
   }
 };

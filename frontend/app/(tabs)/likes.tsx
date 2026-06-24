@@ -585,8 +585,19 @@ export default function Likes() {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.bg}>
+      {/* Ambient background linear gradient */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.bg}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.greet}>People Who</Text>
@@ -746,6 +757,7 @@ export default function Likes() {
           )}
         </View>
       </SafeAreaView>
+      </BlurView>
 
       {/* Fullscreen Profile Detail Modal (Discover/Vibe style) */}
       <Modal
