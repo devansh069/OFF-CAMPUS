@@ -295,26 +295,62 @@ export default function ProfileSetup() {
   };
 
   const pickPhoto = async (index: number) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'We need storage permission to add photos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0].base64) {
-      const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+    const useDummy = () => {
+      const dummy = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
       const newPhotos = [...photos];
-      newPhotos[index] = base64Uri;
+      newPhotos[index] = dummy;
       setPhotos(newPhotos.filter(Boolean));
-    }
+      Alert.alert("Simulator Mode", "Dummy photo added to Slot " + (index + 1));
+    };
+
+    Alert.alert(
+      'Select Photo',
+      'Choose an action or use a dummy photo for testing:',
+      [
+        {
+          text: 'Open Gallery',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert(
+                  'Permission Required',
+                  'We need storage permission to add photos. Or use a dummy photo.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Use Dummy Photo', onPress: useDummy }
+                  ]
+                );
+                return;
+              }
+
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.7,
+                base64: true,
+              });
+
+              if (!result.canceled && result.assets[0].base64) {
+                const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                const newPhotos = [...photos];
+                newPhotos[index] = base64Uri;
+                setPhotos(newPhotos.filter(Boolean));
+              }
+            } catch (error) {
+              console.warn("Gallery error, using dummy photo:", error);
+              useDummy();
+            }
+          }
+        },
+        {
+          text: 'Use Dummy Photo',
+          onPress: useDummy
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const removePhoto = (index: number) => {
@@ -479,15 +515,24 @@ export default function ProfileSetup() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Mesh ambient glow blobs */}
-      <View style={styles.ambientBlobContainer}>
+      {/* Full-Screen Gradient Background with Blur Overlay */}
+      <View style={StyleSheet.absoluteFillObject}>
         <LinearGradient
-          colors={['rgba(139, 92, 246, 0.22)', 'transparent']}
-          style={styles.purpleBlob}
+          colors={['#000000', '#160024', '#9F3EBF', '#E26FFF', '#8C7EFF']}
+          locations={[0, 0.3, 0.65, 0.85, 1]}
+          style={StyleSheet.absoluteFillObject}
         />
-        <LinearGradient
-          colors={['rgba(244, 63, 94, 0.22)', 'transparent']}
-          style={styles.pinkBlob}
+        <BlurView 
+          intensity={Platform.OS === 'ios' ? 40 : 80} 
+          tint="dark" 
+          style={StyleSheet.absoluteFillObject} 
+        />
+        {/* Dark overlay to enhance glass card contrast and make white text pop */}
+        <View 
+          style={[
+            StyleSheet.absoluteFillObject, 
+            { backgroundColor: 'rgba(0, 0, 0, 0.45)' }
+          ]} 
         />
       </View>
 
@@ -507,12 +552,7 @@ export default function ProfileSetup() {
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <LinearGradient
-              colors={['#8B5CF6', '#F43F5E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progress, { width: `${(step / 5) * 100}%` }]}
-            />
+            <View style={[styles.progress, { width: `${(step / 5) * 100}%` }]} />
           </View>
         </View>
 
@@ -570,7 +610,7 @@ export default function ProfileSetup() {
 
                   {dob && (
                     <View style={styles.ageBadge}>
-                      <Ionicons name="sparkles" size={14} color="#C2FF3D" style={{ marginRight: 6 }} />
+                      <Ionicons name="sparkles" size={14} color="#FFF" style={{ marginRight: 6 }} />
                       <Text style={styles.ageBadgeText}>
                         Calculated Age: {calculateAge(dob)} years old
                       </Text>
@@ -683,9 +723,9 @@ export default function ProfileSetup() {
                       disabled={detectingLocation}
                     >
                       {detectingLocation ? (
-                        <ActivityIndicator size="small" color="#C2FF3D" />
+                        <ActivityIndicator size="small" color="#FFF" />
                       ) : (
-                        <Ionicons name="locate-outline" size={22} color="#C2FF3D" />
+                        <Ionicons name="locate-outline" size={22} color="#FFF" />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -803,7 +843,7 @@ export default function ProfileSetup() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>SELECT YOUR CAMPUS</Text>
                   <View style={styles.searchContainer}>
-                    <Ionicons name="search-outline" size={20} color="#C2FF3D" style={styles.searchIcon} />
+                    <Ionicons name="search-outline" size={20} color="#FFF" style={styles.searchIcon} />
                     <TextInput
                       style={styles.searchInput}
                       placeholder="Type college name..."
@@ -827,13 +867,10 @@ export default function ProfileSetup() {
                       <Text style={styles.noResultsText}>No colleges match your search</Text>
                       {collegeSearch.trim().length > 0 && (
                         <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomCollege}>
-                          <LinearGradient
-                            colors={['#8B5CF6', '#F43F5E']}
-                            style={styles.addCustomGrad}
-                          >
-                            <Ionicons name="add-circle-outline" size={18} color="#FFF" />
+                          <View style={styles.addCustomWhite}>
+                            <Ionicons name="add-circle-outline" size={18} color="#000" />
                             <Text style={styles.addCustomBtnText}>Add "{collegeSearch.trim()}"</Text>
-                          </LinearGradient>
+                          </View>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -850,7 +887,7 @@ export default function ProfileSetup() {
                           onPress={() => setCollegeId(college.college_id)}
                         >
                           <View style={[styles.collegeIconBox, isActive && styles.collegeIconBoxActive]}>
-                            <Ionicons name="school-outline" size={20} color={isActive ? '#C2FF3D' : '#FFF'} />
+                            <Ionicons name="school-outline" size={20} color="#FFF" />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={[
@@ -862,7 +899,7 @@ export default function ProfileSetup() {
                             <Text style={styles.collegeLocation}>{college.location}</Text>
                           </View>
                           {isActive ? (
-                            <Ionicons name="checkmark-circle" size={24} color="#C2FF3D" />
+                            <Ionicons name="checkmark-circle" size={24} color="#FFF" />
                           ) : (
                             <View style={styles.collegeUncheckCircle} />
                           )}
@@ -937,10 +974,10 @@ export default function ProfileSetup() {
                           <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
                             {p}
                           </Text>
-                          <Ionicons
-                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
-                            size={20}
-                            color={isSel ? '#C2FF3D' : '#A899B8'}
+                          <Ionicons 
+                            name={isSel ? 'radio-button-on' : 'radio-button-off'} 
+                            size={20} 
+                            color={isSel ? '#FFF' : '#A899B8'} 
                           />
                         </TouchableOpacity>
                       );
@@ -991,7 +1028,7 @@ export default function ProfileSetup() {
                           </View>
                         ) : (
                           <TouchableOpacity style={styles.photoAddCard} onPress={() => pickPhoto(index)}>
-                            <Ionicons name="add" size={28} color="#C2FF3D" />
+                            <Ionicons name="add" size={28} color="#FFF" />
                           </TouchableOpacity>
                         )}
                         <Text style={styles.photoSlotLabel}>Slot {index + 1}</Text>
@@ -1078,7 +1115,7 @@ export default function ProfileSetup() {
                           selectedValue={tempFeet}
                           style={styles.wheelPicker}
                           itemStyle={styles.pickerItem}
-                          onValueChange={(itemValue) => setTempFeet(itemValue)}
+                          onValueChange={(itemValue: any) => setTempFeet(itemValue)}
                         >
                           {[4, 5, 6, 7].map((f) => (
                             <Picker.Item key={f} label={`${f} ft`} value={f} color="#FFF" style={styles.pickerItem} />
@@ -1110,7 +1147,7 @@ export default function ProfileSetup() {
                           selectedValue={tempInches}
                           style={styles.wheelPicker}
                           itemStyle={styles.pickerItem}
-                          onValueChange={(itemValue) => setTempInches(itemValue)}
+                          onValueChange={(itemValue: any) => setTempInches(itemValue)}
                         >
                           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((inc) => (
                             <Picker.Item key={inc} label={`${inc} in`} value={inc} color="#FFF" style={styles.pickerItem} />
@@ -1131,23 +1168,18 @@ export default function ProfileSetup() {
               onPress={handleNext}
               disabled={loading}
             >
-              <LinearGradient
-                colors={['#8B5CF6', '#F43F5E']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.nextButtonGrad}
-              >
+              <View style={styles.nextButtonWhite}>
                 {loading ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color="#000" />
                 ) : (
                   <>
                     <Text style={styles.nextButtonText}>
                       {step === 5 ? 'COMPLETE SETUP' : 'CONTINUE'}
                     </Text>
-                    <Ionicons name="arrow-forward-outline" size={20} color="#FFF" />
+                    <Ionicons name="arrow-forward-outline" size={20} color="#000" />
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1162,6 +1194,7 @@ const styles = StyleSheet.create({
   overlayContainer: { flex: 1, zIndex: 2 },
 
   // Ambient glow blobs (mesh gradient)
+  
   ambientBlobContainer: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
@@ -1174,6 +1207,7 @@ const styles = StyleSheet.create({
     width: 380,
     height: 380,
     borderRadius: 190,
+    overflow: 'hidden',
   },
   pinkBlob: {
     position: 'absolute',
@@ -1182,6 +1216,7 @@ const styles = StyleSheet.create({
     width: 380,
     height: 380,
     borderRadius: 190,
+    overflow: 'hidden',
   },
 
   // Header
@@ -1207,7 +1242,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#A899B8',
+    color: '#FFFFFF',
     letterSpacing: 2,
   },
 
@@ -1224,6 +1259,7 @@ const styles = StyleSheet.create({
   },
   progress: {
     height: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 3,
   },
 
@@ -1260,7 +1296,7 @@ const styles = StyleSheet.create({
   },
   stepSubtitle: {
     fontSize: 13,
-    color: '#A899B8',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 6,
     lineHeight: 18,
   },
@@ -1278,17 +1314,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '900',
-    color: '#A899B8',
+    color: '#FFFFFF',
     letterSpacing: 1.5,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20, // Match the pill-like smooth corners from the photos
     paddingHorizontal: 16,
+    // Removed shadows for that clean flat glass look
   },
   inputIcon: {
     marginRight: 12,
@@ -1319,8 +1356,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(194, 255, 61, 0.06)',
-    borderColor: 'rgba(194, 255, 61, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1328,7 +1365,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   ageBadgeText: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1358,9 +1395,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: 'rgba(194, 255, 61, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1.2,
-    borderColor: 'rgba(194, 255, 61, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1381,8 +1418,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   optionRowButtonActive: {
-    borderColor: '#C2FF3D',
-    backgroundColor: 'rgba(194, 255, 61, 0.04)',
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   optionText: {
     fontSize: 15,
@@ -1390,7 +1427,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   optionTextActive: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
@@ -1408,8 +1445,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   optionGridButtonActive: {
-    borderColor: '#C2FF3D',
-    backgroundColor: 'rgba(194, 255, 61, 0.04)',
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   optionGridText: {
     fontSize: 13,
@@ -1417,7 +1454,7 @@ const styles = StyleSheet.create({
     color: '#A899B8',
   },
   optionGridTextActive: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
@@ -1455,8 +1492,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   habitBtnActive: {
-    borderColor: '#C2FF3D',
-    backgroundColor: 'rgba(194, 255, 61, 0.06)',
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   habitBtnText: {
     fontSize: 11,
@@ -1464,16 +1501,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   habitBtnTextActive: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
   // Textarea
   textAreaWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
@@ -1494,11 +1531,11 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24, // Even more pill-like for search
     paddingHorizontal: 16,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   searchIcon: {
     marginRight: 10,
@@ -1526,7 +1563,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   noResultsText: {
-    color: '#A899B8',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1541,8 +1578,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   collegeItemActive: {
-    borderColor: '#C2FF3D',
-    backgroundColor: 'rgba(194, 255, 61, 0.04)',
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   collegeIconBox: {
     width: 36,
@@ -1555,8 +1592,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   collegeIconBoxActive: {
-    backgroundColor: 'rgba(194, 255, 61, 0.1)',
-    borderColor: 'rgba(194, 255, 61, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   collegeName: {
     fontSize: 14,
@@ -1585,15 +1622,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
   },
-  addCustomGrad: {
+  addCustomWhite: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
   },
   addCustomBtnText: {
-    color: '#FFF',
+    color: '#000000',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1613,8 +1651,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   interestChipActive: {
-    borderColor: '#F43F5E',
-    backgroundColor: 'rgba(244, 63, 94, 0.06)',
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   interestText: {
     fontSize: 12,
@@ -1622,7 +1660,7 @@ const styles = StyleSheet.create({
     color: '#A899B8',
   },
   interestTextActive: {
-    color: '#F43F5E',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
@@ -1645,7 +1683,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#C2FF3D',
+    borderColor: '#FFFFFF',
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -1655,11 +1693,11 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(194, 255, 61, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(194, 255, 61, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   photoImg: {
     width: '100%',
@@ -1711,7 +1749,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pickerConfirmText: {
-    color: '#C2FF3D',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1721,24 +1759,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 24,
-    backgroundColor: '#000000',
-    borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
   },
   nextButton: {
     width: '100%',
     borderRadius: 30,
     overflow: 'hidden',
   },
-  nextButtonGrad: {
+  nextButtonWhite: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
   },
   nextButtonText: {
-    color: '#FFF',
+    color: '#000000',
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.8,

@@ -25,43 +25,104 @@ export default function Verification() {
   const [idImage, setIdImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const useDummyPhoto = () => {
+    setIdImage("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=");
+    Alert.alert("Simulator Mode", "Using dummy photo for verification.");
+  };
+
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo access to upload your ID');
-      return;
-    }
+    Alert.alert(
+      'Select ID Photo',
+      'Choose an action or use a dummy photo for testing:',
+      [
+        {
+          text: 'Open Gallery',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert(
+                  'Permission Required',
+                  'Please allow photo access to upload your ID, or use a dummy photo.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Use Dummy Photo', onPress: useDummyPhoto }
+                  ]
+                );
+                return;
+              }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-      base64: true,
-    });
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7,
+                base64: true,
+              });
 
-    if (!result.canceled && result.assets[0].base64) {
-      setIdImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-    }
+              if (!result.canceled && result.assets[0].base64) {
+                setIdImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+              }
+            } catch (error) {
+              console.warn("Gallery error, using dummy photo:", error);
+              useDummyPhoto();
+            }
+          }
+        },
+        {
+          text: 'Use Dummy Photo',
+          onPress: useDummyPhoto
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow camera access');
-      return;
-    }
+    Alert.alert(
+      'Take ID Photo',
+      'Choose an action or use a dummy photo for testing:',
+      [
+        {
+          text: 'Open Camera',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert(
+                  'Permission Required',
+                  'Please allow camera access, or use a dummy photo.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Use Dummy Photo', onPress: useDummyPhoto }
+                  ]
+                );
+                return;
+              }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-      base64: true,
-    });
+              const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7,
+                base64: true,
+              });
 
-    if (!result.canceled && result.assets[0].base64) {
-      setIdImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-    }
+              if (!result.canceled && result.assets[0].base64) {
+                setIdImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+              }
+            } catch (error) {
+              console.warn("Camera error, using dummy photo:", error);
+              useDummyPhoto();
+            }
+          }
+        },
+        {
+          text: 'Use Dummy Photo',
+          onPress: useDummyPhoto
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const handleSubmit = async () => {
