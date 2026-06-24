@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -72,9 +73,9 @@ const DEFAULT_COLLEGES = [
 ];
 
 export default function ProfileSetup() {
-  const { user, sessionToken, refreshUser, updateUser } = useAuth();
+  const { user, sessionToken, refreshUser, updateUser, logout } = useAuth();
   const router = useRouter();
-  
+
   // 5 Onboarding Steps: 1 (Basics), 2 (Vibe & Location), 3 (College), 4 (Prompts), 5 (Photos)
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -88,7 +89,37 @@ export default function ProfileSetup() {
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [gender, setGender] = useState(user?.gender || '');
   const [lookingFor, setLookingFor] = useState(user?.looking_for || '');
-  const [height, setHeight] = useState(user?.height?.toString() || '');
+
+  // Height state (Feet & Inches)
+  const getInitialFeetInches = (cmValue?: number) => {
+    if (!cmValue || cmValue <= 0) return { ft: 5, in: 7 };
+    const totalInches = cmValue / 2.54;
+    const ft = Math.floor(totalInches / 12);
+    const inc = Math.round(totalInches % 12);
+    return { ft: ft >= 4 && ft <= 7 ? ft : 5, in: inc >= 0 && inc <= 11 ? inc : 7 };
+  };
+  const initialHt = getInitialFeetInches(user?.height);
+  const [heightFeet, setHeightFeet] = useState(initialHt.ft);
+  const [heightInches, setHeightInches] = useState(initialHt.in);
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
+  const [tempFeet, setTempFeet] = useState(initialHt.ft);
+  const [tempInches, setTempInches] = useState(initialHt.in);
+
+  const openHeightPicker = () => {
+    setTempFeet(heightFeet);
+    setTempInches(heightInches);
+    setShowHeightPicker(true);
+  };
+
+  const confirmHeight = () => {
+    setHeightFeet(tempFeet);
+    setHeightInches(tempInches);
+    setShowHeightPicker(false);
+  };
+
+  const cancelHeight = () => {
+    setShowHeightPicker(false);
+  };
 
   // Step 2: Vibe, Habits & Location
   const [religion, setReligion] = useState(user?.religion || '');
@@ -112,8 +143,8 @@ export default function ProfileSetup() {
   // Step 4: Prompts
   const [selectedPrompt, setSelectedPrompt] = useState(PROMPTS[0]);
   const [promptAnswer, setPromptAnswer] = useState(
-    user?.prompts && Object.keys(user.prompts).length > 0 
-      ? Object.values(user.prompts)[0] 
+    user?.prompts && Object.keys(user.prompts).length > 0
+      ? Object.values(user.prompts)[0]
       : ''
   );
 
@@ -181,9 +212,38 @@ export default function ProfileSetup() {
         setDob(null);
         setAge('');
       } else {
-        setDob(selectedDate);
-        setAge(calculatedAge.toString());
+        // Show age confirmation popup
+        Alert.alert(
+          'Confirm Age 🎂',
+          `You are calculated to be ${calculatedAge} years old (born ${selectedDate.toLocaleDateString('en-GB')}). Is this correct?`,
+          [
+            { 
+              text: 'Change', 
+              style: 'cancel',
+              onPress: () => {
+                setDob(null);
+                setAge('');
+              }
+            },
+            { 
+              text: 'Yes, Correct', 
+              onPress: () => {
+                setDob(selectedDate);
+                setAge(calculatedAge.toString());
+              }
+            }
+          ]
+        );
       }
+    }
+  };
+
+  const handleBack = async () => {
+    if (step > 1) {
+      setStep(step - 1);
+    } else {
+      await logout();
+      router.replace('/welcome');
     }
   };
 
@@ -286,8 +346,10 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please select who you are looking for');
         return;
       }
-      if (!height || isNaN(parseInt(height))) {
-        Alert.alert('Required', 'Please enter your height in cm');
+      // Calculate cm from feet & inches for database compatibility
+      const calculatedHeightCm = Math.round((heightFeet * 12 + heightInches) * 2.54);
+      if (calculatedHeightCm <= 0) {
+        Alert.alert('Required', 'Please select a valid height');
         return;
       }
       setStep(2);
@@ -345,7 +407,7 @@ export default function ProfileSetup() {
         age: parseInt(age),
         gender,
         looking_for: lookingFor,
-        height: parseInt(height),
+        height: Math.round((heightFeet * 12 + heightInches) * 2.54),
         location: locationText,
         latitude: latitude || 28.6139,
         longitude: longitude || 77.2090,
@@ -378,7 +440,7 @@ export default function ProfileSetup() {
             const updatedUser = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`, {
               headers: { 'Authorization': `Bearer ${sessionToken}` },
             }).then(r => r.json());
-            
+
             if (updatedUser.user?.verification_status === 'verified') {
               checkVerification = true;
             }
@@ -398,7 +460,7 @@ export default function ProfileSetup() {
         if (updateUser) {
           updateUser(payload as any);
         }
-        
+
         if (checkVerification) {
           router.replace('/(tabs)/discover');
         } else {
@@ -433,9 +495,8 @@ export default function ProfileSetup() {
         {/* Header Navigation */}
         <View style={styles.header}>
           <TouchableOpacity 
-            style={[styles.backButton, step === 1 && { opacity: 0 }]} 
-            onPress={() => step > 1 ? setStep(step - 1) : null}
-            disabled={step === 1}
+            style={styles.backButton} 
+            onPress={handleBack}
           >
             <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
           </TouchableOpacity>
@@ -459,17 +520,17 @@ export default function ProfileSetup() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <ScrollView 
-            style={styles.scrollView} 
+          <ScrollView
+            style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false} 
+            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {/* Step 1: Basics */}
             {step === 1 && (
-              <BlurView 
-                intensity={Platform.OS === 'ios' ? 25 : 85} 
-                tint="dark" 
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 25 : 85}
+                tint="dark"
                 style={styles.glassStepCard}
               >
                 <View style={styles.textHeader}>
@@ -495,8 +556,8 @@ export default function ProfileSetup() {
                 {/* DOB Picker */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>DATE OF BIRTH</Text>
-                  <TouchableOpacity 
-                    style={styles.inputWrapper} 
+                  <TouchableOpacity
+                    style={styles.inputWrapper}
                     onPress={() => setShowDatePicker(true)}
                     activeOpacity={0.8}
                   >
@@ -506,7 +567,7 @@ export default function ProfileSetup() {
                     </Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#A899B8" style={styles.chevronIcon} />
                   </TouchableOpacity>
-                  
+
                   {dob && (
                     <View style={styles.ageBadge}>
                       <Ionicons name="sparkles" size={14} color="#C2FF3D" style={{ marginRight: 6 }} />
@@ -517,21 +578,25 @@ export default function ProfileSetup() {
                   )}
                 </View>
 
-                {/* Height */}
+                {/* Height Selector (Feet & Inches) */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>HEIGHT (CM)</Text>
-                  <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>HEIGHT</Text>
+                  <TouchableOpacity 
+                    style={styles.inputWrapper} 
+                    onPress={openHeightPicker}
+                    activeOpacity={0.8}
+                  >
                     <Ionicons name="resize-outline" size={20} color="#A899B8" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. 175"
-                      placeholderTextColor="#71717A"
-                      value={height}
-                      onChangeText={setHeight}
-                      keyboardType="number-pad"
-                      maxLength={3}
+                    <Text style={styles.dobText}>
+                      {heightFeet} ft {heightInches} in
+                    </Text>
+                    <Ionicons 
+                      name="chevron-down-outline" 
+                      size={18} 
+                      color="#A899B8" 
+                      style={styles.chevronIcon} 
                     />
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Gender */}
@@ -588,9 +653,9 @@ export default function ProfileSetup() {
 
             {/* Step 2: Vibe, Habits & Location */}
             {step === 2 && (
-              <BlurView 
-                intensity={Platform.OS === 'ios' ? 25 : 85} 
-                tint="dark" 
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 25 : 85}
+                tint="dark"
                 style={styles.glassStepCard}
               >
                 <View style={styles.textHeader}>
@@ -612,8 +677,8 @@ export default function ProfileSetup() {
                         onChangeText={setLocationText}
                       />
                     </View>
-                    <TouchableOpacity 
-                      style={styles.locationBtn} 
+                    <TouchableOpacity
+                      style={styles.locationBtn}
                       onPress={handleDetectLocation}
                       disabled={detectingLocation}
                     >
@@ -724,9 +789,9 @@ export default function ProfileSetup() {
 
             {/* Step 3: College Connection */}
             {step === 3 && (
-              <BlurView 
-                intensity={Platform.OS === 'ios' ? 25 : 85} 
-                tint="dark" 
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 25 : 85}
+                tint="dark"
                 style={styles.glassStepCard}
               >
                 <View style={styles.textHeader}>
@@ -762,8 +827,8 @@ export default function ProfileSetup() {
                       <Text style={styles.noResultsText}>No colleges match your search</Text>
                       {collegeSearch.trim().length > 0 && (
                         <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomCollege}>
-                          <LinearGradient 
-                            colors={['#8B5CF6', '#F43F5E']} 
+                          <LinearGradient
+                            colors={['#8B5CF6', '#F43F5E']}
                             style={styles.addCustomGrad}
                           >
                             <Ionicons name="add-circle-outline" size={18} color="#FFF" />
@@ -848,9 +913,9 @@ export default function ProfileSetup() {
 
             {/* Step 4: Prompts */}
             {step === 4 && (
-              <BlurView 
-                intensity={Platform.OS === 'ios' ? 25 : 85} 
-                tint="dark" 
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 25 : 85}
+                tint="dark"
                 style={styles.glassStepCard}
               >
                 <View style={styles.textHeader}>
@@ -872,10 +937,10 @@ export default function ProfileSetup() {
                           <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
                             {p}
                           </Text>
-                          <Ionicons 
-                            name={isSel ? 'radio-button-on' : 'radio-button-off'} 
-                            size={20} 
-                            color={isSel ? '#C2FF3D' : '#A899B8'} 
+                          <Ionicons
+                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
+                            size={20}
+                            color={isSel ? '#C2FF3D' : '#A899B8'}
                           />
                         </TouchableOpacity>
                       );
@@ -902,9 +967,9 @@ export default function ProfileSetup() {
 
             {/* Step 5: Photos */}
             {step === 5 && (
-              <BlurView 
-                intensity={Platform.OS === 'ios' ? 25 : 85} 
-                tint="dark" 
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 25 : 85}
+                tint="dark"
                 style={styles.glassStepCard}
               >
                 <View style={styles.textHeader}>
@@ -975,6 +1040,90 @@ export default function ProfileSetup() {
             </Modal>
           )}
 
+          {/* Height Picker Modal */}
+          {showHeightPicker && (
+            <Modal transparent animationType="slide" visible={showHeightPicker}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.datePickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={cancelHeight}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={confirmHeight}>
+                      <Text style={styles.pickerConfirmText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.heightPickerRow}>
+                    <View style={styles.pickerCol}>
+                      <Text style={styles.pickerColLabel}>Feet</Text>
+                      {Platform.OS === 'android' ? (
+                        <ScrollView style={styles.customPickerScroll} showsVerticalScrollIndicator={false}>
+                          {[4, 5, 6, 7].map((f) => {
+                            const isSelected = tempFeet === f;
+                            return (
+                              <TouchableOpacity
+                                key={f}
+                                style={[styles.customPickerItem, isSelected && styles.customPickerItemActive]}
+                                onPress={() => setTempFeet(f)}
+                              >
+                                <Text style={[styles.customPickerText, isSelected && styles.customPickerTextActive]}>
+                                  {f} ft
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : (
+                        <Picker
+                          selectedValue={tempFeet}
+                          style={styles.wheelPicker}
+                          itemStyle={styles.pickerItem}
+                          onValueChange={(itemValue) => setTempFeet(itemValue)}
+                        >
+                          {[4, 5, 6, 7].map((f) => (
+                            <Picker.Item key={f} label={`${f} ft`} value={f} color="#FFF" style={styles.pickerItem} />
+                          ))}
+                        </Picker>
+                      )}
+                    </View>
+                    <View style={styles.pickerCol}>
+                      <Text style={styles.pickerColLabel}>Inches</Text>
+                      {Platform.OS === 'android' ? (
+                        <ScrollView style={styles.customPickerScroll} showsVerticalScrollIndicator={false}>
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((inc) => {
+                            const isSelected = tempInches === inc;
+                            return (
+                              <TouchableOpacity
+                                key={inc}
+                                style={[styles.customPickerItem, isSelected && styles.customPickerItemActive]}
+                                onPress={() => setTempInches(inc)}
+                              >
+                                <Text style={[styles.customPickerText, isSelected && styles.customPickerTextActive]}>
+                                  {inc} in
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : (
+                        <Picker
+                          selectedValue={tempInches}
+                          style={styles.wheelPicker}
+                          itemStyle={styles.pickerItem}
+                          onValueChange={(itemValue) => setTempInches(itemValue)}
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((inc) => (
+                            <Picker.Item key={inc} label={`${inc} in`} value={inc} color="#FFF" style={styles.pickerItem} />
+                          ))}
+                        </Picker>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
+
           {/* Footer Next Button */}
           <View style={styles.footer}>
             <TouchableOpacity
@@ -1011,7 +1160,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   blackBackground: { flex: 1, backgroundColor: '#000000' },
   overlayContainer: { flex: 1, zIndex: 2 },
-  
+
   // Ambient glow blobs (mesh gradient)
   ambientBlobContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -1182,6 +1331,21 @@ const styles = StyleSheet.create({
     color: '#C2FF3D',
     fontSize: 12,
     fontWeight: '800',
+  },
+  heightPickerBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+    marginTop: 6,
+  },
+  pickerSubLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#A899B8',
+    letterSpacing: 1,
   },
 
   // Location Auto-Detect
@@ -1581,5 +1745,75 @@ const styles = StyleSheet.create({
   },
   nextButtonDisabled: {
     opacity: 0.6,
+  },
+  heightPickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  pickerCol: {
+    flex: 1,
+    alignItems: 'stretch',
+    marginHorizontal: 8,
+  },
+  pickerColLabel: {
+    fontSize: 12,
+    color: '#A899B8',
+    fontWeight: '800',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+  },
+  wheelPicker: {
+    width: '100%',
+    height: Platform.OS === 'ios' ? 200 : 50,
+    backgroundColor: 'transparent',
+    color: '#FFF',
+  },
+  pickerItem: {
+    color: '#FFF',
+    fontSize: 20,
+    height: Platform.OS === 'ios' ? 200 : 50,
+  },
+  androidPickerWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    height: 50,
+  },
+  customPickerScroll: {
+    height: 180,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 6,
+  },
+  customPickerItem: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+    marginVertical: 2,
+    borderWidth: 1.2,
+    borderColor: 'transparent',
+  },
+  customPickerItemActive: {
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
+  },
+  customPickerText: {
+    color: '#A899B8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  customPickerTextActive: {
+    color: '#C2FF3D',
+    fontWeight: '800',
   },
 });
