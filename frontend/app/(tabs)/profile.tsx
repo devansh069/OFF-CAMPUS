@@ -398,7 +398,7 @@ export default function Profile() {
               <View style={styles.photosGrid}>
                 {user.photos?.map((photo: string, index: number) => (
                   <View key={index} style={styles.photoItem}>
-                    <Image source={{ uri: photo.startsWith('data:') ? photo : `${EXPO_PUBLIC_BACKEND_URL}${photo}` }} style={styles.photoImg} />
+                    <Image source={{ uri: photo.startsWith('data:') || photo.startsWith('http') ? photo : `${EXPO_PUBLIC_BACKEND_URL}${photo}` }} style={styles.photoImg} />
                     <TouchableOpacity style={styles.photoOverlay} onPress={() => deletePhoto(index)}>
                       <Ionicons name="trash-outline" size={14} color="#FF4D4D" />
                     </TouchableOpacity>
@@ -484,6 +484,32 @@ export default function Profile() {
                   <View style={{ flex: 1, marginLeft: 14 }}>
                     <Text style={styles.cardTitle}>Refer Friends</Text>
                     <Text style={styles.cardSubtitle}>Earn 7 days premium per referral!</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/admin')}>
+                <View style={styles.glassButtonContent}>
+                  <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color="#C2FF3D" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={styles.cardTitle}>Admin Portal</Text>
+                    <Text style={styles.cardSubtitle}>Moderate campus events & verifications</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.glassCardButton, styles.logoutCardButton]} onPress={handleLogout}>
+                <View style={styles.glassButtonContent}>
+                  <View style={[styles.cardIconBox, styles.logoutIconBox]}>
+                    <Ionicons name="log-out-outline" size={20} color="#FF5252" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={[styles.cardTitle, { color: '#FF5252' }]}>Log Out</Text>
+                    <Text style={styles.cardSubtitle}>Sign out of your account</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
                 </View>
@@ -961,5 +987,13 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.55)',
     fontSize: 12,
     marginTop: 2,
+  },
+  logoutCardButton: {
+    borderColor: 'rgba(255, 82, 82, 0.25)',
+    backgroundColor: 'rgba(255, 82, 82, 0.02)',
+  },
+  logoutIconBox: {
+    borderColor: 'rgba(255, 82, 82, 0.3)',
+    backgroundColor: 'rgba(255, 82, 82, 0.05)',
   },
 });

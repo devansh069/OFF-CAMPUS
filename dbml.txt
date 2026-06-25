@@ -1,0 +1,126 @@
+<USER_REQUEST>
+as i have my fulll sqp structure amke throungh an dbdigram.io full my table sql structure now i was thnk to make that structure in my current off_canpus_db  to make that exact all tables and connection so think i can do  tell me firdst 
+
+
+Enum "users_gender_enum" {
+  "male"
+  "female"
+  "other"
+}
+
+Enum "users_looking_for_enum" {
+  "dating"
+  "friends"
+  "networking"
+  "all"
+}
+
+Enum "users_verification_status_enum" {
+  "pending"
+  "verified"
+  "rejected"
+}
+
+Enum "verification_requests_status_enum" {
+  "pending"
+  "verified"
+  "rejected"
+}
+
+Table "colleges" {
+  "user_id" varchar
+  "college_id" varchar(255) [pk, not null]
+  "college_name" varchar(255) [not null]
+  "short_name" varchar(255) [not null]
+  "location" varchar(255) [not null]
+  "latitude" double [not null]
+  "longitude" double [not null]
+  "email_domains" json [not null]
+  "type" varchar(255) [not null]
+  "city" varchar(255) [not null, default: 'Delhi']
+  "created_at" datetime [not null]
+  "updated_at" datetime [not null]
+}
+
+Table college_master {
+  college_id varchar [pk]
+  college_name varchar
+  short_name varchar
+}
+
+Table "comments" {
+  "comment_id" varchar(255) [pk, not null]
+  "confession_id" varchar(255) [not null]
+  "user_id" varchar(255) [not null]
+  "content" text [not null]
+  "created_at" datetime [not null]
+  "updated_at" datetime [not null]
+
+  Indexes {
+    confession_id [name: "confession_id"]
+    user_id [name: "user_id"]
+  }
+}
+
+Table "confessions" {
+  "confession_id" varchar(255) [pk, not null]
+  "user_id" varchar(255) [not null]
+  "college_id" varchar(255)
+  "content" text [not null]
+  "likes" int [not null, default: '0']
+  "comments" int [not null, default: '0']
+  "created_at" datetime [not null]
+  "updated_at" datetime [not null]
+
+  Indexes {
+    user_id [name: "user_id"]
+    college_id [name: "college_id"]
+  }
+}
+
+Table "events" {
+  "event_id" varchar(255) [pk, not null]
+  "title" varchar(255) [not null]
+  "host_name" varchar(255) [not null]
+  "host_user_id" varchar(255) [not null]
+  "category" varchar(255) [not null, defa
+<truncated 5063 bytes>
+ratings_ibfk_2":"users"."user_id" < "ratings"."to_user_id" [update: cascade]
+
+Ref "stories_ibfk_1":"users"."user_id" < "stories"."user_id" [update: cascade]
+
+Ref "stories_ibfk_2":"colleges"."college_id" < "stories"."college_id" [update: cascade, delete: set null]
+
+Ref "user_sessions_ibfk_1":"users"."user_id" < "user_sessions"."user_id" [update: cascade]
+
+Ref "verification_requests_ibfk_35":"users"."user_id" < "verification_requests"."user_id" [update: cascade]
+
+Ref "verification_requests_ibfk_36":"colleges"."college_id" < "verification_requests"."college_id" [update: cascade]
+Ref: colleges.college_name > college_master.college_name
+
+Ref: colleges.college_id > college_master.college_id
+
+Ref: colleges.short_name > college_master.short_name
+Ref: colleges.college_name > users.college_name
+
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-06-25T13:25:50+05:30.
+
+The user's current state is as follows:
+Active Document: c:\All vs code projects\Off-Cmpus\frontend\app\(tabs)\profile.tsx (LANGUAGE_TSX)
+Cursor is on line: 1
+Other open documents:
+- c:\All vs code projects\Off-Cmpus\backend\src\config\db.js (LANGUAGE_JAVASCRIPT)
+- c:\All vs code projects\Off-Cmpus\frontend\app\(tabs)\likes.tsx (LANGUAGE_TSX)
+- c:\All vs code projects\Off-Cmpus\frontend\app\(tabs)\profile.tsx (LANGUAGE_TSX)
+- c:\All vs code projects\Off-Cmpus\backend\src\config\firebase.js (LANGUAGE_JAVASCRIPT)
+- c:\All vs code projects\Off-Cmpus\frontend\.env (LANGUAGE_UNSPECIFIED)
+Running terminal commands:
+- npm run dev (in c:\All vs code projects\Off-Cmpus\backend, running for 22m27s)
+- $env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.4"; npx expo start --lan -c (in c:\All vs code projects\Off-Cmpus\frontend, running for 22m9s)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.5 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

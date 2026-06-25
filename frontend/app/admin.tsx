@@ -47,11 +47,13 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
-  const [tab, setTab] = useState<'stats' | 'users' | 'verifications' | 'confessions'>('stats');
+  const [tab, setTab] = useState<'stats' | 'users' | 'verifications' | 'confessions' | 'events'>('stats');
   const [confessions, setConfessions] = useState<any[]>([]);
+  const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [viewingEventId, setViewingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     getAdminToken().then(t => {
@@ -81,16 +83,18 @@ export default function AdminDashboard() {
 
   const loadData = async (t: string) => {
     try {
-      const [statsData, usersData, verifsData, confData] = await Promise.all([
+      const [statsData, usersData, verifsData, confData, eventsData] = await Promise.all([
         adminFetch('/admin/stats', t),
         adminFetch('/admin/users?limit=200', t),
         adminFetch('/admin/verification-requests', t),
         adminFetch('/confessions/feed?limit=100', t).catch(() => ({ confessions: [] })),
+        adminFetch('/admin/pending-events', t).catch(() => ({ events: [] })),
       ]);
       setStats(statsData);
       setUsers(usersData.users || []);
       setVerifications(verifsData.requests || []);
       setConfessions(confData.confessions || []);
+      setPendingEvents(eventsData.events || []);
     } catch (e) {
       console.error(e);
     }
@@ -138,6 +142,20 @@ export default function AdminDashboard() {
     await adminFetch(`/admin/verification/${reqId}/reject`, token, { method: 'POST' });
     loadData(token);
     setViewingId(null);
+  };
+
+  const approveEvent = async (eventId: string) => {
+    if (!token) return;
+    await adminFetch(`/admin/events/${eventId}/approve`, token, { method: 'POST' });
+    loadData(token);
+    setViewingEventId(null);
+  };
+
+  const rejectEvent = async (eventId: string) => {
+    if (!token) return;
+    await adminFetch(`/admin/events/${eventId}/reject`, token, { method: 'POST' });
+    loadData(token);
+    setViewingEventId(null);
   };
 
   const deleteUser = (userId: string, name: string) => {
@@ -219,6 +237,7 @@ export default function AdminDashboard() {
   });
 
   const viewingVerif = verifications.find(v => v.request_id === viewingId);
+  const viewingEvent = pendingEvents.find(e => e.event_id === viewingEventId);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -237,6 +256,7 @@ export default function AdminDashboard() {
           { key: 'stats', icon: 'stats-chart', label: 'Stats' },
           { key: 'users', icon: 'people', label: 'Users' },
           { key: 'verifications', icon: 'shield-checkmark', label: `Verify (${verifications.length})` },
+          { key: 'events', icon: 'calendar', label: `Events (${pendingEvents.length})` },
           { key: 'confessions', icon: 'megaphone', label: 'Confess' },
         ].map((t: any) => (
           <TouchableOpacity
@@ -337,6 +357,30 @@ export default function AdminDashboard() {
           </View>
         )}
 
+        {tab === 'events' && (
+          <View style={styles.section}>
+            {pendingEvents.length === 0 ? (
+              <Text style={styles.emptyText}>No pending events 🎉</Text>
+            ) : pendingEvents.map(e => (
+              <TouchableOpacity key={e.event_id} style={styles.verifCard} onPress={() => setViewingEventId(e.event_id)}>
+                {e.cover_image ? (
+                  <Image source={{ uri: e.cover_image }} style={styles.verifThumb} />
+                ) : (
+                  <View style={[styles.verifThumb, { backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="calendar-outline" size={24} color="#666" />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.userName}>{e.title}</Text>
+                  <Text style={styles.userEmail}>Host: {e.host_name}</Text>
+                  <Text style={styles.userEmail}>Date: {e.date}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#666" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {tab === 'confessions' && (
           <View style={styles.section}>
             {confessions.map(c => (
@@ -376,6 +420,64 @@ export default function AdminDashboard() {
               </>
             )}
           </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!viewingEvent} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity onPress={() => setViewingEventId(null)} style={{ alignSelf: 'flex-end', marginBottom: 10 }}>
+                <Ionicons name="close" size={28} color="#FFF" />
+              </TouchableOpacity>
+              {viewingEvent && (
+                <>
+                  <Text style={styles.modalTitle}>{viewingEvent.title}</Text>
+                  {viewingEvent.cover_image && (
+                    <Image source={{ uri: viewingEvent.cover_image }} style={styles.modalImage} />
+                  )}
+                  
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    <Text style={{ color: '#FFF', fontSize: 14 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#FF3366' }}>Host: </Text>{viewingEvent.host_name}
+                    </Text>
+                    <Text style={{ color: '#FFF', fontSize: 14 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#FF3366' }}>Category: </Text>{viewingEvent.category}
+                    </Text>
+                    <Text style={{ color: '#FFF', fontSize: 14 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#FF3366' }}>Date: </Text>{viewingEvent.date}
+                    </Text>
+                    <Text style={{ color: '#FFF', fontSize: 14 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#FF3366' }}>Location: </Text>{viewingEvent.location}
+                    </Text>
+                    <Text style={{ color: '#DDD', fontSize: 14, marginTop: 4 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#FF3366' }}>Description:{"\n"}</Text>{viewingEvent.description}
+                    </Text>
+                  </View>
+
+                  {viewingEvent.gallery_photos && Array.isArray(viewingEvent.gallery_photos) && viewingEvent.gallery_photos.length > 0 && (
+                    <View style={{ marginTop: 16 }}>
+                      <Text style={{ color: '#FFF', fontWeight: 'bold', marginBottom: 8 }}>Gallery Photos</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {viewingEvent.gallery_photos.map((photo: string, index: number) => (
+                          <Image key={index} source={{ uri: photo }} style={{ width: 100, height: 100, borderRadius: 8 }} />
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+                    <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#F44336' }]} onPress={() => rejectEvent(viewingEvent.event_id)}>
+                      <Text style={styles.modalBtnText}>Reject</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#4CAF50' }]} onPress={() => approveEvent(viewingEvent.event_id)}>
+                      <Text style={styles.modalBtnText}>Approve</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>

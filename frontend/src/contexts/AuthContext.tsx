@@ -89,8 +89,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Check for existing session on mount
   useEffect(() => {
-    console.log('AuthProvider mounted. Running in offline/mock mode.');
-    setLoading(false);
+    console.log('AuthProvider mounted. Checking existing session...');
+    setLoading(true);
+    checkExistingSession();
   }, []);
 
   // Handle deep links (for mobile) - check both on mount and when URL changes
@@ -242,28 +243,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (phoneNumber: string) => {
     try {
       setLoading(true);
-      const mockUser: User = {
-        ...dummyUser,
-        phone_number: phoneNumber,
-        name: 'Vibe Student',
-        age: undefined,
-        college_id: undefined,
-      };
+      
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firebaseToken: `dev-token-${phoneNumber}`
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to authenticate');
+      }
+
+      const data = await response.json();
+      const token = data.token;
 
       // Store token
       if (Platform.OS === 'web') {
-        localStorage.setItem('session_token', 'dummy_token');
+        localStorage.setItem('session_token', token);
       } else {
-        await SecureStore.setItemAsync('session_token', 'dummy_token');
+        await SecureStore.setItemAsync('session_token', token);
       }
 
-      setSessionToken('dummy_token');
-      setUser(mockUser);
+      setSessionToken(token);
+      setUser(data.user);
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during login:', error);
       setLoading(false);
-      Alert.alert('Login Failed', 'Please try again.');
+      Alert.alert('Login Failed', error.message || 'Please try again.');
     }
   };
 
@@ -272,12 +284,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const clearSession = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.removeItem('session_token');
+      } else {
+        await SecureStore.deleteItemAsync('session_token');
+      }
+    } catch (err) {
+      console.warn('Error clearing session store:', err);
+    }
     setSessionToken(null);
     setUser(null);
   };
 
   const refreshUser = async () => {
-    // No-op in mock mode
+    if (sessionToken) {
+      await fetchUserProfile(sessionToken);
+    }
   };
 
   const updateUser = (updatedFields: Partial<User>) => {

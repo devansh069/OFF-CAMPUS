@@ -2,6 +2,39 @@ const jwt = require('jsonwebtoken');
 const { auth } = require('../config/firebase');
 const User = require('../models/User');
 const College = require('../models/College');
+const cloudinary = require('cloudinary').v2;
+
+// Helper to upload base64 string to Cloudinary
+const uploadToCloudinary = async (base64Str) => {
+  try {
+    let formattedStr = base64Str;
+    if (!formattedStr.startsWith('data:')) {
+      formattedStr = `data:image/jpeg;base64,${formattedStr}`;
+    }
+    const uploadResponse = await cloudinary.uploader.upload(formattedStr, {
+      folder: 'off_campus_profiles',
+      resource_type: 'image'
+    });
+    return uploadResponse.secure_url;
+  } catch (error) {
+    console.error('[Cloudinary Upload Error]:', error);
+    throw error;
+  }
+};
+
+// Helper to extract public ID from Cloudinary URL
+const getPublicIdFromUrl = (url) => {
+  try {
+    if (!url || !url.includes('/image/upload/')) return null;
+    const parts = url.split('/image/upload/');
+    const pathAndVersion = parts[1];
+    const cleanPath = pathAndVersion.replace(/^v\d+\//, '');
+    const publicId = cleanPath.substring(0, cleanPath.lastIndexOf('.')) || cleanPath;
+    return publicId;
+  } catch (err) {
+    return null;
+  }
+};
 
 // Helper to generate JWT Token
 const generateToken = (userId, phoneNumber) => {
@@ -21,12 +54,22 @@ exports.verifyOTP = async (req, res) => {
       return res.status(400).json({ detail: 'Firebase ID token is required' });
     }
 
-    // Verify token using Firebase Admin SDK
-    const decodedToken = await auth.verifyIdToken(firebaseToken);
-    const { uid, phone_number } = decodedToken;
+    let uid, phone_number;
 
-    if (!phone_number) {
-      return res.status(400).json({ detail: 'Firebase token must contain a verified phone number' });
+    // Check for development bypass token
+    if ((!process.env.NODE_ENV || process.env.NODE_ENV === 'development') && firebaseToken.startsWith('dev-token-')) {
+      phone_number = firebaseToken.replace('dev-token-', '');
+      uid = 'dev_user_' + phone_number.replace(/\D/g, '');
+      console.log(`[Auth Dev Bypass] Logging in with test number: ${phone_number}`);
+    } else {
+      // Verify token using Firebase Admin SDK
+      const decodedToken = await auth.verifyIdToken(firebaseToken);
+      uid = decodedToken.uid;
+      phone_number = decodedToken.phone_number;
+
+      if (!phone_number) {
+        return res.status(400).json({ detail: 'Firebase token must contain a verified phone number' });
+      }
     }
 
     // Check if user exists by firebase_uid or phone_number
@@ -174,7 +217,25 @@ exports.onboard = async (req, res) => {
     user.college_id = collegeId || user.college_id;
 
     // Handle array / JSON types
-    if (photos) user.photos = Array.isArray(photos) ? photos : JSON.parse(photos);
+    if (photos) {
+      const photosArray = Array.isArray(photos) ? photos : JSON.parse(photos);
+      const updatedPhotos = [];
+      for (let photo of photosArray) {
+        if (photo.startsWith('data:image') || photo.length > 1000) {
+          try {
+            console.log('[Cloudinary] Uploading onboarding profile photo...');
+            const cloudinaryUrl = await uploadToCloudinary(photo);
+            updatedPhotos.push(cloudinaryUrl);
+          } catch (uploadErr) {
+            console.error('[Onboarding Photo Upload Failure]:', uploadErr);
+            updatedPhotos.push(photo);
+          }
+        } else {
+          updatedPhotos.push(photo);
+        }
+      }
+      user.photos = updatedPhotos;
+    }
     if (prompts) user.prompts = typeof prompts === 'object' ? prompts : JSON.parse(prompts);
     if (interests) user.interests = Array.isArray(interests) ? interests : JSON.parse(interests);
 
@@ -225,3 +286,132 @@ exports.submitVerification = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to submit verification: ' + error.message });
   }
 };
+
+// 4. Get currently logged in user profile
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const user = await User.findOne({
+      where: { user_id: userId },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error('[getCurrentUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve user profile: ' + error.message });
+  }
+};
+
+// 5. Get list of all colleges
+exports.getCollegesList = async (req, res) => {
+  try {
+    const colleges = await College.findAll();
+    return res.status(200).json({ colleges });
+  } catch (error) {
+    console.error('[getCollegesList Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve colleges: ' + error.message });
+  }
+};
+
+// 6. Get college by ID
+exports.getCollegeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const college = await College.findOne({ where: { college_id: id } });
+    if (!college) {
+      return res.status(404).json({ detail: 'College not found' });
+    }
+    return res.status(200).json({ college });
+  } catch (error) {
+    console.error('[getCollegeById Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve college: ' + error.message });
+  }
+};
+
+// 7. Upload single profile photo to Cloudinary and append to user's photos array
+exports.uploadPhoto = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { photo } = req.body; // base64 string
+
+    if (!photo) {
+      return res.status(400).json({ detail: 'Photo data is required' });
+    }
+
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    console.log('[Cloudinary] Uploading single profile photo...');
+    const cloudinaryUrl = await uploadToCloudinary(photo);
+
+    // Append to user's photos list
+    const currentPhotos = user.photos || [];
+    user.photos = [...currentPhotos, cloudinaryUrl];
+    await user.save();
+
+    return res.status(200).json({
+      detail: 'Photo uploaded successfully',
+      photoUrl: cloudinaryUrl,
+      photos: user.photos
+    });
+  } catch (error) {
+    console.error('[uploadPhoto Error]:', error);
+    return res.status(500).json({ detail: 'Failed to upload photo: ' + error.message });
+  }
+};
+
+// 8. Delete single profile photo by index
+exports.deletePhoto = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { index } = req.params;
+    const photoIdx = parseInt(index, 10);
+
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    const currentPhotos = user.photos || [];
+    if (photoIdx < 0 || photoIdx >= currentPhotos.length) {
+      return res.status(400).json({ detail: 'Invalid photo index' });
+    }
+
+    const deletedPhotoUrl = currentPhotos[photoIdx];
+
+    // Remove from array
+    const updatedPhotos = [...currentPhotos];
+    updatedPhotos.splice(photoIdx, 1);
+    user.photos = updatedPhotos;
+    await user.save();
+
+    // Try to delete from Cloudinary asynchronously
+    try {
+      const publicId = getPublicIdFromUrl(deletedPhotoUrl);
+      if (publicId) {
+        console.log(`[Cloudinary] Deleting image from Cloudinary: ${publicId}`);
+        await cloudinary.uploader.destroy(publicId);
+      }
+    } catch (destroyErr) {
+      console.warn('[Cloudinary Delete Warning]: Failed to delete image from Cloudinary storage:', destroyErr.message);
+    }
+
+    return res.status(200).json({
+      detail: 'Photo deleted successfully',
+      photos: user.photos
+    });
+  } catch (error) {
+    console.error('[deletePhoto Error]:', error);
+    return res.status(500).json({ detail: 'Failed to delete photo: ' + error.message });
+  }
+};
+
+
+

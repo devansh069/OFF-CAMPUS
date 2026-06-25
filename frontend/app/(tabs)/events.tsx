@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  TextInput,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -152,7 +154,7 @@ const getEventExtras = (event: any) => {
   // Fallbacks
   const category = event.category || 'fest';
   const tagList = [`#${category}`, '#campus', '#students', '#meetup'];
-  
+
   let galleryList = EVENT_EXTRAS.evt_vips_pulse.gallery;
   if (category === 'party') galleryList = EVENT_EXTRAS.evt_iitd_rendezvous.gallery;
   else if (category === 'workshop') galleryList = EVENT_EXTRAS.evt_mait_tech.gallery;
@@ -178,7 +180,7 @@ const getEventFlyer = (e: any) => {
     }
     return `${EXPO_PUBLIC_BACKEND_URL}/${e.cover_image}`;
   }
-  
+
   const fallbacks: { [key: string]: string } = {
     fest: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
     party: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
@@ -210,6 +212,18 @@ export default function Events() {
   const [filter, setFilter] = useState<string>('all');
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
+  // Event Creation form state
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formHost, setFormHost] = useState('');
+  const [formCategory, setFormCategory] = useState('fest');
+  const [formDate, setFormDate] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formCoverImage, setFormCoverImage] = useState<string | null>(null);
+  const [formGalleryPhotos, setFormGalleryPhotos] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
+
   // Gallery scroll coordinates map
   const galleryScrollCoords = useRef<{ [key: string]: number }>({});
   const galleryRefs = useRef<{ [key: string]: ScrollView | null }>({});
@@ -218,6 +232,12 @@ export default function Events() {
     fetchEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken]);
+
+  useEffect(() => {
+    if (user?.name) {
+      setFormHost(user.name);
+    }
+  }, [user]);
 
   const fetchEvents = async () => {
     if (sessionToken === 'dummy_token') {
@@ -233,11 +253,113 @@ export default function Events() {
       if (!r.ok) throw new Error('Failed to fetch events');
       const d = await r.json();
       setEvents(d.events && d.events.length > 0 ? d.events : MOCK_EVENTS);
-    } catch (e: any) { 
-      console.warn('fetchEvents failed, using mock events instead:', e.message); 
+    } catch (e: any) {
+      console.warn('fetchEvents failed, using mock events instead:', e.message);
       setEvents(MOCK_EVENTS);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickCoverImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access library was denied.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0].base64) {
+        setFormCoverImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (err) {
+      console.warn('pickCoverImage failed:', err);
+    }
+  };
+
+  const pickGalleryPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access library was denied.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0].base64) {
+        setFormGalleryPhotos(prev => [...prev, `data:image/jpeg;base64,${result.assets[0].base64}`]);
+      }
+    } catch (err) {
+      console.warn('pickGalleryPhoto failed:', err);
+    }
+  };
+
+  const removeGalleryPhoto = (index: number) => {
+    setFormGalleryPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCreateEvent = async () => {
+    if (!formTitle || !formHost || !formDate || !formLocation || !formDescription) {
+      alert('Please fill out all required fields.');
+      return;
+    }
+    
+    setCreating(true);
+    try {
+      const payload = {
+        title: formTitle,
+        host_name: formHost,
+        category: formCategory,
+        date: formDate,
+        location: formLocation,
+        description: formDescription,
+        cover_image: formCoverImage,
+        gallery_photos: formGalleryPhotos,
+      };
+
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!r.ok) {
+        const errData = await r.json();
+        throw new Error(errData.detail || 'Failed to create event');
+      }
+
+      alert('Event submitted successfully! It will be visible once approved by an administrator.');
+      
+      // Reset form
+      setFormTitle('');
+      setFormCategory('fest');
+      setFormDate('');
+      setFormLocation('');
+      setFormDescription('');
+      setFormCoverImage(null);
+      setFormGalleryPhotos([]);
+      setCreateModalVisible(false);
+      
+      fetchEvents();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Failed to create event');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -271,48 +393,20 @@ export default function Events() {
     }
 
     try {
-      if (sessionToken === 'dummy_token') {
-        // Mock toggle
-        setEvents(prev => prev.map(e => {
-          if (e.event_id === eventId) {
-            const isAttending = !e.is_attending;
-            return {
-              ...e,
-              is_attending: isAttending,
-              attendee_count: isAttending ? e.attendee_count + 1 : e.attendee_count - 1
-            };
-          }
-          return e;
-        }));
-        // Update selected event if open
-        setSelectedEvent((prev: any) => {
-          if (prev && prev.event_id === eventId) {
-            const isAttending = !prev.is_attending;
-            return {
-              ...prev,
-              is_attending: isAttending,
-              attendee_count: isAttending ? prev.attendee_count + 1 : prev.attendee_count - 1
-            };
-          }
-          return prev;
-        });
-        return;
-      }
-
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/${eventId}/rsvp`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${sessionToken}` }
       });
       const d = await r.json();
-      const updatedEvents = events.map(e => 
-        e.event_id === eventId 
-          ? { ...e, is_attending: d.attending, attendee_count: d.attendee_count } 
+      const updatedEvents = events.map(e =>
+        e.event_id === eventId
+          ? { ...e, is_attending: d.is_attending, attendee_count: d.attendee_count }
           : e
       );
       setEvents(updatedEvents);
       setSelectedEvent((prev: any) => {
         if (prev && prev.event_id === eventId) {
-          return { ...prev, is_attending: d.attending, attendee_count: d.attendee_count };
+          return { ...prev, is_attending: d.is_attending, attendee_count: d.attendee_count };
         }
         return prev;
       });
@@ -387,370 +481,551 @@ export default function Events() {
       </View>
 
       <SafeAreaView style={{ flex: 1 }}>
-          {/* Title & Header */}
-          <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.greet}>Campus Hub</Text>
-          <Text style={styles.title}>College Events 🎊</Text>
-        </View>
-        {!user?.is_premium && (
-          <TouchableOpacity style={styles.premBtn} onPress={() => router.push('/premium')}>
-            <Ionicons name="diamond" size={14} color="#FFD700" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Horizontal categories selectors directly visible at the top */}
-      <View style={styles.categoriesPillWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesPillsContent}
-        >
-          {categories.map((c) => {
-            const isSelected = filter === c.key;
-            return (
-              <TouchableOpacity
-                key={c.key}
-                style={[
-                  styles.categoryPill,
-                  isSelected && {
-                    backgroundColor: c.color + '15',
-                    borderColor: c.color,
-                  }
-                ]}
-                onPress={() => setFilter(c.key)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    isSelected && { color: c.color, fontWeight: '800' }
-                  ]}
-                >
-                  {c.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#FF1B6B" />
-        </View>
-      ) : filtered.length === 0 ? (
-        <View style={styles.center}>
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
-            <Text style={styles.emptyT}>No events found in this category</Text>
-            <TouchableOpacity style={styles.resetFilterBtn} onPress={() => setFilter('all')}>
-              <Text style={styles.resetFilterText}>Clear Filter</Text>
-            </TouchableOpacity>
+        {/* Title & Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.greet}>Campus Hub</Text>
+            <Text style={styles.title}>College Events 🎊</Text>
           </View>
+          {!user?.is_premium && (
+            <TouchableOpacity style={styles.premBtn} onPress={() => router.push('/premium')}>
+              <Ionicons name="diamond" size={14} color="#FFD700" />
+            </TouchableOpacity>
+          )}
         </View>
-      ) : (
-        /* Scrollable vertical list of smaller event card containers */
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContentContainer}
-        >
-          {filtered.map((e: any) => {
-            const eventDate = new Date(e.date);
-            const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            const categoryObj = categories.find(c => c.key === e.category) || categories[0];
 
-            return (
-              <TouchableOpacity
-                key={e.event_id}
-                style={styles.miniCardWrapper}
-                activeOpacity={0.9}
-                onPress={() => setSelectedEvent(e)}
-              >
-                <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
-                  {/* Left Column: Cover art thumbnail */}
-                  <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
+        {/* Horizontal categories selectors directly visible at the top */}
+        <View style={styles.categoriesPillWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesPillsContent}
+          >
+            {categories.map((c) => {
+              const isSelected = filter === c.key;
+              return (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[
+                    styles.categoryPill,
+                    isSelected && {
+                      backgroundColor: c.color + '15',
+                      borderColor: c.color,
+                    }
+                  ]}
+                  onPress={() => setFilter(c.key)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.categoryPillText,
+                      isSelected && { color: c.color, fontWeight: '800' }
+                    ]}
+                  >
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-                  {/* Center Column: Title, host, mini specs */}
-                  <View style={styles.miniCardDetails}>
-                    <View style={styles.miniCardTopRow}>
-                      <Text style={[styles.miniCardCatLabel, { color: categoryObj.color }]}>
-                        {categoryObj.label.split(' ')[1].toUpperCase()}
-                      </Text>
-                      <Text style={styles.miniCardDaysAway}>
-                        {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
-                      </Text>
-                    </View>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#FF1B6B" />
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.center}>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
+              <Text style={styles.emptyT}>No events found in this category</Text>
+              <TouchableOpacity style={styles.resetFilterBtn} onPress={() => setFilter('all')}>
+                <Text style={styles.resetFilterText}>Clear Filter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          /* Scrollable vertical list of smaller event card containers */
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContentContainer}
+          >
+            {filtered.map((e: any) => {
+              const eventDate = new Date(e.date);
+              const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              const categoryObj = categories.find(c => c.key === e.category) || categories[0];
 
-                    <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
-                    <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
-                    
-                    <View style={styles.miniCardStats}>
-                      <View style={styles.miniCardStatItem}>
-                        <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
-                        <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
-                      </View>
-                      <View style={styles.miniCardStatItem}>
-                        <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
-                        <Text style={styles.miniCardStatText} numberOfLines={1}>
-                          {e.location.split(',')[0]}
+              return (
+                <TouchableOpacity
+                  key={e.event_id}
+                  style={styles.miniCardWrapper}
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedEvent(e)}
+                >
+                  <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
+                    {/* Left Column: Cover art thumbnail */}
+                    <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
+
+                    {/* Center Column: Title, host, mini specs */}
+                    <View style={styles.miniCardDetails}>
+                      <View style={styles.miniCardTopRow}>
+                        <Text style={[styles.miniCardCatLabel, { color: categoryObj.color }]}>
+                          {categoryObj.label.split(' ')[1].toUpperCase()}
+                        </Text>
+                        <Text style={styles.miniCardDaysAway}>
+                          {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
                         </Text>
                       </View>
+
+                      <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
+                      <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
+
+                      <View style={styles.miniCardStats}>
+                        <View style={styles.miniCardStatItem}>
+                          <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
+                          <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
+                        </View>
+                        <View style={styles.miniCardStatItem}>
+                          <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
+                          <Text style={styles.miniCardStatText} numberOfLines={1}>
+                            {e.location.split(',')[0]}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
+
+                    {/* Right Column: Inline quick RSVP button */}
+                    <TouchableOpacity
+                      style={styles.miniCardRsvpBtn}
+                      activeOpacity={0.8}
+                      onPress={() => handleRSVP(e.event_id)}
+                    >
+                      {e.is_attending ? (
+                        <LinearGradient
+                          colors={['#C2FF3D', '#C2FF3D']}
+                          style={styles.miniRsvpGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Ionicons name="star" size={14} color="#000" />
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.miniRsvpOutline}>
+                          <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </BlurView>
+                </TouchableOpacity>
+              );
+            })}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        )}
+
+        {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={selectedEvent !== null}
+          onRequestClose={() => setSelectedEvent(null)}
+        >
+          {selectedEvent && (
+            <View style={styles.detailsModalContainer}>
+              {/* Blurred background image matching the selected event */}
+              <Image
+                source={{ uri: getEventFlyer(selectedEvent) }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+              <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject}>
+                <SafeAreaView style={{ flex: 1 }}>
+
+                  {/* Back button and page specs header */}
+                  <View style={styles.detailsModalHeader}>
+                    <TouchableOpacity
+                      style={styles.modalHeaderCloseBtn}
+                      onPress={() => setSelectedEvent(null)}
+                    >
+                      <Ionicons name="arrow-back" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                    <Text style={styles.modalHeaderTitle}>Event Details</Text>
+                    <View style={{ width: 36 }} />
                   </View>
 
-                  {/* Right Column: Inline quick RSVP button */}
-                  <TouchableOpacity
-                    style={styles.miniCardRsvpBtn}
-                    activeOpacity={0.8}
-                    onPress={() => handleRSVP(e.event_id)}
-                  >
-                    {e.is_attending ? (
-                      <LinearGradient
-                        colors={['#C2FF3D', '#C2FF3D']}
-                        style={styles.miniRsvpGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                  {/* Central Frosted Glass Card Container */}
+                  <View style={styles.modalCardWrapper}>
+                    <BlurView intensity={65} tint="dark" style={styles.detailsGlassCard}>
+                      <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.modalCardScrollContent}
                       >
-                        <Ionicons name="star" size={14} color="#000" />
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.miniRsvpOutline}>
-                        <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </BlurView>
-              </TouchableOpacity>
-            );
-          })}
-          <View style={{ height: 100 }} />
-        </ScrollView>
+                        {/* Drag Handle element */}
+                        <View style={styles.modalDragHandleRow}>
+                          <View style={styles.modalDragHandle} />
+                        </View>
+
+                        {/* Header Stacked title & action buttons */}
+                        {(() => {
+                          const [tFirst, tSecond] = splitTitle(selectedEvent.title);
+                          const extras = getEventExtras(selectedEvent);
+                          const hostHandleStr = selectedEvent.host_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                          const sEventDate = new Date(selectedEvent.date);
+                          const sDaysAway = Math.ceil((sEventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+                          return (
+                            <>
+                              <View style={styles.profileDetailsRow}>
+                                <View style={styles.titleInfoContainer}>
+                                  <Text style={styles.eventTitleFirstLine} numberOfLines={1}>{tFirst}</Text>
+                                  {tSecond ? (
+                                    <Text style={styles.eventTitleSecondLine} numberOfLines={1}>{tSecond}</Text>
+                                  ) : null}
+                                  <Text style={styles.hostHandleText}>@{hostHandleStr}</Text>
+                                </View>
+
+                                <View style={styles.actionButtonsCol}>
+                                  {/* Glowing Star RSVP Toggle */}
+                                  <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    onPress={() => handleRSVP(selectedEvent.event_id)}
+                                  >
+                                    {selectedEvent.is_attending ? (
+                                      <LinearGradient
+                                        colors={['#C2FF3D', '#C2FF3D']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.starGlowWrapper}
+                                      >
+                                        <Ionicons name="star" size={18} color="#000" />
+                                      </LinearGradient>
+                                    ) : (
+                                      <View style={styles.starEmptyWrapper}>
+                                        <Ionicons name="star-outline" size={18} color="rgba(255, 255, 255, 0.7)" />
+                                      </View>
+                                    )}
+                                  </TouchableOpacity>
+
+                                  {/* Message Host Envelope button */}
+                                  <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    style={styles.messageHostPill}
+                                    onPress={() => handleMessageHost(selectedEvent.host_name)}
+                                  >
+                                    <Ionicons name="mail" size={16} color="#000" />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+
+                              {/* Description Bio text */}
+                              <Text style={styles.descriptionBio}>{selectedEvent.description}</Text>
+
+                              {/* Stats Row */}
+                              <View style={styles.statsRow}>
+                                <View style={styles.statCol}>
+                                  <Text style={styles.statNum}>{selectedEvent.attendee_count}</Text>
+                                  <Text style={styles.statLabel}>Going</Text>
+                                </View>
+                                <View style={styles.statCol}>
+                                  <Text style={styles.statNum}>
+                                    {sDaysAway === 0 ? 'Today' : sDaysAway === 1 ? '1 Day' : `${sDaysAway} Days`}
+                                  </Text>
+                                  <Text style={styles.statLabel}>Left</Text>
+                                </View>
+                                <View style={styles.statCol}>
+                                  <Text style={styles.statNum} numberOfLines={1}>
+                                    {selectedEvent.category ? selectedEvent.category.charAt(0).toUpperCase() + selectedEvent.category.slice(1) : 'Event'}
+                                  </Text>
+                                  <Text style={styles.statLabel}>Access</Text>
+                                </View>
+                              </View>
+
+                              {/* Perks/Tags horizontal scroll */}
+                              {extras && extras.perks && (
+                                <ScrollView
+                                  horizontal
+                                  showsHorizontalScrollIndicator={false}
+                                  style={styles.tagsContainer}
+                                  contentContainerStyle={styles.tagsContent}
+                                >
+                                  {extras.perks.map((perk, pIndex) => (
+                                    <View key={pIndex} style={styles.tagPill}>
+                                      <Text style={styles.tagPillText}>{perk}</Text>
+                                    </View>
+                                  ))}
+                                </ScrollView>
+                              )}
+
+                              {/* Creations Carousel Gallery */}
+                              {extras && extras.gallery && (
+                                <View style={styles.galleryWrapper}>
+                                  <ScrollView
+                                    ref={(ref) => {
+                                      galleryRefs.current[selectedEvent.event_id] = ref;
+                                    }}
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.galleryScroll}
+                                    contentContainerStyle={styles.galleryScrollContent}
+                                    onScroll={(ev) => {
+                                      galleryScrollCoords.current[selectedEvent.event_id] = ev.nativeEvent.contentOffset.x;
+                                    }}
+                                    scrollEventThrottle={16}
+                                  >
+                                    {extras.gallery.map((imgUri, imgIndex) => (
+                                      <Image
+                                        key={imgIndex}
+                                        source={{ uri: imgUri }}
+                                        style={styles.galleryImage}
+                                      />
+                                    ))}
+                                  </ScrollView>
+
+                                  <View style={styles.galleryArrowRow}>
+                                    <TouchableOpacity
+                                      style={styles.galleryArrowBtn}
+                                      activeOpacity={0.8}
+                                      onPress={() => {
+                                        const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
+                                        const newX = Math.max(0, currentX - 140);
+                                        galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
+                                        galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                      }}
+                                    >
+                                      <Ionicons name="arrow-back" size={14} color="#000" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                      style={styles.galleryArrowBtn}
+                                      activeOpacity={0.8}
+                                      onPress={() => {
+                                        const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
+                                        const newX = currentX + 140;
+                                        galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
+                                        galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                      }}
+                                    >
+                                      <Ionicons name="arrow-forward" size={14} color="#000" />
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+                              )}
+
+                              {/* Testimonial Quote Bubble */}
+                              {extras && extras.testimonial && (
+                                <View style={styles.testimonialContainer}>
+                                  <View style={styles.testimonialSpeechBubble}>
+                                    <Text style={styles.testimonialText}>
+                                      {`"${extras.testimonial.text}"`}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.testimonialUserRow}>
+                                    <Image
+                                      source={{ uri: extras.testimonial.avatar }}
+                                      style={styles.testimonialAvatar}
+                                    />
+                                    <View>
+                                      <Text style={styles.testimonialName}>{extras.testimonial.name}</Text>
+                                      <Text style={styles.testimonialHandle}>{extras.testimonial.handle}</Text>
+                                    </View>
+                                  </View>
+                                </View>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        <View style={{ height: 16 }} />
+                      </ScrollView>
+                    </BlurView>
+                  </View>
+                </SafeAreaView>
+              </BlurView>
+            </View>
+          )}
+        </Modal>
+      </SafeAreaView>
+
+      {user && (
+        <TouchableOpacity
+          style={styles.fabBtn}
+          activeOpacity={0.8}
+          onPress={() => setCreateModalVisible(true)}
+        >
+          <Ionicons name="add" size={28} color="#000" />
+        </TouchableOpacity>
       )}
 
-      {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
+      {/* Add Event Modal */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={selectedEvent !== null}
-        onRequestClose={() => setSelectedEvent(null)}
+        visible={createModalVisible}
+        onRequestClose={() => setCreateModalVisible(false)}
       >
-        {selectedEvent && (
-          <View style={styles.detailsModalContainer}>
-            {/* Blurred background image matching the selected event */}
-            <Image
-              source={{ uri: getEventFlyer(selectedEvent) }}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-            />
-            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject}>
-              <SafeAreaView style={{ flex: 1 }}>
-                
-                {/* Back button and page specs header */}
-                <View style={styles.detailsModalHeader}>
-                  <TouchableOpacity
-                    style={styles.modalHeaderCloseBtn}
-                    onPress={() => setSelectedEvent(null)}
+        <View style={styles.detailsModalContainer}>
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject}>
+            <SafeAreaView style={{ flex: 1 }}>
+              {/* Header */}
+              <View style={styles.detailsModalHeader}>
+                <TouchableOpacity
+                  style={styles.modalHeaderCloseBtn}
+                  onPress={() => setCreateModalVisible(false)}
+                >
+                  <Ionicons name="close" size={20} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.modalHeaderTitle}>Create New Event</Text>
+                <View style={{ width: 36 }} />
+              </View>
+
+              {/* Form Card */}
+              <View style={styles.modalCardWrapper}>
+                <BlurView intensity={65} tint="dark" style={styles.detailsGlassCard}>
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.modalCardScrollContent}
                   >
-                    <Ionicons name="arrow-back" size={20} color="#FFF" />
-                  </TouchableOpacity>
-                  <Text style={styles.modalHeaderTitle}>Event Details</Text>
-                  <View style={{ width: 36 }} />
-                </View>
+                    <View style={styles.modalDragHandleRow}>
+                      <View style={styles.modalDragHandle} />
+                    </View>
 
-                {/* Central Frosted Glass Card Container */}
-                <View style={styles.modalCardWrapper}>
-                  <BlurView intensity={65} tint="dark" style={styles.detailsGlassCard}>
-                    <ScrollView
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={styles.modalCardScrollContent}
-                    >
-                      {/* Drag Handle element */}
-                      <View style={styles.modalDragHandleRow}>
-                        <View style={styles.modalDragHandle} />
+                    <Text style={styles.inputLabel}>Event Title *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Neon Dance Party"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formTitle}
+                      onChangeText={setFormTitle}
+                    />
+
+                    <Text style={styles.inputLabel}>Host Name *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Student Council"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formHost}
+                      onChangeText={setFormHost}
+                    />
+
+                    <Text style={styles.inputLabel}>Category</Text>
+                    <View style={styles.formRow}>
+                      {['fest', 'party', 'workshop', 'sports'].map((cat) => (
+                        <TouchableOpacity
+                          key={cat}
+                          style={[
+                            styles.formCatBtn,
+                            formCategory === cat && styles.formCatBtnActive,
+                          ]}
+                          onPress={() => setFormCategory(cat)}
+                        >
+                          <Text
+                            style={[
+                              styles.formCatText,
+                              formCategory === cat && styles.formCatTextActive,
+                            ]}
+                          >
+                            {cat.toUpperCase()}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.inputLabel}>Date & Time *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. 2026-07-15 18:00"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formDate}
+                      onChangeText={setFormDate}
+                    />
+
+                    <Text style={styles.inputLabel}>Location *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Main Auditorium, Campus"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formLocation}
+                      onChangeText={setFormLocation}
+                    />
+
+                    <Text style={styles.inputLabel}>Description *</Text>
+                    <TextInput
+                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                      placeholder="Tell students about the event..."
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formDescription}
+                      onChangeText={setFormDescription}
+                      multiline
+                      numberOfLines={4}
+                    />
+
+                    {/* Cover Image Picker */}
+                    <Text style={styles.inputLabel}>Cover Image</Text>
+                    {formCoverImage ? (
+                      <View style={{ position: 'relative' }}>
+                        <Image source={{ uri: formCoverImage }} style={styles.formImagePreview} />
+                        <TouchableOpacity
+                          style={[styles.galleryDeleteBtn, { top: 6, right: 6 }]}
+                          onPress={() => setFormCoverImage(null)}
+                        >
+                          <Ionicons name="close" size={14} color="#FFF" />
+                        </TouchableOpacity>
                       </View>
+                    ) : (
+                      <TouchableOpacity style={styles.imagePickerBtn} onPress={pickCoverImage}>
+                        <Ionicons name="image-outline" size={20} color="#FFF" />
+                        <Text style={styles.imagePickerBtnText}>Select Cover Image</Text>
+                      </TouchableOpacity>
+                    )}
 
-                      {/* Header Stacked title & action buttons */}
-                      {(() => {
-                        const [tFirst, tSecond] = splitTitle(selectedEvent.title);
-                        const extras = getEventExtras(selectedEvent);
-                        const hostHandleStr = selectedEvent.host_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                        const sEventDate = new Date(selectedEvent.date);
-                        const sDaysAway = Math.ceil((sEventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    {/* Gallery Photos Picker */}
+                    <Text style={styles.inputLabel}>Gallery Photos</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                      {formGalleryPhotos.map((photo, idx) => (
+                        <View key={idx} style={styles.galleryThumbWrapper}>
+                          <Image source={{ uri: photo }} style={styles.galleryThumb} />
+                          <TouchableOpacity
+                            style={styles.galleryDeleteBtn}
+                            onPress={() => removeGalleryPhoto(idx)}
+                          >
+                            <Ionicons name="close" size={12} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                    <TouchableOpacity style={styles.imagePickerBtn} onPress={pickGalleryPhoto}>
+                      <Ionicons name="images-outline" size={20} color="#FFF" />
+                      <Text style={styles.imagePickerBtnText}>Add Gallery Photo</Text>
+                    </TouchableOpacity>
 
-                        return (
-                          <>
-                            <View style={styles.profileDetailsRow}>
-                              <View style={styles.titleInfoContainer}>
-                                <Text style={styles.eventTitleFirstLine} numberOfLines={1}>{tFirst}</Text>
-                                {tSecond ? (
-                                  <Text style={styles.eventTitleSecondLine} numberOfLines={1}>{tSecond}</Text>
-                                ) : null}
-                                <Text style={styles.hostHandleText}>@{hostHandleStr}</Text>
-                              </View>
+                    {/* Submit Button */}
+                    <TouchableOpacity
+                      style={styles.submitBtn}
+                      activeOpacity={0.8}
+                      onPress={handleCreateEvent}
+                      disabled={creating}
+                    >
+                      <LinearGradient
+                        colors={['#FF1B6B', '#FF6B35']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.submitGradient}
+                      >
+                        {creating ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <Text style={styles.submitBtnText}>Create Event</Text>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
 
-                              <View style={styles.actionButtonsCol}>
-                                 {/* Glowing Star RSVP Toggle */}
-                                 <TouchableOpacity
-                                   activeOpacity={0.8}
-                                   onPress={() => handleRSVP(selectedEvent.event_id)}
-                                 >
-                                   {selectedEvent.is_attending ? (
-                                     <LinearGradient
-                                       colors={['#C2FF3D', '#C2FF3D']}
-                                       start={{ x: 0, y: 0 }}
-                                       end={{ x: 1, y: 1 }}
-                                       style={styles.starGlowWrapper}
-                                     >
-                                       <Ionicons name="star" size={18} color="#000" />
-                                     </LinearGradient>
-                                   ) : (
-                                     <View style={styles.starEmptyWrapper}>
-                                       <Ionicons name="star-outline" size={18} color="rgba(255, 255, 255, 0.7)" />
-                                     </View>
-                                   )}
-                                 </TouchableOpacity>
-
-                                 {/* Message Host Envelope button */}
-                                 <TouchableOpacity
-                                   activeOpacity={0.8}
-                                   style={styles.messageHostPill}
-                                   onPress={() => handleMessageHost(selectedEvent.host_name)}
-                                 >
-                                   <Ionicons name="mail" size={16} color="#000" />
-                                 </TouchableOpacity>
-                               </View>
-                            </View>
-
-                            {/* Description Bio text */}
-                            <Text style={styles.descriptionBio}>{selectedEvent.description}</Text>
-
-                            {/* Stats Row */}
-                            <View style={styles.statsRow}>
-                              <View style={styles.statCol}>
-                                <Text style={styles.statNum}>{selectedEvent.attendee_count}</Text>
-                                <Text style={styles.statLabel}>Going</Text>
-                              </View>
-                              <View style={styles.statCol}>
-                                <Text style={styles.statNum}>
-                                  {sDaysAway === 0 ? 'Today' : sDaysAway === 1 ? '1 Day' : `${sDaysAway} Days`}
-                                </Text>
-                                <Text style={styles.statLabel}>Left</Text>
-                              </View>
-                              <View style={styles.statCol}>
-                                <Text style={styles.statNum} numberOfLines={1}>
-                                  {selectedEvent.category ? selectedEvent.category.charAt(0).toUpperCase() + selectedEvent.category.slice(1) : 'Event'}
-                                </Text>
-                                <Text style={styles.statLabel}>Access</Text>
-                              </View>
-                            </View>
-
-                            {/* Perks/Tags horizontal scroll */}
-                            {extras && extras.perks && (
-                              <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                style={styles.tagsContainer}
-                                contentContainerStyle={styles.tagsContent}
-                              >
-                                {extras.perks.map((perk, pIndex) => (
-                                  <View key={pIndex} style={styles.tagPill}>
-                                    <Text style={styles.tagPillText}>{perk}</Text>
-                                  </View>
-                                ))}
-                              </ScrollView>
-                            )}
-
-                            {/* Creations Carousel Gallery */}
-                            {extras && extras.gallery && (
-                              <View style={styles.galleryWrapper}>
-                                <ScrollView
-                                  ref={(ref) => {
-                                    galleryRefs.current[selectedEvent.event_id] = ref;
-                                  }}
-                                  horizontal
-                                  showsHorizontalScrollIndicator={false}
-                                  style={styles.galleryScroll}
-                                  contentContainerStyle={styles.galleryScrollContent}
-                                  onScroll={(ev) => {
-                                    galleryScrollCoords.current[selectedEvent.event_id] = ev.nativeEvent.contentOffset.x;
-                                  }}
-                                  scrollEventThrottle={16}
-                                >
-                                  {extras.gallery.map((imgUri, imgIndex) => (
-                                    <Image
-                                      key={imgIndex}
-                                      source={{ uri: imgUri }}
-                                      style={styles.galleryImage}
-                                    />
-                                  ))}
-                                </ScrollView>
-
-                                <View style={styles.galleryArrowRow}>
-                                  <TouchableOpacity
-                                    style={styles.galleryArrowBtn}
-                                    activeOpacity={0.8}
-                                    onPress={() => {
-                                      const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
-                                      const newX = Math.max(0, currentX - 140);
-                                      galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
-                                      galleryScrollCoords.current[selectedEvent.event_id] = newX;
-                                    }}
-                                  >
-                                    <Ionicons name="arrow-back" size={14} color="#000" />
-                                  </TouchableOpacity>
-
-                                  <TouchableOpacity
-                                    style={styles.galleryArrowBtn}
-                                    activeOpacity={0.8}
-                                    onPress={() => {
-                                      const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
-                                      const newX = currentX + 140;
-                                      galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
-                                      galleryScrollCoords.current[selectedEvent.event_id] = newX;
-                                    }}
-                                  >
-                                    <Ionicons name="arrow-forward" size={14} color="#000" />
-                                  </TouchableOpacity>
-                                </View>
-                              </View>
-                            )}
-
-                            {/* Testimonial Quote Bubble */}
-                            {extras && extras.testimonial && (
-                              <View style={styles.testimonialContainer}>
-                                <View style={styles.testimonialSpeechBubble}>
-                                  <Text style={styles.testimonialText}>
-                                    {`"${extras.testimonial.text}"`}
-                                  </Text>
-                                </View>
-                                <View style={styles.testimonialUserRow}>
-                                  <Image
-                                    source={{ uri: extras.testimonial.avatar }}
-                                    style={styles.testimonialAvatar}
-                                  />
-                                  <View>
-                                    <Text style={styles.testimonialName}>{extras.testimonial.name}</Text>
-                                    <Text style={styles.testimonialHandle}>{extras.testimonial.handle}</Text>
-                                  </View>
-                                </View>
-                              </View>
-                            )}
-                          </>
-                        );
-                      })()}
-                      
-                      <View style={{ height: 16 }} />
-                    </ScrollView>
-                  </BlurView>
-                </View>
-              </SafeAreaView>
-            </BlurView>
-          </View>
-        )}
+                  </ScrollView>
+                </BlurView>
+              </View>
+            </SafeAreaView>
+          </BlurView>
+        </View>
       </Modal>
-        </SafeAreaView>
     </View>
   );
 }
@@ -812,7 +1087,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFD700',
   },
-  
+
   // Category Pill Bar
   categoriesPillWrapper: {
     height: 48,
@@ -1228,5 +1503,125 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     marginTop: 1,
+  },
+  fabBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    backgroundColor: '#C2FF3D',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
+  },
+  formRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  formCatBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  formCatBtnActive: {
+    borderColor: '#FF1B6B',
+    backgroundColor: 'rgba(255, 27, 107, 0.15)',
+  },
+  formCatText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  formCatTextActive: {
+    color: '#FF1B6B',
+  },
+  inputLabel: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    color: '#FFF',
+    padding: 12,
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  imagePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  imagePickerBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  formImagePreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  galleryThumbWrapper: {
+    position: 'relative',
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  galleryThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  galleryDeleteBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#FF3366',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtn: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  submitGradient: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  submitBtnText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
 });

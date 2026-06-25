@@ -10,7 +10,8 @@ const College = sequelize.define('College', {
   },
   name: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: false,
+    field: 'college_name'
   },
   short_name: {
     type: DataTypes.STRING(255),
