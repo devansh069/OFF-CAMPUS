@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -210,122 +211,144 @@ export default function Verification() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.blackBackground}>
-        {/* Simple Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>VERIFICATION</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      {/* Ambient background linear gradient */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-        <ScrollView 
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Glowing Badge */}
-          <View style={styles.iconContainer}>
-            <LinearGradient
-              colors={['#8B5CF6', '#F43F5E']}
-              style={styles.iconCircle}
-            >
-              <Ionicons name="shield-checkmark" size={44} color="#FFF" />
-            </LinearGradient>
-            <View style={styles.glowOverlay} />
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <View style={styles.blackBackground}>
+          {/* Simple Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>VERIFICATION</Text>
+            <View style={{ width: 40 }} />
           </View>
 
-          {/* Heading */}
-          <Text style={styles.title}>Verify Your Identity</Text>
-          <Text style={styles.subtitle}>
-            Upload your college ID card to confirm your student status. We manually review all accounts to keep the community safe.
-          </Text>
-
-          {/* Frosted Info Box */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
-              <Text style={styles.infoText}>Make sure your full name is clear</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
-              <Text style={styles.infoText}>College name should be readable</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
-              <Text style={styles.infoText}>Upload a clear, well-lit photo</Text>
-            </View>
-          </View>
-
-          {/* Photo upload widgets */}
-          {idImage ? (
-            <View style={styles.previewContainer}>
-              <Image source={{ uri: idImage }} style={styles.preview} />
-              <TouchableOpacity style={styles.removeBtn} onPress={() => setIdImage(null)}>
-                <LinearGradient 
-                  colors={['#F43F5E', '#8B5CF6']} 
-                  style={styles.removeBtnGrad}
-                >
-                  <Ionicons name="close" size={20} color="#FFF" />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.uploadOptions}>
-              <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
-                <View style={styles.uploadIconBox}>
-                  <Ionicons name="camera-outline" size={28} color="#C2FF3D" />
-                </View>
-                <Text style={styles.uploadBtnTitle}>Take Photo</Text>
-                <Text style={styles.uploadBtnSub}>Use your camera</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                <View style={styles.uploadIconBox}>
-                  <Ionicons name="image-outline" size={28} color="#C2FF3D" />
-                </View>
-                <Text style={styles.uploadBtnTitle}>Gallery</Text>
-                <Text style={styles.uploadBtnSub}>Choose from phone</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Action buttons */}
-          <TouchableOpacity
-            style={[styles.submitBtn, (!idImage || submitting) && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={!idImage || submitting}
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
           >
-            <LinearGradient
-              colors={['#8B5CF6', '#F43F5E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitBtnGrad}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color="#FFF" />
-                  <Text style={styles.submitText}>SUBMIT FOR VERIFICATION</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+            {/* Glowing Badge */}
+            <View style={styles.iconContainer}>
+              <Image
+                source={require('../../assets/images/blue-tick.webp')}
+                style={styles.iconCircle}
+              />
+              <View style={styles.glowOverlay} />
+            </View>
 
-          <TouchableOpacity onPress={() => router.replace('/(tabs)/discover')}>
-            <Text style={styles.skipText}>Skip for now (limited access)</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+            {/* Heading */}
+            <Text style={styles.title}>Verify Your Identity</Text>
+            <Text style={styles.subtitle}>
+              User have to upload his/her photo holding their college id card, photo of user or id card and user face should be visible properly.
+            </Text>
+
+            {/* Frosted Info Box */}
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>Make sure your full name is clear</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>College name should be readable</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>Upload a clear, well-lit photo</Text>
+              </View>
+            </View>
+
+            {/* Why this is important Box */}
+            <View style={styles.infoCard}>
+              <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '800', marginBottom: 6 }}>Why this is important</Text>
+              <View style={styles.infoRow}>
+                <Ionicons name="shield-checkmark" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>Users trust you more</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="arrow-up-circle" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>Your profile comes on top</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="star" size={18} color="#C2FF3D" />
+                <Text style={styles.infoText}>Get a verified badge on your profile</Text>
+              </View>
+            </View>
+
+            {/* Photo upload widgets */}
+            {idImage ? (
+              <View style={styles.previewContainer}>
+                <Image source={{ uri: idImage }} style={styles.preview} />
+                <TouchableOpacity style={styles.removeBtn} onPress={() => setIdImage(null)}>
+                  <LinearGradient
+                    colors={['#F43F5E', '#8B5CF6']}
+                    style={styles.removeBtnGrad}
+                  >
+                    <Ionicons name="close" size={20} color="#FFF" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.uploadOptions}>
+                <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
+                  <View style={styles.uploadIconBox}>
+                    <Ionicons name="camera-outline" size={28} color="#C2FF3D" />
+                  </View>
+                  <Text style={styles.uploadBtnTitle}>Take Photo</Text>
+                  <Text style={styles.uploadBtnSub}>Use your camera</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
+                  <View style={styles.uploadIconBox}>
+                    <Ionicons name="image-outline" size={28} color="#C2FF3D" />
+                  </View>
+                  <Text style={styles.uploadBtnTitle}>Gallery</Text>
+                  <Text style={styles.uploadBtnSub}>Choose from phone</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Action buttons */}
+            <TouchableOpacity
+              style={[styles.submitBtn, (!idImage || submitting) && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={!idImage || submitting}
+            >
+              <View style={[styles.submitBtnGrad, { backgroundColor: '#FFFFFF' }]}>
+                {submitting ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <>
+                    {/* <Ionicons name="sparkles" size={18} color="#000" /> */}
+                    <Text style={[styles.submitText, { color: '#000' }]}>SUBMIT FOR VERIFICATION</Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/discover')}>
+              <Text style={styles.skipText}>Skip for now</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </BlurView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
-  blackBackground: { flex: 1, backgroundColor: '#000000' },
-  
+  blackBackground: { flex: 1, backgroundColor: 'transparent' },
+
   // Header
   header: {
     flexDirection: 'row',
@@ -354,16 +377,16 @@ const styles = StyleSheet.create({
   },
 
   // Main scroll content
-  content: { 
-    paddingHorizontal: 24, 
+  content: {
+    paddingHorizontal: 24,
     paddingTop: 32,
     paddingBottom: 48,
-    alignItems: 'center', 
-    gap: 20 
+    alignItems: 'center',
+    gap: 20
   },
-  
+
   // Glowing Icon
-  iconContainer: { 
+  iconContainer: {
     position: 'relative',
     marginTop: 10,
     marginBottom: 10,
@@ -389,10 +412,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  title: { 
-    fontSize: 28, 
-    fontWeight: '900', 
-    color: '#FFF', 
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFF',
     textAlign: 'center',
     letterSpacing: 0.5,
   },
@@ -415,22 +438,22 @@ const styles = StyleSheet.create({
     width: '100%',
     marginVertical: 8,
   },
-  infoRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 12 
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
   },
-  infoText: { 
-    color: '#E4E4E7', 
-    fontSize: 14, 
+  infoText: {
+    color: '#E4E4E7',
+    fontSize: 14,
     fontWeight: '600',
-    flex: 1 
+    flex: 1
   },
 
   // Image Upload Boxes
-  uploadOptions: { 
-    flexDirection: 'row', 
-    gap: 14, 
+  uploadOptions: {
+    flexDirection: 'row',
+    gap: 14,
     width: '100%',
     marginVertical: 8,
   },
@@ -455,10 +478,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  uploadBtnTitle: { 
-    color: '#FFF', 
-    fontSize: 15, 
-    fontWeight: '800' 
+  uploadBtnTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800'
   },
   uploadBtnSub: {
     color: '#A899B8',
@@ -467,8 +490,8 @@ const styles = StyleSheet.create({
   },
 
   // ID Card Preview
-  previewContainer: { 
-    width: '100%', 
+  previewContainer: {
+    width: '100%',
     position: 'relative',
     marginVertical: 8,
   },
@@ -480,9 +503,9 @@ const styles = StyleSheet.create({
     borderColor: '#C2FF3D',
     backgroundColor: '#1E1E1E',
   },
-  removeBtn: { 
-    position: 'absolute', 
-    top: 10, 
+  removeBtn: {
+    position: 'absolute',
+    top: 10,
     right: 10,
     borderRadius: 18,
     overflow: 'hidden',
@@ -513,20 +536,20 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 16,
   },
-  submitBtnDisabled: { 
-    opacity: 0.6 
+  submitBtnDisabled: {
+    opacity: 0.6
   },
-  submitText: { 
-    color: '#FFF', 
-    fontSize: 14, 
+  submitText: {
+    color: '#FFF',
+    fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
 
-  skipText: { 
-    color: '#71717A', 
-    fontSize: 14, 
-    fontWeight: '700', 
+  skipText: {
+    color: '#71717A',
+    fontSize: 14,
+    fontWeight: '700',
     textDecorationLine: 'underline',
     marginTop: 8,
   },

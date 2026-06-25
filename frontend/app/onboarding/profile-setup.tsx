@@ -76,7 +76,7 @@ export default function ProfileSetup() {
   const { user, sessionToken, refreshUser, updateUser, logout } = useAuth();
   const router = useRouter();
 
-  // 5 Onboarding Steps: 1 (Basics), 2 (Vibe & Location), 3 (College), 4 (Prompts), 5 (Photos)
+  // 4 Onboarding Steps: 1 (Basics), 2 (Vibe & Location), 3 (College), 4 (Photos & Prompts)
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -140,16 +140,17 @@ export default function ProfileSetup() {
   const [colleges, setColleges] = useState<any[]>([]);
   const [collegeSearch, setCollegeSearch] = useState('');
 
-  // Step 4: Prompts
-  const [selectedPrompt, setSelectedPrompt] = useState(PROMPTS[0]);
-  const [promptAnswer, setPromptAnswer] = useState(
-    user?.prompts && Object.keys(user.prompts).length > 0
-      ? Object.values(user.prompts)[0]
-      : ''
-  );
-
-  // Step 5: Photos (Grid of up to 6)
+  // Step 4: Photos & Prompts (Grid of up to 6)
   const [photos, setPhotos] = useState<string[]>(user?.photos || []);
+  const [photoPrompts, setPhotoPrompts] = useState<{ [index: number]: string }>(
+    user?.prompts && typeof user.prompts === 'object' ? (user.prompts as any) : {}
+  );
+  
+  // Prompt Selection Modal State
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
+  const [tempPrompt, setTempPrompt] = useState(PROMPTS[0]);
+  const [tempAnswer, setTempAnswer] = useState('');
 
   useEffect(() => {
     fetchColleges();
@@ -355,6 +356,17 @@ export default function ProfileSetup() {
     const newPhotos = [...photos];
     newPhotos.splice(index, 1);
     setPhotos(newPhotos.filter(Boolean));
+    
+    const newPrompts: { [key: number]: string } = {};
+    for (const key in photoPrompts) {
+      const idx = parseInt(key, 10);
+      if (idx < index) {
+        newPrompts[idx] = photoPrompts[idx];
+      } else if (idx > index) {
+        newPrompts[idx - 1] = photoPrompts[idx];
+      }
+    }
+    setPhotoPrompts(newPrompts);
   };
 
   const handleNext = async () => {
@@ -414,12 +426,6 @@ export default function ProfileSetup() {
         return;
       }
       setStep(4);
-    } else if (step === 4) {
-      if (!promptAnswer.trim()) {
-        Alert.alert('Required', 'Please answer the prompt to complete setup.');
-        return;
-      }
-      setStep(5);
     } else {
       if (photos.length < 1) {
         Alert.alert('Required', 'Please upload at least 1 photo.');
@@ -465,7 +471,7 @@ export default function ProfileSetup() {
         latitude: latitude || 28.6139,
         longitude: longitude || 77.2090,
         photos,
-        prompts: { [selectedPrompt]: promptAnswer },
+        prompts: photoPrompts,
         interests,
         religion,
         drink,
@@ -539,50 +545,21 @@ export default function ProfileSetup() {
     <SafeAreaView style={styles.container}>
       {/* ─── BACKGROUND LAYER ─── */}
       <View style={StyleSheet.absoluteFillObject}>
-        {/* 1. Pure black base */}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#050005' }]} />
+        {/* Ambient background linear gradient */}
+        <LinearGradient
+          colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        {/* Dark veil overlay for premium depth and text contrast */}
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-        {/* 2. Top-left orb — deep purple/violet, very large, low opacity */}
-        <View style={styles.orbTopLeft} pointerEvents="none">
-          <LinearGradient
-            colors={[
-              'rgba(140, 80, 255, 0.9)',   // bright violet core
-              'rgba(162, 60, 220, 0.7)',   // purple mid
-              'rgba(100, 20, 160, 0.7)',   // deep purple fade
-              'transparent',
-            ]}
-            locations={[0, 0.35, 0.65, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </View>
-
-        {/* 3. Bottom-right orb — pink/magenta, very large, low opacity */}
-        <View style={styles.orbBottomRight} pointerEvents="none">
-          <LinearGradient
-            colors={[
-              'rgba(226, 80, 200, 0.9)',   // magenta-pink core
-              'rgba(180, 50, 180, 0.7)',   // purple-pink mid
-              'rgba(120, 20, 140, 0.5)',   // deep fade
-              'transparent',
-            ]}
-            locations={[0, 0.35, 0.65, 1]}
-            start={{ x: 1, y: 1 }}
-            end={{ x: 0, y: 0 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </View>
-
-        {/* 4. Heavy blur to fully diffuse the orbs — makes them look like soft ambient glow */}
         <BlurView
-          intensity={Platform.OS === 'ios' ? 90 : 120}
+          intensity={Platform.OS === 'ios' ? 70 : 100}
           tint="dark"
           style={StyleSheet.absoluteFillObject}
         />
-
-        {/* 5. Subtle dark veil — just enough to keep text crisp, not so much it kills the color */}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.45)' }]} />
       </View>
       {/* ─── END BACKGROUND ─── */}
 
@@ -595,14 +572,14 @@ export default function ProfileSetup() {
           >
             <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>STEP {step} OF 5</Text>
+          <Text style={styles.headerTitle}>STEP {step} OF 4</Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: `${(step / 5) * 100}%` }]} />
+            <View style={[styles.progress, { width: `${(step / 4) * 100}%` }]} />
           </View>
         </View>
 
@@ -789,7 +766,7 @@ export default function ProfileSetup() {
                     {[
                       { key: 'drink', label: 'Do you drink?', state: drink, set: setDrink },
                       { key: 'smoke', label: 'Do you smoke?', state: smoke, set: setSmoke },
-                      { key: 'weed', label: 'Do you do weed?', state: weed, set: setWeed }
+                      { key: 'weed', label: 'Do you use weed?', state: weed, set: setWeed }
                     ].map((h) => (
                       <View key={h.key} style={styles.habitRow}>
                         <Text style={styles.habitLabel}>{h.label}</Text>
@@ -941,7 +918,7 @@ export default function ProfileSetup() {
                   )}
                 </View>
 
-                <View style={styles.inputGroup}>
+                <View style={[styles.inputGroup, { marginTop: 24 }]}>
                   <Text style={styles.label}>YEAR OF STUDY</Text>
                   <View style={styles.optionsRow}>
                     {['1st Year', '2nd Year', '3rd Year', '4th Year', 'Final Year'].map((y) => {
@@ -978,60 +955,8 @@ export default function ProfileSetup() {
               </View>
             )}
 
-            {/* Step 4: Prompts */}
+            {/* Step 4: Photos & Prompts */}
             {step === 4 && (
-              <View style={styles.glassCard}>
-                <View style={styles.glassTopHighlight} />
-
-                <View style={styles.textHeader}>
-                  <Text style={styles.stepTitle}>Select a Prompt</Text>
-                  <Text style={styles.stepSubtitle}>Answer an icebreaker to give matches a conversation starter</Text>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>CHOOSE A PROMPT QUESTION</Text>
-                  <View style={styles.optionsColumn}>
-                    {PROMPTS.map((p) => {
-                      const isSel = selectedPrompt === p;
-                      return (
-                        <TouchableOpacity
-                          key={p}
-                          style={[styles.optionRowButton, isSel && styles.optionRowButtonActive]}
-                          onPress={() => setSelectedPrompt(p)}
-                        >
-                          <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
-                            {p}
-                          </Text>
-                          <Ionicons
-                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
-                            size={20}
-                            color={isSel ? '#FFF' : '#A899B8'}
-                          />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>YOUR ANSWER</Text>
-                  <View style={styles.textAreaWrapper}>
-                    <TextInput
-                      style={styles.textArea}
-                      placeholder="Type your response..."
-                      placeholderTextColor="#71717A"
-                      value={promptAnswer}
-                      onChangeText={setPromptAnswer}
-                      multiline
-                      numberOfLines={3}
-                    />
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Step 5: Photos */}
-            {step === 5 && (
               <View style={styles.glassCard}>
                 <View style={styles.glassTopHighlight} />
 
@@ -1043,10 +968,41 @@ export default function ProfileSetup() {
                 <View style={styles.photosGrid}>
                   {Array(6).fill('').map((_, index) => {
                     const photoUri = photos[index];
+                    const hasPrompt = !!photoPrompts[index];
+                    
                     return (
                       <View key={index} style={styles.photoSlotWrapper}>
+                        {index > 0 && photoUri && !hasPrompt && (
+                          <TouchableOpacity 
+                            style={styles.choosePromptBtn} 
+                            onPress={() => {
+                              setActivePhotoIndex(index);
+                              setTempPrompt(PROMPTS[0]);
+                              setTempAnswer('');
+                              setShowPromptModal(true);
+                            }}
+                          >
+                            <Text style={styles.choosePromptText}>Choose Prompt</Text>
+                          </TouchableOpacity>
+                        )}
+                        {index > 0 && photoUri && hasPrompt && (
+                          <View style={styles.promptDisplayContainer}>
+                            <Text style={styles.promptDisplayQuestion} numberOfLines={2}>{photoPrompts[index]}</Text>
+                            <TouchableOpacity 
+                              style={styles.promptDeleteBtn} 
+                              onPress={() => {
+                                const newPrompts = { ...photoPrompts };
+                                delete newPrompts[index];
+                                setPhotoPrompts(newPrompts);
+                              }}
+                            >
+                              <Ionicons name="close" size={14} color="#FFF" />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
                         {photoUri ? (
-                          <View style={styles.photoCard}>
+                          <View style={[styles.photoCard, { borderColor: '#C2FF3D', borderWidth: 2 }]}>
                             <Image source={{ uri: photoUri }} style={styles.photoImg} />
                             <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => removePhoto(index)}>
                               <Ionicons name="close" size={16} color="#FFF" />
@@ -1057,7 +1013,12 @@ export default function ProfileSetup() {
                             <Ionicons name="add" size={28} color="#FFF" />
                           </TouchableOpacity>
                         )}
-                        <Text style={styles.photoSlotLabel}>Slot {index + 1}</Text>
+                        
+                        {index === 0 ? (
+                          <Text style={[styles.photoSlotLabel, { color: '#A899B8', fontSize: 11 }]}>Main Photo</Text>
+                        ) : (
+                          <Text style={styles.photoSlotLabel}>Slot {index + 1}</Text>
+                        )}
                       </View>
                     );
                   })}
@@ -1065,6 +1026,77 @@ export default function ProfileSetup() {
               </View>
             )}
           </ScrollView>
+
+          {/* Prompt Selection Modal */}
+          {showPromptModal && (
+            <Modal transparent animationType="fade" visible={showPromptModal}>
+              <View style={styles.modalOverlay}>
+                <View style={[styles.promptModalContainer]}>
+                  <Text style={styles.promptModalTitle}>Choose Prompt</Text>
+                  
+                  <ScrollView style={styles.promptModalScroll} showsVerticalScrollIndicator={false}>
+                    {PROMPTS.map((p) => {
+                      const isSel = tempPrompt === p;
+                      return (
+                        <TouchableOpacity
+                          key={p}
+                          style={[styles.optionRowButton, isSel && styles.optionRowButtonActive]}
+                          onPress={() => setTempPrompt(p)}
+                        >
+                          <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
+                            {p}
+                          </Text>
+                          <Ionicons
+                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
+                            size={20}
+                            color={isSel ? '#C2FF3D' : '#A899B8'}
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  <Text style={[styles.label, { marginTop: 16 }]}>OR WRITE YOUR OWN PROMPT</Text>
+                  <View style={[styles.textAreaWrapper, { borderColor: tempAnswer.length > 0 ? '#C2FF3D' : 'rgba(255, 255, 255, 0.1)' }]}>
+                    <TextInput
+                      style={styles.textArea}
+                      placeholder="Type your response..."
+                      placeholderTextColor="#71717A"
+                      value={tempAnswer}
+                      onChangeText={setTempAnswer}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+
+                  <View style={styles.promptModalActions}>
+                    <TouchableOpacity 
+                      style={styles.promptModalCancel} 
+                      onPress={() => setShowPromptModal(false)}
+                    >
+                      <Text style={styles.promptModalCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.promptModalAdd, { opacity: (tempAnswer.trim() || tempPrompt) ? 1 : 0.5 }]} 
+                      onPress={() => {
+                        const finalPrompt = tempAnswer.trim() || tempPrompt;
+                        if (activePhotoIndex !== null && finalPrompt) {
+                          setPhotoPrompts(prev => ({
+                            ...prev,
+                            [activePhotoIndex]: finalPrompt
+                          }));
+                          setShowPromptModal(false);
+                        }
+                      }}
+                      disabled={!(tempAnswer.trim() || tempPrompt)}
+                    >
+                      <Text style={styles.promptModalAddText}>Add</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
 
           {/* Android Date Picker */}
           {showDatePicker && Platform.OS === 'android' && (
@@ -1425,8 +1457,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   optionRowButtonActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
   },
   optionText: {
     fontSize: 15,
@@ -1451,8 +1483,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   optionGridButtonActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
   },
   optionGridText: {
     fontSize: 13,
@@ -1495,8 +1527,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   habitBtnActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
   },
   habitBtnText: {
     fontSize: 11,
@@ -1526,7 +1558,7 @@ const styles = StyleSheet.create({
   },
   charCount: {
     fontSize: 11,
-    color: '#71717A',
+    color: '#C2FF3D',
     fontWeight: '700',
   },
 
@@ -1575,8 +1607,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   collegeItemActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
   },
   collegeIconBox: {
     width: 36,
@@ -1645,8 +1677,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   interestChipActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
   },
   interestText: {
     fontSize: 12,
@@ -1715,6 +1747,104 @@ const styles = StyleSheet.create({
   },
 
   // Modals
+  choosePromptBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  choosePromptText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  promptDisplayContainer: {
+    width: '100%',
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: '#C2FF3D',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 4,
+    position: 'relative',
+  },
+  promptDisplayQuestion: {
+    color: '#C2FF3D',
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 2,
+    paddingRight: 16,
+  },
+  promptDisplayAnswer: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '500',
+    paddingRight: 16,
+  },
+  promptDeleteBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promptModalContainer: {
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  promptModalTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  promptModalScroll: {
+    maxHeight: 200,
+    marginBottom: 16,
+  },
+  promptModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    gap: 12,
+  },
+  promptModalCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  promptModalCancelText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  promptModalAdd: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  promptModalAddText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1735,12 +1865,12 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
   pickerCancelText: {
-    color: '#FFFFFF',
+    color: '#C2FF3D',
     fontSize: 16,
     fontWeight: '600',
   },
   pickerConfirmText: {
-    color: '#FFFFFF',
+    color: '#C2FF3D',
     fontSize: 16,
     fontWeight: '800',
   },

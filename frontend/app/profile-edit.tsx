@@ -63,9 +63,12 @@ export default function ProfileEdit() {
             <Text style={styles.lbl}>AGE</Text>
             <TextInput style={styles.inp} value={age} onChangeText={setAge} keyboardType="number-pad" />
             
-            <Text style={styles.lbl}>BIO</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+              <Text style={[styles.lbl, { marginTop: 0, marginBottom: 0 }]}>BIO</Text>
+              <Text style={[styles.cnt, { color: '#C2FF3D', marginTop: 0, fontWeight: '700' }]}>{bio.length}/150</Text>
+            </View>
             <TextInput style={[styles.inp, { height: 100, textAlignVertical: 'top' }]} value={bio} onChangeText={setBio} multiline maxLength={150} placeholder="Tell your story..." placeholderTextColor="#6B5B7A" />
-            <Text style={styles.cnt}>{bio.length}/150</Text>
+
             
             <Text style={styles.lbl}>COURSE</Text>
             <TextInput style={styles.inp} value={course} onChangeText={setCourse} placeholder="e.g. Computer Science" placeholderTextColor="#6B5B7A" />
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   cnt: { color: '#6B5B7A', fontSize: 11, textAlign: 'right', marginTop: 4 },
   opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   opt: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#1A0F2A', borderRadius: 16, borderWidth: 1, borderColor: '#2A1B3D' },
-  optA: { backgroundColor: '#FF1B6B', borderColor: '#FF1B6B' },
+  optA: { backgroundColor: 'rgba(194, 255, 61, 0.12)', borderColor: '#C2FF3D' },
   optT: { color: '#A899B8', fontSize: 13, fontWeight: '600' },
   optTA: { color: '#FFF', fontWeight: '900' },
 });
