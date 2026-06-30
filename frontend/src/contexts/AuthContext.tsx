@@ -46,7 +46,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (phoneNumber: string) => Promise<void>;
+  login: (tokenOrPhone: string, isRealToken?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
@@ -240,9 +240,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const login = async (phoneNumber: string) => {
+  const login = async (tokenOrPhone: string, isRealToken: boolean = false) => {
     try {
       setLoading(true);
+      
+      const firebaseToken = isRealToken ? tokenOrPhone : `dev-token-${tokenOrPhone}`;
       
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/verify-otp`, {
         method: 'POST',
@@ -250,7 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          firebaseToken: `dev-token-${phoneNumber}`
+          firebaseToken
         }),
       });
 

@@ -19,6 +19,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 
+let firebaseAuth: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  firebaseAuth = require('@react-native-firebase/auth').default;
+} catch {
+  // Safe fallback if native module is not linked (Expo Go)
+}
+
+const isNativeFirebaseAvailable = () => {
+  if (Platform.OS === 'web') return false;
+  try {
+    return !!firebaseAuth && !!firebaseAuth();
+  } catch {
+    return false;
+  }
+};
+
 export default function Welcome() {
   const { user, login, loading } = useAuth();
   const router = useRouter();
@@ -31,6 +48,7 @@ export default function Welcome() {
   const [otpCode, setOtpCode] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [timer, setTimer] = useState(30);
+  const [confirmResult, setConfirmResult] = useState<any>(null);
   const otpInputRef = useRef<TextInput>(null);
 
   // Redirect if user is already authenticated
@@ -42,7 +60,7 @@ export default function Welcome() {
         router.replace('/(tabs)/discover');
       }
     }
-  }, [user]);
+  }, [user, router]);
 
   // Resend OTP countdown timer
   useEffect(() => {
@@ -55,14 +73,36 @@ export default function Welcome() {
     return () => clearInterval(interval);
   }, [step, timer]);
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     const cleaned = phoneNumber.replace(/\D/g, '');
     if (cleaned.length < 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
-    setStep('otp');
-    setTimer(30);
+    
+    const fullNumber = `+91${cleaned}`;
+    
+    if (isNativeFirebaseAvailable()) {
+      try {
+        const confirmation = await firebaseAuth().signInWithPhoneNumber(fullNumber);
+        setConfirmResult(confirmation);
+        setStep('otp');
+        setTimer(30);
+      } catch (error: any) {
+        console.error('Firebase SMS trigger failed:', error);
+        Alert.alert('SMS Failed', error.message || 'Failed to send OTP verification code.');
+      }
+    } else {
+      console.log('[Dev Bypass] Sending mock OTP for phone number:', fullNumber);
+      Alert.alert(
+        'Developer Mode 🛠️',
+        'Running inside Expo Go (Mock Mode). Real SMS is disabled. Press OK to proceed and use any 6-digit code to log in.',
+        [{ text: 'OK', onPress: () => {
+          setStep('otp');
+          setTimer(30);
+        }}]
+      );
+    }
   };
 
   const handleVerifyOTP = async () => {
@@ -72,13 +112,50 @@ export default function Welcome() {
     }
 
     const fullNumber = `+91${phoneNumber.replace(/\D/g, '')}`;
-    await login(fullNumber);
+
+    if (isNativeFirebaseAvailable()) {
+      if (!confirmResult) {
+        Alert.alert('Error', 'No active verification session. Please resend the code.');
+        return;
+      }
+      try {
+        // Verify code
+        await confirmResult.confirm(otpCode);
+        
+        // Get verified ID Token from Firebase
+        const idToken = await firebaseAuth().currentUser?.getIdToken();
+        if (idToken) {
+          await login(idToken, true);
+        } else {
+          throw new Error('Failed to retrieve Firebase ID Token.');
+        }
+      } catch (error: any) {
+        console.error('Firebase OTP verification failed:', error);
+        Alert.alert('Verification Failed', 'The code you entered is invalid. Please try again.');
+      }
+    } else {
+      await login(fullNumber, false);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (timer === 0) {
-      setTimer(30);
-      Alert.alert('Code Sent', 'A new verification code has been sent to your device.');
+      const cleaned = phoneNumber.replace(/\D/g, '');
+      const fullNumber = `+91${cleaned}`;
+      
+      if (isNativeFirebaseAvailable()) {
+        try {
+          const confirmation = await firebaseAuth().signInWithPhoneNumber(fullNumber);
+          setConfirmResult(confirmation);
+          setTimer(30);
+          Alert.alert('Code Resent', 'A new verification code has been sent to your device.');
+        } catch (error: any) {
+          Alert.alert('SMS Failed', error.message || 'Failed to resend OTP.');
+        }
+      } else {
+        setTimer(30);
+        Alert.alert('Developer Mode 🛠️', 'Resent mock verification code.');
+      }
     }
   };
 
