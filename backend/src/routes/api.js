@@ -4,6 +4,8 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const adminController = require('../controllers/adminController');
 const eventController = require('../controllers/eventController');
+const confessionController = require('../controllers/confessionController');
+const storyController = require('../controllers/storyController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -39,6 +41,18 @@ router.post('/admin/events/:id/reject', authMiddleware, adminMiddleware, adminCo
 router.get('/events/feed', authMiddleware, eventController.getEventsFeed);
 router.post('/events/create', authMiddleware, eventController.createEvent);
 router.post('/events/:id/rsvp', authMiddleware, eventController.toggleRSVP);
+
+// Confessions endpoints
+router.get('/confessions/feed', authMiddleware, confessionController.getConfessionsFeed);
+router.post('/confessions/create', authMiddleware, confessionController.createConfession);
+router.post('/confessions/:id/like', authMiddleware, confessionController.likeConfession);
+router.get('/confessions/:id/comments', authMiddleware, confessionController.getComments);
+router.post('/confessions/:id/comment', authMiddleware, confessionController.createComment);
+
+// Stories endpoints
+router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
+router.post('/stories/create', authMiddleware, storyController.createStory);
+router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
 
 module.exports = router;
 

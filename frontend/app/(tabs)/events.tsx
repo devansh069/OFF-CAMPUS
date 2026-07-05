@@ -209,7 +209,9 @@ export default function Events() {
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
+  const [feedMode, setFeedMode] = useState<'campus' | 'global'>('campus');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
   // Event Creation form state
@@ -420,208 +422,235 @@ export default function Events() {
     router.push('/(tabs)/messages');
   };
 
-  const filtered = filter === 'all' ? events : events.filter(e => e.category === filter);
-
   const categories = [
-    { key: 'all', label: '🌟 All', color: '#FF1B6B' },
-    { key: 'fest', label: '🎉 Fests', color: '#9D4EDD' },
-    { key: 'party', label: '🥂 Parties', color: '#F77F00' },
-    { key: 'workshop', label: '💡 Workshops', color: '#06D6A0' },
-    { key: 'sports', label: '⚽ Sports', color: '#118AB2' },
+    { key: 'party', label: 'parties and clubbing', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline' },
+    { key: 'fest', label: 'concert and fest', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline' },
+    { key: 'trip', label: 'Trips', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline' },
+    { key: 'sports', label: 'sports', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline' },
   ];
+
+  const filtered = events.filter((e: any) => {
+    // 1. Category Filter
+    if (activeCategory && e.category !== activeCategory) {
+      return false;
+    }
+    // 2. Feed Mode (Campus vs Global)
+    if (feedMode === 'campus' && e.college_id !== user?.college_id) {
+      return false;
+    }
+    // 3. Search Query Filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = e.title?.toLowerCase().includes(q);
+      const matchDesc = e.description?.toLowerCase().includes(q);
+      const matchHost = e.host_name?.toLowerCase().includes(q);
+      const matchLoc = e.location?.toLowerCase().includes(q);
+      return matchTitle || matchDesc || matchHost || matchLoc;
+    }
+    return true;
+  });
 
   return (
     <View style={styles.container}>
-      {/* ─── BACKGROUND LAYER ─── */}
-      <View style={StyleSheet.absoluteFillObject}>
-        {/* 1. Pure black base */}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#050005' }]} />
+      {/* Ambient background linear gradient matching Live page */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-        {/* 2. Top-left orb — deep purple/violet, very large, low opacity */}
-        <View style={styles.orbTopLeft} pointerEvents="none">
-          <LinearGradient
-            colors={[
-              'rgba(140, 80, 255, 0.9)',
-              'rgba(162, 60, 220, 0.7)',
-              'rgba(100, 20, 160, 0.7)',
-              'transparent',
-            ]}
-            locations={[0, 0.35, 0.65, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </View>
-
-        {/* 3. Bottom-right orb — pink/magenta, very large, low opacity */}
-        <View style={styles.orbBottomRight} pointerEvents="none">
-          <LinearGradient
-            colors={[
-              'rgba(226, 80, 200, 0.9)',
-              'rgba(180, 50, 180, 0.7)',
-              'rgba(120, 20, 140, 0.5)',
-              'transparent',
-            ]}
-            locations={[0, 0.35, 0.65, 1]}
-            start={{ x: 1, y: 1 }}
-            end={{ x: 0, y: 0 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </View>
-
-        {/* 4. Heavy blur to fully diffuse the orbs — makes them look like soft ambient glow */}
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 90 : 120}
-          tint="dark"
-          style={StyleSheet.absoluteFillObject}
-        />
-
-        {/* 5. Subtle dark veil — just enough to keep text crisp, not so much it kills the color */}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.45)' }]} />
-      </View>
-
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Title & Header */}
-        <View style={styles.header}>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.greet}>Campus Hub</Text>
-            <Text style={styles.title}>College Events 🎊</Text>
-          </View>
-          {!user?.is_premium && (
-            <TouchableOpacity style={styles.premBtn} onPress={() => router.push('/premium')}>
-              <Ionicons name="diamond" size={14} color="#FFD700" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Horizontal categories selectors directly visible at the top */}
-        <View style={styles.categoriesPillWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesPillsContent}
-          >
-            {categories.map((c) => {
-              const isSelected = filter === c.key;
-              return (
-                <TouchableOpacity
-                  key={c.key}
-                  style={[
-                    styles.categoryPill,
-                    isSelected && {
-                      backgroundColor: c.color + '15',
-                      borderColor: c.color,
-                    }
-                  ]}
-                  onPress={() => setFilter(c.key)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.categoryPillText,
-                      isSelected && { color: c.color, fontWeight: '800' }
-                    ]}
-                  >
-                    {c.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color="#FF1B6B" />
-          </View>
-        ) : filtered.length === 0 ? (
-          <View style={styles.center}>
-            <View style={styles.emptyContainer}>
-              <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
-              <Text style={styles.emptyT}>No events found in this category</Text>
-              <TouchableOpacity style={styles.resetFilterBtn} onPress={() => setFilter('all')}>
-                <Text style={styles.resetFilterText}>Clear Filter</Text>
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Header Bar */}
+          <View style={styles.header}>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.greet}>Campus Hub</Text>
+              <Text style={styles.title}>Events</Text>
+            </View>
+            {/* Top-Right Toggle option */}
+            <View style={styles.feedToggleContainer}>
+              <TouchableOpacity
+                style={[styles.feedTogglePill, feedMode === 'campus' && styles.feedTogglePillActive]}
+                onPress={() => setFeedMode('campus')}
+              >
+                <Text style={[styles.feedToggleText, feedMode === 'campus' && styles.feedToggleTextActive]}>
+                  Campus
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.feedTogglePill, feedMode === 'global' && styles.feedTogglePillActive]}
+                onPress={() => setFeedMode('global')}
+              >
+                <Text style={[styles.feedToggleText, feedMode === 'global' && styles.feedToggleTextActive]}>
+                  Global
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : (
-          /* Scrollable vertical list of smaller event card containers */
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContentContainer}
-          >
-            {filtered.map((e: any) => {
-              const eventDate = new Date(e.date);
-              const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-              const categoryObj = categories.find(c => c.key === e.category) || categories[0];
 
-              return (
-                <TouchableOpacity
-                  key={e.event_id}
-                  style={styles.miniCardWrapper}
-                  activeOpacity={0.9}
-                  onPress={() => setSelectedEvent(e)}
-                >
-                  <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
-                    {/* Left Column: Cover art thumbnail */}
-                    <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
-
-                    {/* Center Column: Title, host, mini specs */}
-                    <View style={styles.miniCardDetails}>
-                      <View style={styles.miniCardTopRow}>
-                        <Text style={[styles.miniCardCatLabel, { color: categoryObj.color }]}>
-                          {categoryObj.label.split(' ')[1].toUpperCase()}
-                        </Text>
-                        <Text style={styles.miniCardDaysAway}>
-                          {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
-                        </Text>
-                      </View>
-
-                      <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
-                      <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
-
-                      <View style={styles.miniCardStats}>
-                        <View style={styles.miniCardStatItem}>
-                          <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
-                          <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
-                        </View>
-                        <View style={styles.miniCardStatItem}>
-                          <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
-                          <Text style={styles.miniCardStatText} numberOfLines={1}>
-                            {e.location.split(',')[0]}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Right Column: Inline quick RSVP button */}
-                    <TouchableOpacity
-                      style={styles.miniCardRsvpBtn}
-                      activeOpacity={0.8}
-                      onPress={() => handleRSVP(e.event_id)}
-                    >
-                      {e.is_attending ? (
-                        <LinearGradient
-                          colors={['#C2FF3D', '#C2FF3D']}
-                          style={styles.miniRsvpGradient}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                        >
-                          <Ionicons name="star" size={14} color="#000" />
-                        </LinearGradient>
-                      ) : (
-                        <View style={styles.miniRsvpOutline}>
-                          <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  </BlurView>
+          {/* Search Bar Input */}
+          <View style={styles.searchBarWrapper}>
+            <View style={styles.searchBarContainer}>
+              <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.6)" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchBarInput}
+                placeholder="What events are you looking for?"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.6)" />
                 </TouchableOpacity>
-              );
-            })}
-            <View style={{ height: 100 }} />
-          </ScrollView>
-        )}
+              )}
+            </View>
+          </View>
+
+          {loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color="#FF1B6B" />
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 100 }}
+            >
+              {/* Start browsing section */}
+              <Text style={styles.sectionHeading}>Start browsing</Text>
+              <View style={styles.gridContainer}>
+                {categories.map((c) => {
+                  const isSelected = activeCategory === c.key;
+                  return (
+                    <TouchableOpacity
+                      key={c.key}
+                      style={[styles.gridCard, isSelected && styles.gridCardActive]}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
+                    >
+                      <LinearGradient
+                        colors={c.colors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gridCardGradient}
+                      >
+                        <Text style={styles.gridCardText}>{c.label}</Text>
+                        <View style={styles.gridCardIconContainer}>
+                          <Ionicons name={c.icon as any} size={28} color="rgba(255,255,255,0.7)" />
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Discover something new section */}
+              <Text style={styles.sectionHeading}>Discover something new</Text>
+
+              {filtered.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
+                  <Text style={styles.emptyT}>No events found matching current filters</Text>
+                  {(activeCategory || searchQuery || feedMode === 'campus') && (
+                    <TouchableOpacity
+                      style={styles.resetFilterBtn}
+                      onPress={() => {
+                        setActiveCategory(null);
+                        setSearchQuery('');
+                        setFeedMode('global');
+                      }}
+                    >
+                      <Text style={styles.resetFilterText}>Clear All Filters</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.listContentContainer}>
+                  {filtered.map((e: any) => {
+                    const eventDate = new Date(e.date);
+                    const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    
+                    // Match category configuration
+                    const categoryObj = categories.find(c => c.key === e.category) || {
+                      key: 'other',
+                      label: e.category || 'other',
+                      colors: ['#FF1B6B', '#FF7B00'],
+                      icon: 'calendar-outline'
+                    };
+
+                    return (
+                      <TouchableOpacity
+                        key={e.event_id}
+                        style={styles.miniCardWrapper}
+                        activeOpacity={0.9}
+                        onPress={() => setSelectedEvent(e)}
+                      >
+                        <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
+                          {/* Left Column: Cover art thumbnail */}
+                          <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
+
+                          {/* Center Column: Title, host, mini specs */}
+                          <View style={styles.miniCardDetails}>
+                            <View style={styles.miniCardTopRow}>
+                              <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
+                                {categoryObj.label.toUpperCase()}
+                              </Text>
+                              <Text style={styles.miniCardDaysAway}>
+                                {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
+                              </Text>
+                            </View>
+
+                            <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
+                            <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
+
+                            <View style={styles.miniCardStats}>
+                              <View style={styles.miniCardStatItem}>
+                                <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
+                                <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
+                              </View>
+                              <View style={styles.miniCardStatItem}>
+                                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
+                                <Text style={styles.miniCardStatText} numberOfLines={1}>
+                                  {e.location.split(',')[0]}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {/* Right Column: Inline quick RSVP button */}
+                          <TouchableOpacity
+                            style={styles.miniCardRsvpBtn}
+                            activeOpacity={0.8}
+                            onPress={() => handleRSVP(e.event_id)}
+                          >
+                            {e.is_attending ? (
+                              <LinearGradient
+                                colors={['#C2FF3D', '#C2FF3D']}
+                                style={styles.miniRsvpGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                              >
+                                <Ionicons name="star" size={14} color="#000" />
+                              </LinearGradient>
+                            ) : (
+                              <View style={styles.miniRsvpOutline}>
+                                <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        </BlurView>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </BlurView>
 
         {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
         <Modal
@@ -844,7 +873,6 @@ export default function Events() {
             </View>
           )}
         </Modal>
-      </SafeAreaView>
 
       {user && (
         <TouchableOpacity
@@ -1623,5 +1651,103 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.5,
+  },
+
+  // Segmented control toggle
+  feedToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  feedTogglePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: 'transparent',
+  },
+  feedTogglePillActive: {
+    backgroundColor: '#C2FF3D',
+  },
+  feedToggleText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  feedToggleTextActive: {
+    color: '#000',
+    fontWeight: '800',
+  },
+
+  // Search input styling
+  searchBarWrapper: {
+    paddingHorizontal: 20,
+    marginVertical: 10,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+  },
+  searchBarInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 0,
+  },
+
+  // Headings
+  sectionHeading: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+    paddingHorizontal: 20,
+    marginTop: 22,
+    marginBottom: 8,
+  },
+
+  // 2x2 Search Cards Grid
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginVertical: 6,
+  },
+  gridCard: {
+    width: '48%',
+    height: 95,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  gridCardActive: {
+    borderColor: '#C2FF3D',
+  },
+  gridCardGradient: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  gridCardText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  gridCardIconContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: -8,
+    marginRight: -8,
   },
 });
