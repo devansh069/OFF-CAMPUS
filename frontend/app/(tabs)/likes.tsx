@@ -9,339 +9,6 @@ import { useRouter } from 'expo-router';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// High fidelity mock profiles for received likes fallback/dummy mode
-const MOCK_LIKES = [
-  {
-    user_id: 'usr_mock_priya',
-    name: 'Priya Sharma',
-    age: 20,
-    gender: 'female',
-    college_id: 'col_lsr',
-    course: 'English Hons',
-    year: '2nd Year',
-    bio: 'Love reading classics, late-night coffee dates, and indie folk music. Let’s explore Delhi’s best book cafes together! ☕📖',
-    interests: ['Reading', 'Coffee', 'Music', 'Cafes', 'Art'],
-    looking_for: 'dating',
-    height: 162,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Saket',
-    state: 'Delhi',
-    vibe_score: 4.8,
-    photos: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop'
-    ],
-    spotify_data: {
-      top_tracks: [
-        { name: 'Cardigan', artist: 'Taylor Swift' },
-        { name: 'Let It Go', artist: 'James Bay' }
-      ]
-    },
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_aarav',
-    name: 'Aarav Mehta',
-    age: 21,
-    gender: 'male',
-    college_id: 'col_stephens',
-    course: 'B.Sc. Chemistry',
-    year: '3rd Year',
-    bio: 'Football enthusiast, guitar player, and amateur stargazer. Down to grab food or play a match anytime! ⚽🎸',
-    interests: ['Football', 'Guitar', 'Stargazing', 'Gaming', 'Fitness'],
-    looking_for: 'friends',
-    height: 182,
-    religion: 'Hindu',
-    drink: 'yes',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Hauz Khas',
-    state: 'Delhi',
-    vibe_score: 4.6,
-    photos: [
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop'
-    ],
-    spotify_data: {
-      top_tracks: [
-        { name: 'Yellow', artist: 'Coldplay' },
-        { name: 'Starboy', artist: 'The Weeknd' }
-      ]
-    },
-    verification_status: 'verified',
-    is_on_campus: false
-  },
-  {
-    user_id: 'usr_mock_sneha',
-    name: 'Sneha Roy',
-    age: 19,
-    gender: 'female',
-    college_id: 'col_vips',
-    course: 'BBA',
-    year: '1st Year',
-    bio: 'Classical dancer, foodie, and dog lover. Always up for food crawls and weekend road trips! 🐕💃',
-    interests: ['Dance', 'Foodie', 'Dogs', 'Road trips', 'Travel'],
-    looking_for: 'dating',
-    height: 158,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Dwarka',
-    state: 'Delhi',
-    vibe_score: 4.9,
-    photos: [
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?q=80&w=600&auto=format&fit=crop'
-    ],
-    spotify_data: {
-      top_tracks: [
-        { name: 'Cruel Summer', artist: 'Taylor Swift' },
-        { name: 'As It Was', artist: 'Harry Styles' }
-      ]
-    },
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_ishaan',
-    name: 'Ishaan Malhotra',
-    age: 22,
-    gender: 'male',
-    college_id: 'col_iitd',
-    course: 'B.Tech CS',
-    year: '4th Year',
-    bio: 'Always building something. Big fan of hackathons, techno music, and black coffee. Let’s collab! 💻🎶',
-    interests: ['Coding', 'Hackathons', 'Techno', 'Coffee', 'Design'],
-    looking_for: 'dating',
-    height: 178,
-    religion: 'Hindu',
-    drink: 'yes',
-    smoke: 'no',
-    weed: 'yes',
-    location: 'GK-2',
-    state: 'Delhi',
-    vibe_score: 4.7,
-    photos: [
-      'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_diya',
-    name: 'Diya Sen',
-    age: 20,
-    gender: 'female',
-    college_id: 'col_miranda',
-    course: 'Political Science',
-    year: '2nd Year',
-    bio: 'Debater, policy geek, and history enthusiast. Can debate with you on anything from geopolitics to memes! 🗣️🏛️',
-    interests: ['Debating', 'History', 'Memes', 'Reading', 'Coffee'],
-    looking_for: 'friends',
-    height: 160,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Karol Bagh',
-    state: 'Delhi',
-    vibe_score: 4.5,
-    photos: [
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_kabir',
-    name: 'Kabir Goel',
-    age: 21,
-    gender: 'male',
-    college_id: 'col_dtu',
-    course: 'Mechanical Eng',
-    year: '3rd Year',
-    bio: 'Automobile lover, track racer, and gym enthusiast. Always seeking the next rush of adrenaline! 🏎️💪',
-    interests: ['Cars', 'Racing', 'Fitness', 'Trekking', 'Sports'],
-    looking_for: 'dating',
-    height: 180,
-    religion: 'Sikh',
-    drink: 'yes',
-    smoke: 'yes',
-    weed: 'no',
-    location: 'Rohini',
-    state: 'Delhi',
-    vibe_score: 4.4,
-    photos: [
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: false
-  },
-  {
-    user_id: 'usr_mock_meera',
-    name: 'Meera Joshi',
-    age: 19,
-    gender: 'female',
-    college_id: 'col_hansraj',
-    course: 'B.Sc. Zoology',
-    year: '1st Year',
-    bio: 'Animal lover, sketch artist, and nature photographer. Let’s capture the sunset and talk about life! 🐾🎨🌅',
-    interests: ['Animals', 'Sketching', 'Photography', 'Nature', 'Music'],
-    looking_for: 'friends',
-    height: 165,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Noida',
-    state: 'UP',
-    vibe_score: 4.6,
-    photos: [
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_rohan',
-    name: 'Rohan Verma',
-    age: 22,
-    gender: 'male',
-    college_id: 'col_nsut',
-    course: 'ECE',
-    year: '4th Year',
-    bio: 'Salsa dancer, movie buff, and street food lover. Down for chaotic late-night momo runs anytime! 🥟🕺',
-    interests: ['Dance', 'Movies', 'Foodie', 'Travel', 'Music'],
-    looking_for: 'dating',
-    height: 175,
-    religion: 'Hindu',
-    drink: 'yes',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Dwarka',
-    state: 'Delhi',
-    vibe_score: 4.3,
-    photos: [
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_riya',
-    name: 'Riya Kapoor',
-    age: 20,
-    gender: 'female',
-    college_id: 'col_stephens',
-    course: 'History Hons',
-    year: '2nd Year',
-    bio: 'Theatre actor, retro aesthetic lover, and vintage vinyl collector. Let’s listen to old jazz! 🎭📻🎶',
-    interests: ['Theatre', 'Acting', 'Jazz', 'Music', 'Travel'],
-    looking_for: 'dating',
-    height: 163,
-    religion: 'Christian',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Hauz Khas',
-    state: 'Delhi',
-    vibe_score: 4.8,
-    photos: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_dev',
-    name: 'Dev Sharma',
-    age: 21,
-    gender: 'male',
-    college_id: 'col_mait',
-    course: 'B.Tech IT',
-    year: '3rd Year',
-    bio: 'Part-time trader, full-time dreamer. Big on finance, self-growth books, and badminton. 🏸📈',
-    interests: ['Finance', 'Badminton', 'Self-growth', 'Gaming', 'Fitness'],
-    looking_for: 'friends',
-    height: 177,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Pitampura',
-    state: 'Delhi',
-    vibe_score: 4.2,
-    photos: [
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: false
-  },
-  {
-    user_id: 'usr_mock_ananya',
-    name: 'Ananya Bose',
-    age: 20,
-    gender: 'female',
-    college_id: 'col_lsr',
-    course: 'Economics',
-    year: '2nd Year',
-    bio: 'Cat mom, plant lover, and amateur baker. Let’s share some fresh croissants and talk about the universe. 🐱🥐✨',
-    interests: ['Baking', 'Cats', 'Plants', 'Coffee', 'Music'],
-    looking_for: 'dating',
-    height: 164,
-    religion: 'Hindu',
-    drink: 'no',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Saket',
-    state: 'Delhi',
-    vibe_score: 4.9,
-    photos: [
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  },
-  {
-    user_id: 'usr_mock_sid',
-    name: 'Siddharth Nair',
-    age: 22,
-    gender: 'male',
-    college_id: 'col_dtu',
-    course: 'Physics Hons',
-    year: '4th Year',
-    bio: 'Sci-fi reader, amateur astronomer, and indie game dev. Let’s stargaze and talk about cosmos! 🌌🎮',
-    interests: ['Sci-fi', 'Astronomy', 'Gaming', 'Coding', 'Music'],
-    looking_for: 'friends',
-    height: 181,
-    religion: 'Hindu',
-    drink: 'yes',
-    smoke: 'no',
-    weed: 'no',
-    location: 'Gurgaon',
-    state: 'Haryana',
-    vibe_score: 4.5,
-    photos: [
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop'
-    ],
-    verification_status: 'verified',
-    is_on_campus: true
-  }
-];
 
 const MOCK_PROMPTS = [
   { index: 1, title: "My best side 📸" },
@@ -468,7 +135,7 @@ export default function Likes() {
 
   const fetchLikes = async () => {
     if (sessionToken === 'dummy_token') {
-      setLikes(MOCK_LIKES);
+      setLikes([]);
       setLoading(false);
       return;
     }
@@ -479,10 +146,10 @@ export default function Likes() {
       });
       if (!r.ok) throw new Error('Failed to fetch incoming likes');
       const d = await r.json();
-      setLikes(d.likes && d.likes.length > 0 ? d.likes : MOCK_LIKES);
+      setLikes(d.likes || []);
     } catch (e: any) {
-      console.warn('fetchLikes failed, using mock likes instead:', e.message);
-      setLikes(MOCK_LIKES);
+      console.warn('fetchLikes failed:', e.message);
+      setLikes([]);
     } finally {
       setLoading(false);
     }
@@ -603,29 +270,24 @@ export default function Likes() {
             <Text style={styles.greet}>People Who</Text>
             <View style={styles.titleRow}>
               <Text style={styles.title}>Liked You 💖</Text>
-              {likes.length > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countText}>{likes.length}</Text>
-                </View>
-              )}
             </View>
           </View>
 
           {likes.length === 0 ? (
             <View style={styles.empty}>
               <View style={styles.emptyHeartGlow}>
-                <Ionicons name="heart-dislike-outline" size={80} color="rgba(194, 255, 61, 0.55)" />
+                <Text style={styles.oopsIconText}>!</Text>
               </View>
-              <Text style={styles.emptyT}>No Likes Yet</Text>
+              <Text style={styles.emptyT}>Oops! You don't have any likes for now.</Text>
               <Text style={styles.emptyS}>
-                Swipe on the Vibe tab and keep your profile verified to stand out and attract more campus mates!
+                Go to start vibing with other students and build up matches!
               </Text>
               <TouchableOpacity
                 style={styles.exploreBtn}
                 onPress={() => router.replace('/discover')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.exploreText}>Start Swiping 🚀</Text>
+                <Text style={styles.exploreText}>Start Vibing </Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -964,12 +626,46 @@ const styles = StyleSheet.create({
   countText: { color: '#000', fontSize: 12, fontWeight: '900' },
   
   // Empty State styles
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16, marginTop: 40 },
-  emptyHeartGlow: { backgroundColor: 'rgba(194, 255, 61, 0.06)', padding: 24, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.2)' },
-  emptyT: { color: '#FFF', fontSize: 20, fontWeight: '800' },
-  emptyS: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  exploreBtn: { marginTop: 12, backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#C2FF3D' },
-  exploreText: { color: '#000', fontWeight: '800', fontSize: 14 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 18, paddingBottom: 80 },
+  emptyHeartGlow: { 
+    backgroundColor: 'rgba(194, 255, 61, 0.08)', 
+    width: 140,
+    height: 140,
+    borderRadius: 70, 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(194, 255, 61, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3
+  },
+  oopsIconText: {
+    fontSize: 74,
+    fontWeight: '900',
+    color: '#C2FF3D',
+    textAlign: 'center',
+    lineHeight: Platform.OS === 'ios' ? 84 : 74,
+  },
+  emptyT: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  emptyS: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: 15 },
+  exploreBtn: { 
+    marginTop: 20, 
+    backgroundColor: '#C2FF3D', 
+    paddingHorizontal: 32, 
+    paddingVertical: 14, 
+    borderRadius: 28, 
+    borderWidth: 1, 
+    borderColor: '#C2FF3D',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  exploreText: { color: '#000000', fontWeight: '900', fontSize: 15 },
 
   scrollContainer: { paddingBottom: 100 },
 

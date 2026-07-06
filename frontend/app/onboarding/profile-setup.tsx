@@ -88,7 +88,8 @@ export default function ProfileSetup() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [gender, setGender] = useState(user?.gender || '');
-  const [lookingFor, setLookingFor] = useState(user?.looking_for || '');
+  const [genderPreference, setGenderPreference] = useState(user?.gender_preference || 'both');
+  const [lookingFor, setLookingFor] = useState(user?.looking_for || 'dating');
 
   // Height state (Feet & Inches)
   const getInitialFeetInches = (cmValue?: number) => {
@@ -466,6 +467,7 @@ export default function ProfileSetup() {
         age: parseInt(age),
         gender,
         looking_for: lookingFor,
+        gender_preference: genderPreference,
         height: Math.round((heightFeet * 12 + heightInches) * 2.54),
         location: locationText,
         latitude: latitude || 28.6139,
@@ -681,24 +683,50 @@ export default function ProfileSetup() {
                   </View>
                 </View>
 
-                {/* Looking For */}
+                {/* Gender Preference */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>LOOKING FOR</Text>
+                  <Text style={styles.label}>GENDER PREFERRED</Text>
                   <View style={styles.optionsRow}>
                     {[
                       { value: 'male', label: 'Men' },
                       { value: 'female', label: 'Women' },
                       { value: 'both', label: 'Both' }
                     ].map((lf) => {
-                      const isActive = lookingFor === lf.value;
+                      const isActive = genderPreference === lf.value;
                       return (
                         <TouchableOpacity
                           key={lf.value}
                           style={[styles.optionGridButton, isActive && styles.optionGridButtonActive]}
-                          onPress={() => setLookingFor(lf.value)}
+                          onPress={() => setGenderPreference(lf.value)}
                         >
                           <Text style={[styles.optionGridText, isActive && styles.optionGridTextActive]}>
                             {lf.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Vibe / Relationship Preference */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>VIBE MODE (LOOKING FOR)</Text>
+                  <View style={styles.optionsRow}>
+                    {[
+                      { value: 'dating', label: '💕 Dating' },
+                      { value: 'friends', label: '🤝 Friends' },
+                      { value: 'networking', label: '💼 Network' },
+                      { value: 'all', label: '✨ All' }
+                    ].map((o) => {
+                      const isActive = lookingFor === o.value;
+                      return (
+                        <TouchableOpacity
+                          key={o.value}
+                          style={[styles.optionGridButton, isActive && styles.optionGridButtonActive]}
+                          onPress={() => setLookingFor(o.value)}
+                        >
+                          <Text style={[styles.optionGridText, isActive && styles.optionGridTextActive]}>
+                            {o.label}
                           </Text>
                         </TouchableOpacity>
                       );

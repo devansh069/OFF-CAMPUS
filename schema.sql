@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `height` int,
   `gender` ENUM('male', 'female', 'other'),
   `looking_for` ENUM('dating', 'friends', 'networking', 'all'),
+  `gender_preference` ENUM('male', 'female', 'both') DEFAULT 'both',
   `location` varchar(255),
   `latitude` double,
   `longitude` double,

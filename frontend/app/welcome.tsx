@@ -30,10 +30,21 @@ try {
 const isNativeFirebaseAvailable = () => {
   if (Platform.OS === 'web') return false;
   try {
-    return !!firebaseAuth && !!firebaseAuth();
-  } catch {
+    const available = !!firebaseAuth && !!firebaseAuth();
+    return available;
+  } catch (e) {
+    console.warn('isNativeFirebaseAvailable check failed:', e);
     return false;
   }
+};
+
+const devanagariMap: { [key: string]: string } = {
+  '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+  '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+};
+
+const convertDevanagariToAscii = (text: string): string => {
+  return text.replace(/[०-९]/g, (char) => devanagariMap[char] || char);
 };
 
 export default function Welcome() {
@@ -240,7 +251,7 @@ export default function Welcome() {
                         placeholder="Enter mobile number"
                         placeholderTextColor="#71717A"
                         value={phoneNumber}
-                        onChangeText={setPhoneNumber}
+                        onChangeText={(val) => setPhoneNumber(convertDevanagariToAscii(val))}
                         keyboardType="phone-pad"
                         maxLength={10}
                         autoCorrect={false}
@@ -271,7 +282,7 @@ export default function Welcome() {
                       ref={otpInputRef}
                       style={styles.hiddenInput}
                       value={otpCode}
-                      onChangeText={setOtpCode}
+                      onChangeText={(val) => setOtpCode(convertDevanagariToAscii(val))}
                       keyboardType="number-pad"
                       maxLength={6}
                       onFocus={() => setIsFocused(true)}

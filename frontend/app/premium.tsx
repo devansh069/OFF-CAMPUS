@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { BlurView } from 'expo-blur';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -72,28 +73,34 @@ export default function Premium() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#1A0B2E', '#0F0817']} style={styles.bg}>
+      <LinearGradient colors={['#0F0817', '#1A0B2E']} style={styles.bg}>
+        {/* Ambient glow circles behind the content to give depth to the glass effect */}
+        <View style={[styles.glowBlob, { top: 60, right: -90, backgroundColor: 'rgba(194, 255, 61, 0.12)', width: 280, height: 280, borderRadius: 140 }]} pointerEvents="none" />
+        <View style={[styles.glowBlob, { bottom: 120, left: -100, backgroundColor: 'rgba(155, 89, 182, 0.12)', width: 320, height: 320, borderRadius: 160 }]} pointerEvents="none" />
+
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#FFF" />
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} activeOpacity={0.7}>
+            <Ionicons name="close" size={24} color="#FFF" />
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
           <View style={styles.crown}>
-            <LinearGradient colors={['#FFD700', '#FF6B35']} style={styles.crownCircle}>
-              <Ionicons name="diamond" size={48} color="#FFF" />
+            <LinearGradient colors={['#C2FF3D', '#76A30E']} style={styles.crownCircle}>
+              <Ionicons name="diamond" size={44} color="#000" />
             </LinearGradient>
           </View>
 
-          <Text style={styles.heroTitle}>Vivekananda Institute of Professional Studies</Text>
+          <Text style={styles.heroTitle}>
+            {user?.college?.name || 'Vivekananda Institute of Professional Studies'}
+          </Text>
           <Text style={styles.heroPremium}>OFF CAMPUS PREMIUM</Text>
           <Text style={styles.heroSub}>All Access to All Delhi Colleges 🎓</Text>
 
           <View style={styles.priceCard}>
-            <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.priceGrad}>
+            <BlurView intensity={35} tint="dark" style={styles.priceGlass}>
               <View style={styles.studentBadge}>
-                <Ionicons name="school" size={12} color="#FFD700" />
+                <Ionicons name="school" size={12} color="#C2FF3D" />
                 <Text style={styles.studentBadgeText}>STUDENT SPECIAL OFFER</Text>
               </View>
               <View style={styles.pricingRow}>
@@ -102,25 +109,25 @@ export default function Premium() {
               </View>
               <Text style={styles.pricePer}>student pass / month</Text>
               <Text style={styles.priceNote}>Unlock all Delhi campus networks instantly. Cancel anytime.</Text>
-            </LinearGradient>
+            </BlurView>
           </View>
 
           <View style={styles.features}>
             {features.map((f, i) => (
-              <View key={i} style={styles.feature}>
+              <BlurView key={i} intensity={15} tint="dark" style={styles.feature}>
                 <View style={styles.featIcon}>
-                  <Ionicons name={f.icon as any} size={20} color="#FFD700" />
+                  <Ionicons name={f.icon as any} size={20} color="#C2FF3D" />
                 </View>
                 <Text style={styles.featText}>{f.text}</Text>
-              </View>
+              </BlurView>
             ))}
           </View>
 
-          <TouchableOpacity style={styles.subBtn} onPress={handleSubscribe} disabled={loading || user?.is_premium}>
-            <LinearGradient colors={['#FFD700', '#FF6B35']} style={styles.subBtnGrad}>
-              {loading ? <ActivityIndicator color="#FFF" /> : (
+          <TouchableOpacity style={styles.subBtn} onPress={handleSubscribe} disabled={loading || user?.is_premium} activeOpacity={0.9}>
+            <LinearGradient colors={['#C2FF3D', '#9BDC20']} style={styles.subBtnGrad}>
+              {loading ? <ActivityIndicator color="#000" /> : (
                 <>
-                  <Ionicons name="diamond" size={20} color="#FFF" />
+                  <Ionicons name="diamond" size={20} color="#000" />
                   <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Buy Student Pass'}</Text>
                 </>
               )}
@@ -128,7 +135,7 @@ export default function Premium() {
           </TouchableOpacity>
 
           <Text style={styles.disclaimer}>
-            🔒 Secure payment via Stripe • Cancel anytime from your account
+             Secure payment via Razorpay • Cancel anytime from your account
           </Text>
         </ScrollView>
       </LinearGradient>
@@ -139,28 +146,42 @@ export default function Premium() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F0817' },
   bg: { flex: 1 },
+  glowBlob: {
+    position: 'absolute',
+    opacity: 0.6,
+  },
   topBar: { padding: 16, flexDirection: 'row', justifyContent: 'flex-end' },
-  crown: { alignItems: 'center', marginBottom: 16 },
-  crownCircle: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { color: '#FFF', fontSize: 24, lineHeight: 30, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 },
-  heroPremium: { color: '#FFD700', fontSize: 16, fontWeight: '900', textAlign: 'center', letterSpacing: 4, marginTop: 12 },
+  closeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  crown: { alignItems: 'center', marginBottom: 16, marginTop: 10 },
+  crownCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { color: '#FFF', fontSize: 24, lineHeight: 30, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 10 },
+  heroPremium: { color: '#C2FF3D', fontSize: 14, fontWeight: '900', textAlign: 'center', letterSpacing: 4, marginTop: 12 },
   heroSub: { color: '#A899B8', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  priceCard: { marginTop: 24, borderRadius: 24, overflow: 'hidden' },
-  priceGrad: { padding: 24, alignItems: 'center' },
+  priceCard: { marginTop: 24, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
+  priceGlass: { padding: 24, alignItems: 'center' },
   studentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    marginBottom: 10,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
   },
   studentBadgeText: {
-    color: '#FFD700',
+    color: '#C2FF3D',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
@@ -177,14 +198,23 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   priceAmt: { color: '#FFF', fontSize: 64, fontWeight: '900', letterSpacing: -2 },
-  pricePer: { color: '#FFF', fontSize: 16, opacity: 0.9 },
-  priceNote: { color: '#FFF', fontSize: 12, opacity: 0.7, marginTop: 8, textAlign: 'center' },
-  features: { marginTop: 24, gap: 12 },
-  feature: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1A0F2A', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#2A1B3D' },
-  featIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFD70022', alignItems: 'center', justifyContent: 'center' },
-  featText: { color: '#FFF', flex: 1, fontSize: 14 },
+  pricePer: { color: '#FFF', fontSize: 15, opacity: 0.9, marginTop: 4 },
+  priceNote: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginTop: 10, textAlign: 'center', lineHeight: 16 },
+  features: { marginTop: 24, gap: 10 },
+  feature: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12, 
+    padding: 14, 
+    borderRadius: 18, 
+    borderWidth: 1, 
+    borderColor: 'rgba(194, 255, 61, 0.15)',
+    overflow: 'hidden'
+  },
+  featIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(194, 255, 61, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  featText: { color: '#FFF', flex: 1, fontSize: 14, lineHeight: 18 },
   subBtn: { marginTop: 24, borderRadius: 30, overflow: 'hidden' },
   subBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18 },
-  subBtnText: { color: '#FFF', fontWeight: '900', fontSize: 18 },
-  disclaimer: { color: '#6B5B7A', fontSize: 12, textAlign: 'center', marginTop: 16 },
+  subBtnText: { color: '#000', fontWeight: '900', fontSize: 18 },
+  disclaimer: { color: '#6B5B7A', fontSize: 11, textAlign: 'center', marginTop: 16 },
 });

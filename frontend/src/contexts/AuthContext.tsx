@@ -22,6 +22,7 @@ interface User {
   bio?: string;
   interests: string[];
   looking_for?: string;
+  gender_preference?: string;
   photos: string[];
   vibe_score: number;
   spotify_data?: {
@@ -41,6 +42,12 @@ interface User {
   drink?: string;
   smoke?: string;
   weed?: string;
+  college?: {
+    college_id: string;
+    name: string;
+    short_name: string;
+    location?: string;
+  };
 }
 
 interface AuthContextType {
@@ -241,6 +248,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = async (tokenOrPhone: string, isRealToken: boolean = false) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       setLoading(true);
       
@@ -254,7 +264,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({
           firebaseToken
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -275,6 +288,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(data.user);
       setLoading(false);
     } catch (error: any) {
+      clearTimeout(timeoutId);
       console.error('Error during login:', error);
       setLoading(false);
       Alert.alert('Login Failed', error.message || 'Please try again.');

@@ -68,7 +68,16 @@
       ],
       "@react-native-community/datetimepicker",
       "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "./withFirebaseFix.js"
     ],
     "experiments": {
       "typedRoutes": true

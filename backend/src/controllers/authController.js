@@ -2,7 +2,17 @@ const jwt = require('jsonwebtoken');
 const { auth } = require('../config/firebase');
 const User = require('../models/User');
 const College = require('../models/College');
+const Like = require('../models/Like');
+const Message = require('../models/Message');
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/db');
 const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+  api_key: process.env.CLOUDINARY_API_KEY || '12345',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'abcde',
+});
 
 // Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
@@ -143,6 +153,7 @@ exports.onboard = async (req, res) => {
       age,
       gender,
       looking_for,
+      gender_preference,
       height,
       location,
       latitude,
@@ -204,6 +215,7 @@ exports.onboard = async (req, res) => {
     user.age = age ? parseInt(age, 10) : user.age;
     user.gender = gender || user.gender;
     user.looking_for = looking_for || user.looking_for;
+    user.gender_preference = gender_preference || user.gender_preference;
     user.height = height ? parseInt(height, 10) : user.height;
     user.location = location || user.location;
     user.latitude = latitude ? parseFloat(latitude) : user.latitude;
@@ -227,8 +239,9 @@ exports.onboard = async (req, res) => {
             const cloudinaryUrl = await uploadToCloudinary(photo);
             updatedPhotos.push(cloudinaryUrl);
           } catch (uploadErr) {
-            console.error('[Onboarding Photo Upload Failure]:', uploadErr);
-            updatedPhotos.push(photo);
+            console.error('[Onboarding Photo Upload Failure]:', uploadErr.message || uploadErr);
+            // Fallback to a placeholder URL instead of saving massive base64 strings to DB
+            updatedPhotos.push('https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop');
           }
         } else {
           updatedPhotos.push(photo);
@@ -410,6 +423,294 @@ exports.deletePhoto = async (req, res) => {
   } catch (error) {
     console.error('[deletePhoto Error]:', error);
     return res.status(500).json({ detail: 'Failed to delete photo: ' + error.message });
+  }
+};
+
+// 6. Get discovery profiles to swipe
+exports.getDiscoveryProfiles = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+
+    // Find all users current user has already liked or passed
+    const swipedLikes = await Like.findAll({
+      where: { from_user_id: currentUserId },
+      attributes: ['to_user_id']
+    });
+    const swipedUserIds = swipedLikes.map(l => l.to_user_id);
+    swipedUserIds.push(currentUserId); // Don't show self
+
+    // Find other users
+    const profiles = await User.findAll({
+      where: {
+        user_id: { [Op.notIn]: swipedUserIds }
+      },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({ profiles });
+  } catch (error) {
+    console.error('[getDiscoveryProfiles Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch profiles: ' + error.message });
+  }
+};
+
+// 7. Like a user profile
+exports.likeUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ detail: 'target_user_id is required' });
+    }
+
+    // Check if target user has liked current user
+    const receivedLike = await Like.findOne({
+      where: { from_user_id: target_user_id, to_user_id: currentUserId }
+    });
+
+    let isMatch = false;
+    const likeId = `${currentUserId}_${target_user_id}`;
+
+    if (receivedLike) {
+      isMatch = true;
+      receivedLike.is_match = true;
+      await receivedLike.save();
+
+      await Like.upsert({
+        like_id: likeId,
+        from_user_id: currentUserId,
+        to_user_id: target_user_id,
+        is_match: true
+      });
+    } else {
+      await Like.upsert({
+        like_id: likeId,
+        from_user_id: currentUserId,
+        to_user_id: target_user_id,
+        is_match: false
+      });
+    }
+
+    return res.status(200).json({ is_match: isMatch });
+  } catch (error) {
+    console.error('[likeUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to like user: ' + error.message });
+  }
+};
+
+// 8. Pass a user profile
+exports.passUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ detail: 'target_user_id is required' });
+    }
+
+    const likeId = `pass_${currentUserId}_${target_user_id}`;
+    await Like.upsert({
+      like_id: likeId,
+      from_user_id: currentUserId,
+      to_user_id: target_user_id,
+      is_match: false
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[passUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to pass user: ' + error.message });
+  }
+};
+
+// 9. Get likes received
+exports.getLikesReceived = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+
+    // Get all likes received where is_match = 0 and is not a pass
+    const receivedLikes = await Like.findAll({
+      where: { 
+        to_user_id: currentUserId, 
+        is_match: false,
+        like_id: { [Op.notLike]: 'pass_%' }
+      },
+      attributes: ['from_user_id']
+    });
+
+    const senderIds = receivedLikes.map(l => l.from_user_id);
+
+    const likes = await User.findAll({
+      where: {
+        user_id: { [Op.in]: senderIds }
+      },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({ likes });
+  } catch (error) {
+    console.error('[getLikesReceived Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve likes received: ' + error.message });
+  }
+};
+
+// 10. Get matched profiles
+exports.getMatches = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+
+    // Matches are rows in likes where is_match = 1 and from_user_id = currentUserId
+    const matchesList = await Like.findAll({
+      where: { from_user_id: currentUserId, is_match: true },
+      attributes: ['to_user_id']
+    });
+
+    const matchUserIds = matchesList.map(m => m.to_user_id);
+
+    const matches = await User.findAll({
+      where: {
+        user_id: { [Op.in]: matchUserIds }
+      },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({ matches });
+  } catch (error) {
+    console.error('[getMatches Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve matches: ' + error.message });
+  }
+};
+
+// 11. Get conversations lists
+exports.getConversations = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+
+    // A conversation exists if there is a match or messages exchanged
+    const matchesList = await Like.findAll({
+      where: { from_user_id: currentUserId, is_match: true },
+      attributes: ['to_user_id']
+    });
+
+    const uniqueChats = await sequelize.query(
+      `SELECT DISTINCT 
+        CASE 
+          WHEN from_user_id = :userId THEN to_user_id 
+          ELSE from_user_id 
+        END as partner_id
+       FROM messages 
+       WHERE from_user_id = :userId OR to_user_id = :userId`,
+      {
+        replacements: { userId: currentUserId },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const chatPartnerIds = uniqueChats.map(c => c.partner_id);
+    const matchPartnerIds = matchesList.map(m => m.to_user_id);
+
+    // Union both lists of user IDs
+    const partnerIdsSet = new Set([...chatPartnerIds, ...matchPartnerIds]);
+    const partnerIds = Array.from(partnerIdsSet);
+
+    const conversations = [];
+
+    for (const partnerId of partnerIds) {
+      const partner = await User.findOne({
+        where: { user_id: partnerId },
+        include: [{ model: College, as: 'college' }]
+      });
+
+      if (!partner) continue;
+
+      // Get last message
+      const lastMessage = await Message.findOne({
+        where: {
+          [Op.or]: [
+            { from_user_id: currentUserId, to_user_id: partnerId },
+            { from_user_id: partnerId, to_user_id: currentUserId }
+          ]
+        },
+        order: [['created_at', 'DESC']]
+      });
+
+      // Get unread count
+      const unreadCount = await Message.count({
+        where: {
+          from_user_id: partnerId,
+          to_user_id: currentUserId,
+          read: false
+        }
+      });
+
+      conversations.push({
+        user: partner,
+        last_message: lastMessage,
+        unread_count: unreadCount
+      });
+    }
+
+    return res.status(200).json({ conversations });
+  } catch (error) {
+    console.error('[getConversations Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve conversations: ' + error.message });
+  }
+};
+
+// 12. Get messages with a user
+exports.getMessages = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { id: partnerId } = req.params;
+
+    // Mark partner's messages to currentUser as read
+    await Message.update(
+      { read: true },
+      { where: { from_user_id: partnerId, to_user_id: currentUserId, read: false } }
+    );
+
+    const messages = await Message.findAll({
+      where: {
+        [Op.or]: [
+          { from_user_id: currentUserId, to_user_id: partnerId },
+          { from_user_id: partnerId, to_user_id: currentUserId }
+        ]
+      },
+      order: [['created_at', 'ASC']]
+    });
+
+    return res.status(200).json({ messages });
+  } catch (error) {
+    console.error('[getMessages Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve messages: ' + error.message });
+  }
+};
+
+// 13. Send a message to a user
+exports.sendMessage = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { to_user_id, content } = req.body;
+
+    if (!to_user_id || !content) {
+      return res.status(400).json({ detail: 'to_user_id and content are required' });
+    }
+
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const message = await Message.create({
+      message_id: messageId,
+      from_user_id: currentUserId,
+      to_user_id,
+      content,
+      read: false
+    });
+
+    return res.status(201).json({ message });
+  } catch (error) {
+    console.error('[sendMessage Error]:', error);
+    return res.status(500).json({ detail: 'Failed to send message: ' + error.message });
   }
 };
 

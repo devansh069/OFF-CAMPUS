@@ -42,34 +42,7 @@ export default function Messages() {
 
   const fetchConversations = async () => {
     if (sessionToken === 'dummy_token') {
-      setConversations([
-        {
-          user: {
-            user_id: 'user_priya',
-            name: 'Priya Singh',
-            photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
-            is_on_campus: true
-          },
-          last_message: {
-            content: 'Hey, did you finish the assignment? 📚',
-            created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-          },
-          unread_count: 1
-        },
-        {
-          user: {
-            user_id: 'user_ananya',
-            name: 'Ananya Kapoor',
-            photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'],
-            is_on_campus: true
-          },
-          last_message: {
-            content: 'I love that playlist you shared! 🎵',
-            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          },
-          unread_count: 0
-        }
-      ]);
+      setConversations([]);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -83,35 +56,8 @@ export default function Messages() {
       const data = await response.json();
       setConversations(data.conversations || []);
     } catch (error: any) {
-      console.warn('Error fetching conversations, using mock fallback:', error.message);
-      setConversations([
-        {
-          user: {
-            user_id: 'user_priya',
-            name: 'Priya Singh',
-            photos: ['https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop'],
-            is_on_campus: true
-          },
-          last_message: {
-            content: 'Hey, did you finish the assignment? 📚',
-            created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-          },
-          unread_count: 1
-        },
-        {
-          user: {
-            user_id: 'user_ananya',
-            name: 'Ananya Kapoor',
-            photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop'],
-            is_on_campus: true
-          },
-          last_message: {
-            content: 'I love that playlist you shared! 🎵',
-            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          },
-          unread_count: 0
-        }
-      ]);
+      console.warn('Error fetching conversations:', error.message);
+      setConversations([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -120,20 +66,7 @@ export default function Messages() {
 
   const fetchMatches = async () => {
     if (sessionToken === 'dummy_token') {
-      setMatches([
-        {
-          user_id: 'user_rohan',
-          name: 'Rohan Mehta',
-          photos: ['https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop'],
-          is_on_campus: false
-        },
-        {
-          user_id: 'user_kabir',
-          name: 'Kabir Malhotra',
-          photos: ['https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop'],
-          is_on_campus: true
-        }
-      ]);
+      setMatches([]);
       return;
     }
 
@@ -145,6 +78,7 @@ export default function Messages() {
       setMatches(data.matches || []);
     } catch (error) {
       console.error('Error fetching matches:', error);
+      setMatches([]);
     }
   };
 
@@ -171,13 +105,16 @@ export default function Messages() {
 
   return (
     <View style={styles.container}>
-      {/* Grayscale aesthetic dark portrait background image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+      {/* Ambient background linear gradient */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        blurRadius={Platform.OS === 'android' ? 25 : 0}
       />
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+
       <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.header}>
@@ -195,6 +132,7 @@ export default function Messages() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
+        contentContainerStyle={{ flexGrow: 1 }}
       >
         {/* Horizontal Matches List */}
         {!searchQuery && newMatches.length > 0 && (
@@ -243,14 +181,6 @@ export default function Messages() {
                 ? 'Try searching for another match'
                 : 'Start swiping and connect with other college students!'}
             </Text>
-            {!searchQuery && (
-              <TouchableOpacity
-                style={styles.exploreBtn}
-                onPress={() => router.push('/(tabs)/discover')}
-              >
-                <Text style={styles.exploreBtnText}>Go to Discover</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : (
           filteredConversations.map((conv: any) => {
@@ -366,9 +296,9 @@ const styles = StyleSheet.create({
   convMessageUnread: { color: '#FFF', fontWeight: '700' },
   unreadBadge: { paddingHorizontal: 6, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   unreadCount: { color: '#000', fontSize: 10, fontWeight: '900' },
-  emptyState: { padding: 60, alignItems: 'center', gap: 12, justifyContent: 'center' },
-  emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
-  emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  emptyState: { flex: 1, alignItems: 'center', gap: 12, justifyContent: 'center', paddingBottom: 100, paddingHorizontal: 32 },
+  emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12, textAlign: 'center' },
+  emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18, paddingHorizontal: 10 },
   exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
   exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14 },
 });

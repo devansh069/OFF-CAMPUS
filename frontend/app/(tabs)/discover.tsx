@@ -362,10 +362,22 @@ interface RangeSliderProps {
   maxVal: number;
   onChange: (minVal: number, maxVal: number) => void;
   suffix?: string;
+  formatLabel?: (val: number) => string;
 }
 
-const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onChange, suffix = '' }) => {
+const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onChange, suffix = '', formatLabel }) => {
   const [trackWidth, setTrackWidth] = useState(0);
+
+  const currentMinVal = useRef(minVal);
+  const currentMaxVal = useRef(maxVal);
+  const currentTrackWidth = useRef(trackWidth);
+  const currentOnChange = useRef(onChange);
+
+  useEffect(() => { currentMinVal.current = minVal; }, [minVal]);
+  useEffect(() => { currentMaxVal.current = maxVal; }, [maxVal]);
+  useEffect(() => { currentTrackWidth.current = trackWidth; }, [trackWidth]);
+  useEffect(() => { currentOnChange.current = onChange; }, [onChange]);
+
   const startMinVal = useRef(minVal);
   const startMaxVal = useRef(maxVal);
 
@@ -374,14 +386,14 @@ const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onC
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        startMinVal.current = minVal;
+        startMinVal.current = currentMinVal.current;
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (trackWidth === 0) return;
-        const change = (gestureState.dx / trackWidth) * (max - min);
+        if (currentTrackWidth.current === 0) return;
+        const change = (gestureState.dx / currentTrackWidth.current) * (max - min);
         let newVal = Math.round(startMinVal.current + change);
-        newVal = Math.max(min, Math.min(newVal, maxVal - 1));
-        onChange(newVal, maxVal);
+        newVal = Math.max(min, Math.min(newVal, currentMaxVal.current - 1));
+        currentOnChange.current(newVal, currentMaxVal.current);
       },
     })
   ).current;
@@ -391,14 +403,14 @@ const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onC
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        startMaxVal.current = maxVal;
+        startMaxVal.current = currentMaxVal.current;
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (trackWidth === 0) return;
-        const change = (gestureState.dx / trackWidth) * (max - min);
+        if (currentTrackWidth.current === 0) return;
+        const change = (gestureState.dx / currentTrackWidth.current) * (max - min);
         let newVal = Math.round(startMaxVal.current + change);
-        newVal = Math.max(minVal + 1, Math.min(newVal, max));
-        onChange(minVal, newVal);
+        newVal = Math.max(currentMinVal.current + 1, Math.min(newVal, max));
+        currentOnChange.current(currentMinVal.current, newVal);
       },
     })
   ).current;
@@ -414,7 +426,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onC
     <View style={sliderStyles.container}>
       <View style={sliderStyles.labelRow}>
         <Text style={sliderStyles.valueText}>
-          {minVal}{suffix} - {maxVal}{suffix}
+          {formatLabel ? formatLabel(minVal) : `${minVal}${suffix}`} - {formatLabel ? formatLabel(maxVal) : `${maxVal}${suffix}`}
         </Text>
       </View>
       <View 
@@ -479,7 +491,7 @@ const sliderStyles = StyleSheet.create({
   },
   activeTrack: {
     height: 4,
-    backgroundColor: '#FF1B6B',
+    backgroundColor: '#C2FF3D',
     borderRadius: 2,
     position: 'absolute',
   },
@@ -490,7 +502,7 @@ const sliderStyles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFF',
     borderWidth: 2,
-    borderColor: '#FF1B6B',
+    borderColor: '#C2FF3D',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -731,13 +743,13 @@ export default function Discover() {
 
   return (
     <View style={styles.container}>
-      {/* Grayscale aesthetic dark portrait background image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80&sat=-100' }}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        blurRadius={Platform.OS === 'android' ? 25 : 0}
       />
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
       <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
         
         {/* Profiles Container / Card stack */}
@@ -917,8 +929,8 @@ export default function Discover() {
                 onPress={() => router.push('/premium')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="diamond" size={12} color="#FFD700" />
-                <Text style={styles.modeText}>VIPS</Text>
+                <Ionicons name="diamond" size={12} color="#C2FF3D" />
+                <Text style={styles.modeText}>{user?.college?.short_name || 'VIPS'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -929,7 +941,7 @@ export default function Discover() {
                 onPress={() => setShowFilterModal(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="options-outline" size={16} color="#FFD700" />
+                <Ionicons name="options-outline" size={16} color="#C2FF3D" />
                 <Text style={styles.filterMainBtnText}>Filter</Text>
               </TouchableOpacity>
 
@@ -979,7 +991,7 @@ export default function Discover() {
                 {/* Modal Header */}
                 <View style={styles.modalHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="options-outline" size={20} color="#FF1B6B" />
+                    <Ionicons name="options-outline" size={20} color="#C2FF3D" />
                     <Text style={styles.modalTitle}>Discovery Filters</Text>
                   </View>
                   <TouchableOpacity
@@ -1009,7 +1021,7 @@ export default function Discover() {
                           >
                             {isActive ? (
                               <LinearGradient
-                                colors={['#eb3939', '#890909']}
+                                colors={['#FFFFFF', '#FFFFFF']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.genderBtnGrad}
@@ -1053,7 +1065,7 @@ export default function Discover() {
                         setFilterHeightMin(minVal);
                         setFilterHeightMax(maxVal);
                       }}
-                      suffix=" cm"
+                      formatLabel={cmToFeetInches}
                     />
                   </View>
 
@@ -1088,7 +1100,7 @@ export default function Discover() {
                           >
                             {isActive ? (
                               <LinearGradient
-                                colors={['#ee4d4d', '#780505']}
+                                colors={['#FFFFFF', '#FFFFFF']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.genderBtnGrad}
@@ -1113,7 +1125,7 @@ export default function Discover() {
                     <Switch
                       value={filterVerifiedOnly}
                       onValueChange={setFilterVerifiedOnly}
-                      trackColor={{ false: '#2C2C2E', true: '#FF1B6B' }}
+                      trackColor={{ false: '#FFFFFF', true: '#C2FF3D' }}
                       thumbColor="#FFF"
                     />
                   </View>
@@ -1147,7 +1159,7 @@ export default function Discover() {
                     }}
                   >
                     <LinearGradient
-                      colors={['#C2FF3D', '#C2FF3D']}
+                      colors={['#FFFFFF', '#FFFFFF']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.applyBtnGrad}
@@ -1238,7 +1250,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)'
   },
-  modeText: { color: '#FFD700', fontSize: 12, fontWeight: '700' },
+  modeText: { color: '#C2FF3D', fontSize: 12, fontWeight: '700' },
 
   logoImage: {
     width: 130,
@@ -1258,7 +1270,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#C2FF3D',
   },
   globalToggleOption: {
     paddingHorizontal: 12,
@@ -1266,7 +1278,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   globalToggleActive: {
-    backgroundColor: '#FF1B6B',
+    backgroundColor: '#FFFFFF',
   },
   globalToggleText: {
     color: 'rgba(255, 255, 255, 0.5)',
@@ -1274,7 +1286,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   globalToggleTextActive: {
-    color: '#FFF',
+    color: '#000000',
     fontWeight: '800',
   },
   filterMainBtn: {
@@ -1343,7 +1355,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   filterSectionTitle: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: '#FFF',
     fontSize: 13,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -1380,7 +1392,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   genderBtnTextActive: {
-    color: '#FFF',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',
@@ -1450,7 +1462,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#C2FF3D',
   },
   switchTitle: {
     color: '#FFF',
@@ -1477,12 +1489,12 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#FFFFFF',
   },
   resetBtnText: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -1521,7 +1533,7 @@ const styles = StyleSheet.create({
   },
   profileScrollView: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   profileScrollContent: {
     paddingBottom: 140, // Space for floating button overlay & tab navigation
@@ -1801,7 +1813,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   emptyT: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 12, textAlign: 'center' },
   emptyS: { color: 'rgba(255, 255, 255, 0.4)', textAlign: 'center', fontSize: 14, lineHeight: 20 },
@@ -1809,7 +1821,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
-    backgroundColor: '#C2FF3D',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,

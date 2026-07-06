@@ -23,6 +23,18 @@ router.post('/profile/photos', authMiddleware, authController.uploadPhoto);
 router.delete('/profile/photos/:index', authMiddleware, authController.deletePhoto);
 router.post('/verification/submit', authMiddleware, authController.submitVerification);
 
+// Discovery and matching routes (Protected)
+router.get('/discovery/profiles', authMiddleware, authController.getDiscoveryProfiles);
+router.post('/discovery/like', authMiddleware, authController.likeUser);
+router.post('/discovery/pass', authMiddleware, authController.passUser);
+router.get('/discovery/likes-received', authMiddleware, authController.getLikesReceived);
+router.get('/discovery/matches', authMiddleware, authController.getMatches);
+
+// Messages and conversations routes (Protected)
+router.get('/messages/conversations', authMiddleware, authController.getConversations);
+router.post('/messages/send', authMiddleware, authController.sendMessage);
+router.get('/messages/:id', authMiddleware, authController.getMessages);
+
 // Admin endpoints (Public Login, rest Protected)
 router.post('/admin/login', adminController.login);
 router.get('/admin/stats', authMiddleware, adminMiddleware, adminController.getStats);

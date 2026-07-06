@@ -141,8 +141,8 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
               label = 'You';
             }
 
-            const activeColor = '#F43F5E';
-            const inactiveColor = '#6B7280';
+            const activeColor = '#FFFFFF';
+            const inactiveColor = 'rgba(255, 255, 255, 0.6)';
             const tintColor = isFocused ? activeColor : inactiveColor;
 
              return (
@@ -174,7 +174,7 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
                   {badgeCount > 0 && (
                     <View style={styles.badgeContainer}>
                       <LinearGradient
-                        colors={['#ee4d4d', '#780505']}
+                        colors={['#C2FF3D', '#A5D62B']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.badgeGradient}
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: '#FFF',
+    color: '#000000',
     fontSize: 9,
     fontWeight: '900',
     textAlign: 'center',

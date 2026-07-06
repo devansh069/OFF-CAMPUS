@@ -202,34 +202,32 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      {/* Grayscale aesthetic dark portrait background image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&fit=crop&q=80' }}
+      {/* Ambient background linear gradient */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        blurRadius={Platform.OS === 'android' ? 25 : 0}
       />
-      <BlurView intensity={Platform.OS === 'ios' ? 70 : 90} tint="dark" style={StyleSheet.absoluteFillObject}>
+      {/* Dark veil overlay for premium depth and text contrast */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <ScrollView showsVerticalScrollIndicator={false}>
             
             {/* Brand Header */}
             <View style={styles.headerBar}>
               <View style={styles.logoRow}>
-                <LinearGradient 
-                  colors={['#8B5CF6', '#F43F5E']} 
-                  style={styles.logoCircle}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name="flame" size={16} color="#FFF" />
-                </LinearGradient>
                 <Text style={styles.brandText}>off campus</Text>
               </View>
               <View style={styles.headerRight}>
                 <TouchableOpacity style={styles.globalPill} onPress={() => router.push('/premium')}>
                   <MaterialCommunityIcons name="crown" size={14} color="#C2FF3D" style={{ marginRight: 4 }} />
                   <Text style={styles.globalText}>Global</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
+                  <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
                   <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
@@ -240,104 +238,92 @@ export default function Profile() {
             {/* Profile Avatar Card */}
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
-                <LinearGradient 
-                  colors={['#C2FF3D', '#8B5CF6', '#F43F5E']} 
-                  start={{ x: 0, y: 0 }} 
-                  end={{ x: 1, y: 1 }} 
-                  style={styles.avatarRing}
-                >
-                  <View style={styles.avatarInner}>
-                    <Image
-                      source={{
-                        uri: user.picture || user.photos?.[0] || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
-                      }}
-                      style={styles.avatarImage}
-                    />
+                <Image
+                  source={{
+                    uri: user.photos?.[0] || user.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
+                  }}
+                  style={styles.avatarImageCircle}
+                />
+                {user.is_premium && (
+                  <View style={styles.crownBadge}>
+                    <MaterialCommunityIcons name="crown" size={12} color="#000" />
                   </View>
-                </LinearGradient>
-                <View style={styles.crownBadge}>
-                  <MaterialCommunityIcons name="crown" size={12} color="#000" />
-                </View>
+                )}
               </View>
 
               <View style={styles.nameRow}>
                 <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
-                <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" style={{ marginLeft: 6 }} />
+                <TouchableOpacity 
+                  onPress={() => router.push('/onboarding/verification')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name="checkmark-circle" 
+                    size={18} 
+                    color={user.verification_status === 'verified' ? '#C2FF3D' : 'rgba(255, 255, 255, 0.4)'} 
+                    style={{ marginLeft: 6 }} 
+                  />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.collegePill}>
                 <Text style={styles.collegePillText}>
-                  {user.verification_status === 'verified' ? 'Verified' : 'Pending'} {college?.short_name || 'IPU'} Student
+                  {college?.name || user?.college?.name || 'Vivekananda Institute of Professional Studies'}
                 </Text>
               </View>
+
+              <TouchableOpacity 
+                style={styles.editProfilePencilBtn}
+                onPress={() => router.push('/profile-edit')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil" size={12} color="#000" style={{ marginRight: 6 }} />
+                <Text style={styles.editProfilePencilText}>Edit Profile</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Stats Dashboard */}
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, styles.vibeStatCard]}>
-                <View style={styles.statIconRow}>
-                  <Ionicons name="sparkles" size={20} color="#C2FF3D" />
+              <View style={[styles.statCard, styles.vibeStatCard, { flex: 1 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={styles.statIconRow}>
+                    <Ionicons name="sparkles" size={24} color="#C2FF3D" />
+                  </View>
+                  <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)} / 10</Text>
                 </View>
-                <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
-                <Text style={styles.statLabel}>VIBE SCORE</Text>
-              </View>
-
-              <View style={[styles.statCard, styles.streakStatCard]}>
-                <View style={styles.statIconRow}>
-                  <Ionicons name="flame" size={20} color="#FFA500" />
-                </View>
-                <Text style={styles.statValue}>12d</Text>
-                <Text style={styles.statLabel}>APP STREAK</Text>
+                <Text style={styles.statLabel}>YOUR VIBE SCORE</Text>
+                <Text style={styles.vibeScoreExplanation}>
+                  Calculated dynamically based on your profile completeness, Spotify integration activity, verified status, active campus RSVPs, and positive ratings from other community members. Keep vibing to increase your score!
+                </Text>
               </View>
             </View>
 
-            {/* Your Vibe DNA */}
-            <View style={styles.dnaCard}>
-              <View style={styles.dnaHeader}>
-                <Text style={styles.dnaTitle}>Your Vibe DNA</Text>
-                <View style={styles.analysisBadge}>
-                  <Text style={styles.analysisText}>ANALYSIS COMPLETE</Text>
-                </View>
-              </View>
-              <Text style={styles.dnaSubtitle}>Based on your activity</Text>
-
-              <View style={styles.dnaRow}>
-                <LinearGradient 
-                  colors={['rgba(74, 144, 226, 0.15)', 'rgba(74, 144, 226, 0.05)']} 
-                  style={[styles.dnaPill, { borderColor: 'rgba(74, 144, 226, 0.3)' }]}
-                >
-                  <Text style={styles.creativeText}>🎨 CREATIVE</Text>
-                </LinearGradient>
-                <LinearGradient 
-                  colors={['rgba(165, 94, 234, 0.15)', 'rgba(165, 94, 234, 0.05)']} 
-                  style={[styles.dnaPill, { borderColor: 'rgba(165, 94, 234, 0.3)' }]}
-                >
-                  <Text style={styles.nightOwlText}>🦉 NIGHT OWL</Text>
-                </LinearGradient>
-                <LinearGradient 
-                  colors={['rgba(245, 166, 35, 0.15)', 'rgba(245, 166, 35, 0.05)']} 
-                  style={[styles.dnaPill, { borderColor: 'rgba(245, 166, 35, 0.3)' }]}
-                >
-                  <Text style={styles.socialiteText}>✨ SOCIALITE</Text>
-                </LinearGradient>
-              </View>
-            </View>
-
-            {/* Integrations Card */}
+            {/* Spotify Vibe Card Section */}
             <View style={styles.integrationsCard}>
-              <Text style={styles.integrationsTitle}>Integrations</Text>
-              <Text style={styles.integrationsSubtitle}>Connect accounts to flex your vibe</Text>
+              <View style={styles.spotifyHeaderRow}>
+                <View style={styles.spotifyHeaderLeft}>
+                  <MaterialCommunityIcons name="spotify" size={22} color="#1DB954" style={{ marginRight: 8 }} />
+                  <Text style={styles.spotifyHeaderTitle}>connect spotify to flex your vibe</Text>
+                </View>
+                {user.spotify_data?.top_tracks && (
+                  <Text style={styles.spotifyHeaderUsername}>
+                    @{user.name.toLowerCase().replace(/ /g, '_')}
+                  </Text>
+                )}
+              </View>
 
-              <TouchableOpacity style={styles.spotifyCard} onPress={addSpotifyData}>
-                <View style={styles.spotifyHeader}>
-                  <Ionicons name="musical-notes" size={20} color="#1DB954" />
-                  <Text style={styles.spotifyTitle}>MY CURRENT VIBE</Text>
-                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" style={{ marginLeft: 'auto' }} />
+              <TouchableOpacity 
+                style={styles.spotifyCard} 
+                onPress={user.spotify_data?.top_tracks ? () => router.push('/spotify-vibe') : addSpotifyData}
+              >
+                <View style={styles.spotifyCardHeader}>
+                  <Text style={styles.spotifyCardTitle}>MY CURRENT VIBE</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#C2FF3D" />
                 </View>
 
                 <View style={styles.spotifyTracks}>
                   {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
-                    user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
+                    user.spotify_data.top_tracks.slice(0, 6).map((track: string, idx: number) => {
                       const parts = track.split(' - ');
                       const title = parts[0] || track;
                       const artist = parts[1] || 'Connected Spotify Vibe';
@@ -345,7 +331,7 @@ export default function Profile() {
                         <View key={idx} style={styles.trackRow}>
                           <Text style={styles.trackIndex}>{idx + 1}</Text>
                           <View style={styles.trackArt}>
-                            <Ionicons name="musical-note" size={14} color="#1DB954" />
+                            <Ionicons name="musical-note" size={14} color="#C2FF3D" />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.trackTitle}>{title}</Text>
@@ -356,69 +342,29 @@ export default function Profile() {
                     })
                   ) : (
                     <>
-                      <View style={styles.trackRow}>
-                        <Text style={styles.trackIndex}>1</Text>
-                        <View style={[styles.trackArt, { backgroundColor: 'rgba(255, 165, 0, 0.1)' }]}>
-                          <Ionicons name="musical-note" size={14} color="#FFA500" />
+                      {[
+                        { title: 'Starboy', artist: 'The Weeknd' },
+                        { title: 'Levitating', artist: 'Dua Lipa' },
+                        { title: 'Peaches', artist: 'Justin Bieber' },
+                        { title: 'Blinding Lights', artist: 'The Weeknd' },
+                        { title: 'Stay', artist: 'Kid LAROI & Justin Bieber' },
+                        { title: 'Bad Habits', artist: 'Ed Sheeran' },
+                      ].map((item, idx) => (
+                        <View key={idx} style={styles.trackRow}>
+                          <Text style={styles.trackIndex}>{idx + 1}</Text>
+                          <View style={[styles.trackArt, { backgroundColor: 'rgba(194, 255, 61, 0.1)' }]}>
+                            <Ionicons name="musical-note" size={14} color="#C2FF3D" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.trackTitle}>{item.title}</Text>
+                            <Text style={styles.trackArtist}>{item.artist}</Text>
+                          </View>
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.trackTitle}>Starboy</Text>
-                          <Text style={styles.trackArtist}>The Weeknd</Text>
-                        </View>
-                      </View>
-                      <View style={styles.trackRow}>
-                        <Text style={styles.trackIndex}>2</Text>
-                        <View style={[styles.trackArt, { backgroundColor: 'rgba(29, 185, 84, 0.1)' }]}>
-                          <Ionicons name="musical-note" size={14} color="#1DB954" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.trackTitle}>Levitating</Text>
-                          <Text style={styles.trackArtist}>Dua Lipa</Text>
-                        </View>
-                      </View>
-                      <View style={styles.trackRow}>
-                        <Text style={styles.trackIndex}>3</Text>
-                        <View style={[styles.trackArt, { backgroundColor: 'rgba(238, 77, 77, 0.1)' }]}>
-                          <Ionicons name="musical-note" size={14} color="#ee4d4d" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.trackTitle}>Peaches</Text>
-                          <Text style={styles.trackArtist}>Justin Bieber</Text>
-                        </View>
-                      </View>
+                      ))}
                     </>
                   )}
                 </View>
               </TouchableOpacity>
-            </View>
-
-            {/* Gallery / Photos Grid */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>MY GALLERY</Text>
-              <View style={styles.photosGrid}>
-                {user.photos?.map((photo: string, index: number) => (
-                  <View key={index} style={styles.photoItem}>
-                    <Image source={{ uri: photo.startsWith('data:') || photo.startsWith('http') ? photo : `${EXPO_PUBLIC_BACKEND_URL}${photo}` }} style={styles.photoImg} />
-                    <TouchableOpacity style={styles.photoOverlay} onPress={() => deletePhoto(index)}>
-                      <Ionicons name="trash-outline" size={14} color="#FF4D4D" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {(!user.photos || user.photos.length < 6) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.addPhotoBtn,
-                      (!user.photos || user.photos.length === 0) && { width: '100%', aspectRatio: undefined, height: 120 }
-                    ]}
-                    onPress={addPhoto}
-                  >
-                    <Ionicons name="camera" size={(!user.photos || user.photos.length === 0) ? 32 : 24} color="#C2FF3D" />
-                    <Text style={styles.addPhotoText}>
-                      {(!user.photos || user.photos.length === 0) ? 'Add your first photo' : 'Add Photo'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
             </View>
 
             {/* Bio Info Summary */}
@@ -426,20 +372,6 @@ export default function Profile() {
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>BIO</Text>
                 <Text style={styles.bioText}>{user.bio}</Text>
-              </View>
-            )}
-
-            {/* Interests Tag List */}
-            {user.interests && user.interests.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>INTERESTS</Text>
-                <View style={styles.tagsRow}>
-                  {user.interests.map((interest: string) => (
-                    <View key={interest} style={styles.tag}>
-                      <Text style={styles.tagText}>{interest}</Text>
-                    </View>
-                  ))}
-                </View>
               </View>
             )}
 
@@ -462,19 +394,6 @@ export default function Profile() {
                   </LinearGradient>
                 </TouchableOpacity>
               )}
-
-              <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/profile-edit')}>
-                <View style={styles.glassButtonContent}>
-                  <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
-                    <Ionicons name="create-outline" size={20} color="#C2FF3D" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.cardTitle}>Edit Profile</Text>
-                    <Text style={styles.cardSubtitle}>Update bio, interests & academics</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-                </View>
-              </TouchableOpacity>
 
               <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/referrals')}>
                 <View style={styles.glassButtonContent}>
@@ -514,6 +433,12 @@ export default function Profile() {
                   <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
                 </View>
               </TouchableOpacity>
+            </View>
+
+            {/* App Footer */}
+            <View style={styles.footerContainer}>
+              <Text style={styles.footerBrand}>OFF CAMPUS v1.0.4</Text>
+              <Text style={styles.footerCopyright}>Designed with ❤️ for Delhi College Students</Text>
             </View>
 
             <View style={{ height: 40 }} />
@@ -611,6 +536,11 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 60,
   },
+  avatarImageCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
   crownBadge: {
     position: 'absolute',
     bottom: 2,
@@ -652,6 +582,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
 
   // Stats Dashboard
@@ -775,36 +706,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  integrationsTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-  },
-  integrationsSubtitle: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 16,
-  },
   spotifyCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: '#000000',
     borderRadius: 18,
-    borderWidth: 1.2,
-    borderColor: 'rgba(29, 185, 84, 0.25)', // Subtle green Spotify glow border
+    borderWidth: 1.5,
+    borderColor: '#C2FF3D',
     padding: 16,
-  },
-  spotifyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  spotifyTitle: {
-    color: '#1DB954',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.2,
   },
   spotifyTracks: {
     gap: 12,
@@ -995,5 +902,75 @@ const styles = StyleSheet.create({
   logoutIconBox: {
     borderColor: 'rgba(255, 82, 82, 0.3)',
     backgroundColor: 'rgba(255, 82, 82, 0.05)',
+  },
+  editProfilePencilBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#C2FF3D',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  editProfilePencilText: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  vibeScoreExplanation: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 10,
+  },
+  spotifyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  spotifyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  spotifyHeaderTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  spotifyHeaderUsername: {
+    color: '#C2FF3D',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  spotifyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  spotifyCardTitle: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 32,
+    opacity: 0.3,
+  },
+  footerBrand: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  footerCopyright: {
+    color: '#FFF',
+    fontSize: 10,
+    marginTop: 4,
   },
 });

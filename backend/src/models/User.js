@@ -69,6 +69,12 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'looking_for'
   },
+  gender_preference: {
+    type: DataTypes.ENUM('male', 'female', 'both'),
+    allowNull: true,
+    defaultValue: 'both',
+    field: 'gender_preference'
+  },
   location: {
     type: DataTypes.STRING(255),
     allowNull: true
