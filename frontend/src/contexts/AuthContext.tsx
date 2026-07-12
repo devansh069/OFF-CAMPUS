@@ -53,7 +53,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (tokenOrPhone: string, isRealToken?: boolean) => Promise<void>;
+  login: (phoneNumber: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
@@ -246,7 +246,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   };
-
   const login = async (tokenOrPhone: string, isRealToken: boolean = false) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);

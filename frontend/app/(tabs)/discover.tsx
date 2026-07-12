@@ -301,7 +301,7 @@ const getScrollableItems = (profile: any) => {
 
   // Generate deterministic mock values based on name/ID if not present
   const hash = (profile.name || '').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-  
+
   if (!height) {
     height = profile.gender === 'female' ? 155 + (hash % 15) : 170 + (hash % 18);
   }
@@ -329,16 +329,16 @@ const getScrollableItems = (profile: any) => {
     state = (location === 'Noida') ? 'UP' : (location === 'Gurgaon') ? 'Haryana' : 'Delhi';
   }
 
-  const genderLabel = profile.gender 
-    ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) 
+  const genderLabel = profile.gender
+    ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1))
     : 'Man';
 
   const heightVal = cmToFeetInches(height);
   const locationLabel = `${location}, ${state}`;
   const religionLabel = religion;
-  
+
   const lookingLabel = looking === 'friends' ? 'Friends' : looking === 'dating' ? 'Dating' : looking === 'all' ? 'Dating/Friends' : looking;
-  
+
   const drinkLabel = drink.toLowerCase() === 'yes' ? 'Drinks' : 'Drink: No';
   const smokeLabel = smoke.toLowerCase() === 'yes' ? 'Smoker' : 'Smoke: No';
   const weedLabel = weed.toLowerCase() === 'yes' ? 'Weed' : 'Weed: No';
@@ -429,33 +429,33 @@ const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, minVal, maxVal, onC
           {formatLabel ? formatLabel(minVal) : `${minVal}${suffix}`} - {formatLabel ? formatLabel(maxVal) : `${maxVal}${suffix}`}
         </Text>
       </View>
-      <View 
+      <View
         style={sliderStyles.trackContainer}
         onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
       >
         <View style={sliderStyles.inactiveTrack} />
-        <View 
+        <View
           style={[
-            sliderStyles.activeTrack, 
-            { 
-              left: `${leftPercent}%`, 
-              right: `${100 - rightPercent}%` 
+            sliderStyles.activeTrack,
+            {
+              left: `${leftPercent}%`,
+              right: `${100 - rightPercent}%`
             }
-          ]} 
+          ]}
         />
-        <View 
+        <View
           {...minPanResponder.panHandlers}
           style={[
-            sliderStyles.handle, 
+            sliderStyles.handle,
             { left: `${leftPercent}%`, marginLeft: -12 }
-          ]} 
+          ]}
         />
-        <View 
+        <View
           {...maxPanResponder.panHandlers}
           style={[
-            sliderStyles.handle, 
+            sliderStyles.handle,
             { left: `${rightPercent}%`, marginLeft: -12 }
-          ]} 
+          ]}
         />
       </View>
     </View>
@@ -751,7 +751,7 @@ export default function Discover() {
       />
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
       <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-        
+
         {/* Profiles Container / Card stack */}
         {hasProfile ? (
           <View style={styles.cardWrapper}>
@@ -919,63 +919,63 @@ export default function Discover() {
 
         {/* Floating Header Overlay at the top */}
         <SafeAreaView style={styles.headerFloatingOverlay} pointerEvents="box-none">
-            {/* Top Header Bar */}
-            <View style={styles.topBar}>
-              <View style={styles.logoContainer}>
-                <Text style={styles.logoText}>off campus</Text>
-              </View>
+          {/* Top Header Bar */}
+          <View style={styles.topBar}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>off campus</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.modeBtn}
+              onPress={() => router.push('/premium')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="diamond" size={12} color="#FFD700" />
+              <Text style={styles.modeText}>VIPS</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Top Controls Row */}
+          <View style={styles.topControlsRow}>
+            <TouchableOpacity
+              style={styles.filterMainBtn}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="options-outline" size={16} color="#FFD700" />
+              <Text style={styles.filterMainBtnText}>Filter</Text>
+            </TouchableOpacity>
+
+            <View style={styles.globalToggleContainer}>
               <TouchableOpacity
-                style={styles.modeBtn}
-                onPress={() => router.push('/premium')}
+                style={[
+                  styles.globalToggleOption,
+                  !globalMode && styles.globalToggleActive
+                ]}
+                onPress={() => handleGlobalToggle(false)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="diamond" size={12} color="#C2FF3D" />
-                <Text style={styles.modeText}>{user?.college?.short_name || 'VIPS'}</Text>
+                <Text style={[
+                  styles.globalToggleText,
+                  !globalMode && styles.globalToggleTextActive
+                ]}>In Campus</Text>
               </TouchableOpacity>
-            </View>
 
-            {/* Top Controls Row */}
-            <View style={styles.topControlsRow}>
               <TouchableOpacity
-                style={styles.filterMainBtn}
-                onPress={() => setShowFilterModal(true)}
+                style={[
+                  styles.globalToggleOption,
+                  globalMode && styles.globalToggleActive
+                ]}
+                onPress={() => handleGlobalToggle(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="options-outline" size={16} color="#C2FF3D" />
-                <Text style={styles.filterMainBtnText}>Filter</Text>
+                <Text style={[
+                  styles.globalToggleText,
+                  globalMode && styles.globalToggleTextActive
+                ]}>Go Global</Text>
               </TouchableOpacity>
-
-              <View style={styles.globalToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.globalToggleOption,
-                    !globalMode && styles.globalToggleActive
-                  ]}
-                  onPress={() => handleGlobalToggle(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[
-                    styles.globalToggleText,
-                    !globalMode && styles.globalToggleTextActive
-                  ]}>In Campus</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.globalToggleOption,
-                    globalMode && styles.globalToggleActive
-                  ]}
-                  onPress={() => handleGlobalToggle(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[
-                    styles.globalToggleText,
-                    globalMode && styles.globalToggleTextActive
-                  ]}>Go Global</Text>
-                </TouchableOpacity>
-              </View>
             </View>
-          </SafeAreaView>
+          </View>
+        </SafeAreaView>
 
         {/* Filter Modal Overlay */}
         <Modal
