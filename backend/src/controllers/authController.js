@@ -4,9 +4,18 @@ const User = require('../models/User');
 const College = require('../models/College');
 const Like = require('../models/Like');
 const Message = require('../models/Message');
-const { Op } = require('sequelize');
+const Op = {
+  in: '$in',
+  notIn: '$notIn',
+  ne: '$ne',
+  or: '$or',
+  and: '$and',
+  notLike: '$notLike',
+  like: '$like'
+};
 const { sequelize } = require('../config/db');
 const cloudinary = require('cloudinary').v2;
+const nodemailer = require('nodemailer');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
@@ -54,6 +63,8 @@ const generateToken = (userId, phoneNumber) => {
     { expiresIn: '30d' }
   );
 };
+
+const emailOtps = new Map();
 
 // 1. Verify OTP token from Firebase Client and handle initial login
 exports.verifyOTP = async (req, res) => {
@@ -123,12 +134,18 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
+    // Fetch refreshed user record including associated college details
+    const fullUser = await User.findOne({
+      where: { user_id: user.user_id },
+      include: [{ model: College, as: 'college' }]
+    });
+
     // Generate session JWT token
     const token = generateToken(user.user_id, user.phone_number);
 
     return res.status(200).json({
       exists,
-      user,
+      user: fullUser || user,
       token
     });
   } catch (error) {
@@ -270,7 +287,7 @@ exports.onboard = async (req, res) => {
   }
 };
 
-// 3. Submit ID Verification
+// 3. Submit ID Verification (Manual review up to 12 hrs)
 exports.submitVerification = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -281,22 +298,151 @@ exports.submitVerification = async (req, res) => {
       return res.status(404).json({ detail: 'User profile not found' });
     }
 
-    if (college_id) {
+    if (college_id && !college_id.startsWith('col_custom_')) {
       user.college_id = college_id;
     }
     if (id_card_image) {
-      user.picture = id_card_image;
+      if (id_card_image.startsWith('data:')) {
+        try {
+          console.log('[Verification] Uploading ID card image to Cloudinary...');
+          const cloudUrl = await uploadToCloudinary(id_card_image);
+          user.picture = cloudUrl;
+        } catch (cloudErr) {
+          console.warn('[Verification] Cloudinary upload failed, storing fallback string:', cloudErr.message);
+          user.picture = id_card_image.substring(0, 50000); // prevent MySQL text column overflow
+        }
+      } else {
+        user.picture = id_card_image;
+      }
     }
     user.verification_status = 'pending';
     await user.save();
 
+    console.log(`[Verification] User ${userId} submitted ID card for manual verification.`);
     return res.status(200).json({
-      detail: 'Verification submitted successfully',
+      detail: 'Verification submitted successfully. Admin review takes up to 12 hours.',
       user
     });
   } catch (error) {
     console.error('[Submit Verification Error]:', error);
     return res.status(500).json({ detail: 'Failed to submit verification: ' + error.message });
+  }
+};
+
+// 3b. Send OTP to College Email for Instant Verification
+exports.sendEmailOTP = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { email } = req.body;
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ detail: 'Please enter a valid college email address' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    emailOtps.set(userId, {
+      email,
+      otp,
+      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+    });
+
+    // Dynamically reload .env so any edits to backend/.env take effect instantly without restarting server
+    require('dotenv').config();
+
+    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    if (smtpUser && smtpPass) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: process.env.SMTP_SERVICE || 'gmail',
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '587', 10),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: smtpUser,
+            pass: smtpPass
+          }
+        });
+
+        await transporter.sendMail({
+          from: `"Off-Campus Verification" <${smtpUser}>`,
+          to: email,
+          subject: 'Off-Campus - Your College Email Verification OTP',
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 25px; background-color: #050005; color: #ffffff; border-radius: 12px; max-width: 500px; border: 1px solid #C2FF3D;">
+              <h2 style="color: #C2FF3D; margin-top: 0;">Off-Campus Verification 🎓</h2>
+              <p style="font-size: 15px; color: #cccccc;">Hey Student,</p>
+              <p style="font-size: 15px; color: #cccccc;">Here is your 6-digit verification code to claim your Verified Blue Tick:</p>
+              <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #000000; margin: 20px 0; padding: 15px 20px; background: #C2FF3D; display: inline-block; border-radius: 10px;">
+                ${otp}
+              </div>
+              <p style="font-size: 13px; color: #888888; margin-bottom: 0;">This OTP expires in 10 minutes. Never share this code with anyone.</p>
+            </div>
+          `
+        });
+        console.log(`[Email Verification] Successfully sent live OTP email via nodemailer to ${email}`);
+      } catch (mailErr) {
+        console.error(`[Nodemailer Error]: Failed to send live email: ${mailErr.message}`);
+        console.log(`[Email Verification Fallback] OTP for ${email} is: [ ${otp} ]`);
+      }
+    } else {
+      console.log(`\n======================================================`);
+      console.log(`[Nodemailer] SMTP not configured in .env (SMTP_USER/SMTP_PASS).`);
+      console.log(`To enable sending live emails to user inbox, add credentials to backend/.env.`);
+      console.log(`Sent verification email to: ${email}`);
+      console.log(`YOUR COLLEGE EMAIL OTP IS: [ ${otp} ]`);
+      console.log(`======================================================\n`);
+    }
+
+    return res.status(200).json({
+      detail: smtpUser ? 'Live OTP email dispatched via Nodemailer!' : 'SMTP not configured in .env. Use dev code to test.',
+      dev_otp: !smtpUser ? otp : undefined
+    });
+  } catch (error) {
+    console.error('[Send Email OTP Error]:', error);
+    return res.status(500).json({ detail: 'Failed to send OTP: ' + error.message });
+  }
+};
+
+// 3c. Verify College Email OTP (Instant Blue Tick)
+exports.verifyEmailOTP = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({ detail: 'OTP is required' });
+    }
+
+    const record = emailOtps.get(userId);
+    if (!record || record.expiresAt < Date.now()) {
+      return res.status(400).json({ detail: 'OTP has expired or not requested. Please resend.' });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({ detail: 'Invalid OTP entered. Please try again.' });
+    }
+
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    user.email = record.email;
+    user.verification_status = 'verified';
+    await user.save();
+
+    emailOtps.delete(userId);
+    console.log(`[Email Verification] User ${userId} successfully verified college email ${record.email}! Blue tick awarded.`);
+
+    return res.status(200).json({
+      detail: 'Email verified! You have been awarded the verified blue tick.',
+      user
+    });
+  } catch (error) {
+    console.error('[Verify Email OTP Error]:', error);
+    return res.status(500).json({ detail: 'Failed to verify OTP: ' + error.message });
   }
 };
 
@@ -431,7 +577,16 @@ exports.getDiscoveryProfiles = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
 
-    // Find all users current user has already liked or passed
+    // Fetch the full current user profile to get their preferences
+    const currentUser = await User.findOne({
+      where: { user_id: currentUserId }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({ detail: 'User not found' });
+    }
+
+    // Find all users current user has already liked
     const swipedLikes = await Like.findAll({
       where: { from_user_id: currentUserId },
       attributes: ['to_user_id']
@@ -439,11 +594,18 @@ exports.getDiscoveryProfiles = async (req, res) => {
     const swipedUserIds = swipedLikes.map(l => l.to_user_id);
     swipedUserIds.push(currentUserId); // Don't show self
 
+    const whereClause = {
+      user_id: { [Op.notIn]: swipedUserIds },
+      name: { [Op.ne]: null } // Only show real (onboarded) profiles
+    };
+
+
+
+
+
     // Find other users
     const profiles = await User.findAll({
-      where: {
-        user_id: { [Op.notIn]: swipedUserIds }
-      },
+      where: whereClause,
       include: [{ model: College, as: 'college' }]
     });
 
@@ -502,21 +664,7 @@ exports.likeUser = async (req, res) => {
 // 8. Pass a user profile
 exports.passUser = async (req, res) => {
   try {
-    const currentUserId = req.user.user_id;
-    const { target_user_id } = req.body;
-
-    if (!target_user_id) {
-      return res.status(400).json({ detail: 'target_user_id is required' });
-    }
-
-    const likeId = `pass_${currentUserId}_${target_user_id}`;
-    await Like.upsert({
-      like_id: likeId,
-      from_user_id: currentUserId,
-      to_user_id: target_user_id,
-      is_match: false
-    });
-
+    // Nothing is saved in the database when a user is passed/rejected
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('[passUser Error]:', error);
@@ -711,6 +859,75 @@ exports.sendMessage = async (req, res) => {
   } catch (error) {
     console.error('[sendMessage Error]:', error);
     return res.status(500).json({ detail: 'Failed to send message: ' + error.message });
+  }
+};
+
+// Helper to perform unmatch (delete likes and messages between both users)
+const executeUnmatch = async (userId, targetUserId) => {
+  await Like.destroy({
+    where: {
+      [Op.or]: [
+        { from_user_id: userId, to_user_id: targetUserId },
+        { from_user_id: targetUserId, to_user_id: userId }
+      ]
+    }
+  });
+
+  await Message.destroy({
+    where: {
+      [Op.or]: [
+        { from_user_id: userId, to_user_id: targetUserId },
+        { from_user_id: targetUserId, to_user_id: userId }
+      ]
+    }
+  });
+};
+
+// 14. Unmatch a user
+exports.unmatchUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ detail: 'target_user_id is required' });
+    }
+
+    await executeUnmatch(currentUserId, target_user_id);
+
+    return res.status(200).json({ success: true, detail: 'Successfully unmatched user' });
+  } catch (error) {
+    console.error('[unmatchUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to unmatch user: ' + error.message });
+  }
+};
+
+// 15. Report and automatically unmatch a user
+exports.reportUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { target_user_id, reason } = req.body;
+
+    if (!target_user_id || !reason) {
+      return res.status(400).json({ detail: 'target_user_id and reason are required' });
+    }
+
+    const reportId = `rep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    await sequelize.query(
+      `INSERT INTO reports (report_id, from_user_id, to_user_id, reason, created_at, updated_at)
+       VALUES (?, ?, ?, ?, NOW(), NOW())`,
+      {
+        replacements: [reportId, currentUserId, target_user_id, reason]
+      }
+    );
+
+    await executeUnmatch(currentUserId, target_user_id);
+
+    return res.status(200).json({ success: true, detail: 'Report submitted successfully and user unmatched' });
+  } catch (error) {
+    console.error('[reportUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to report user: ' + error.message });
   }
 };
 

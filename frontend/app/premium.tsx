@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,36 @@ export default function Premium() {
   const { user, sessionToken, refreshUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [college, setCollege] = useState<any>(user?.college || null);
+
+  useEffect(() => {
+    if (user?.college) {
+      setCollege(user.college);
+    } else if (user?.college_id) {
+      fetchCollege();
+    }
+  }, [user]);
+
+  const fetchCollege = async () => {
+    if (sessionToken === 'dummy_token' || !sessionToken) {
+      setCollege({
+        college_id: 'col_stephens',
+        name: "St. Stephen's College",
+        short_name: "Stephens",
+        location: "University Enclave, Delhi"
+      });
+      return;
+    }
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/${user?.college_id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCollege(data.college);
+      }
+    } catch (error) {
+      console.error('Error fetching college in premium:', error);
+    }
+  };
 
   const handleSubscribe = async () => {
     setLoading(true);
@@ -63,7 +93,7 @@ export default function Premium() {
   };
 
   const features = [
-    { icon: 'school-outline', text: 'All Access to all Delhi colleges (IITD, LSR, MAIT, DTU, and more)' },
+    { icon: 'school-outline', text: `All Access to all Delhi colleges (including ${college?.short_name || user?.college?.short_name || 'VIPS'}, IITD, LSR, and more)` },
     { icon: 'eye-outline', text: 'See who liked and viewed your profile' },
     { icon: 'flash-outline', text: '5x higher visibility in campus recommendations' },
     { icon: 'infinite-outline', text: 'Unlimited swiping and matching' },
@@ -92,9 +122,11 @@ export default function Premium() {
           </View>
 
           <Text style={styles.heroTitle}>
-            {user?.college?.name || 'Vivekananda Institute of Professional Studies'}
+            {college?.name || user?.college?.name || 'Vivekananda Institute of Professional Studies'}
           </Text>
-          <Text style={styles.heroPremium}>OFF CAMPUS PREMIUM</Text>
+          <Text style={styles.heroPremium}>
+            {college?.short_name || user?.college?.short_name || 'VIPS'} PREMIUM
+          </Text>
           <Text style={styles.heroSub}>All Access to All Delhi Colleges 🎓</Text>
 
           <View style={styles.priceCard}>

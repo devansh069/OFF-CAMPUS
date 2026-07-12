@@ -41,6 +41,8 @@ function InitialLayout() {
   );
 }
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
 
@@ -53,8 +55,10 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <AuthProvider>
-      <InitialLayout />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <InitialLayout />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

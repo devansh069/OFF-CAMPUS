@@ -3,7 +3,15 @@ const { sequelize } = require('../config/db');
 const User = require('../models/User');
 const College = require('../models/College');
 const Event = require('../models/Event');
-const { Op } = require('sequelize');
+const Op = {
+  in: '$in',
+  notIn: '$notIn',
+  ne: '$ne',
+  or: '$or',
+  and: '$and',
+  notLike: '$notLike',
+  like: '$like'
+};
 
 // Helper to run query and return count
 const getTableCount = async (queryStr, replacements = []) => {

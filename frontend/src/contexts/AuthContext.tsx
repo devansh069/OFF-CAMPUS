@@ -86,7 +86,13 @@ const dummyUser: User = {
   vibe_score: 4.8,
   is_premium: true,
   verification_status: 'verified',
-  is_on_campus: true
+  is_on_campus: true,
+  college: {
+    college_id: 'col_stephens',
+    name: "St. Stephen's College",
+    short_name: "Stephens",
+    location: "University Enclave, Delhi"
+  }
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

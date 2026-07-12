@@ -23,10 +23,12 @@ const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 export default function Profile() {
   const { user, sessionToken, logout, refreshUser, updateUser } = useAuth();
   const router = useRouter();
-  const [college, setCollege] = useState<any>(null);
+  const [college, setCollege] = useState<any>(user?.college || null);
 
   useEffect(() => {
-    if (user?.college_id) {
+    if (user?.college) {
+      setCollege(user.college);
+    } else if (user?.college_id) {
       fetchCollege();
     }
   }, [user]);
@@ -222,10 +224,6 @@ export default function Profile() {
                 <Text style={styles.brandText}>off campus</Text>
               </View>
               <View style={styles.headerRight}>
-                <TouchableOpacity style={styles.globalPill} onPress={() => router.push('/premium')}>
-                  <MaterialCommunityIcons name="crown" size={14} color="#C2FF3D" style={{ marginRight: 4 }} />
-                  <Text style={styles.globalText}>Global</Text>
-                </TouchableOpacity>
                 <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
                   <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
                 </TouchableOpacity>
@@ -244,11 +242,6 @@ export default function Profile() {
                   }}
                   style={styles.avatarImageCircle}
                 />
-                {user.is_premium && (
-                  <View style={styles.crownBadge}>
-                    <MaterialCommunityIcons name="crown" size={12} color="#000" />
-                  </View>
-                )}
               </View>
 
               <View style={styles.nameRow}>
@@ -377,24 +370,6 @@ export default function Profile() {
 
             {/* Quick Actions List (Redesigned) */}
             <View style={styles.actionsContainer}>
-              {!user.is_premium && (
-                <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
-                  <LinearGradient
-                    colors={['#8B5CF6', '#F43F5E']}
-                    style={styles.premiumGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Ionicons name="diamond" size={22} color="#FFF" />
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                      <Text style={styles.premiumTitle}>Go Premium - ₹99/mo</Text>
-                      <Text style={styles.premiumSubtitle}>Access ALL Delhi colleges + perks</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color="#FFF" />
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-
               <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/referrals')}>
                 <View style={styles.glassButtonContent}>
                   <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
@@ -402,7 +377,7 @@ export default function Profile() {
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
                     <Text style={styles.cardTitle}>Refer Friends</Text>
-                    <Text style={styles.cardSubtitle}>Earn 7 days premium per referral!</Text>
+                    <Text style={styles.cardSubtitle}>Spread the word & invite classmates!</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
                 </View>
