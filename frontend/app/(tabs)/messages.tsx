@@ -11,6 +11,8 @@ import {
   RefreshControl,
   TextInput,
   Platform,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -29,6 +32,135 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Report Modal States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetUserId, setReportTargetUserId] = useState<string | null>(null);
+  const [selectedReason, setSelectedReason] = useState('Spam / Fake Profile');
+  const [customReason, setCustomReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+
+  const reportReasons = [
+    'Spam / Fake Profile',
+    'Harassment or Abuse',
+    'Inappropriate Content / Photos',
+    'Underage User',
+    'Other (describe below)'
+  ];
+
+  // Unmatch handler
+  const handleUnmatch = (targetUserId: string, userName: string) => {
+    Alert.alert(
+      'Unmatch User ❌',
+      `Are you sure you want to unmatch with ${userName}? This will permanently remove your match and conversation history.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmatch',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/unmatch`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ target_user_id: targetUserId })
+              });
+              if (response.ok) {
+                Alert.alert('Unmatched', `You have successfully unmatched with ${userName}.`);
+                fetchConversations();
+                fetchMatches();
+              } else {
+                const data = await response.json();
+                Alert.alert('Error', data.detail || 'Failed to unmatch user.');
+              }
+            } catch (err) {
+              console.error('Unmatch error:', err);
+              Alert.alert('Network Error', 'Failed to reach the server.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Report handler (open modal)
+  const handleReportPress = (targetUserId: string) => {
+    setReportTargetUserId(targetUserId);
+    setSelectedReason('Spam / Fake Profile');
+    setCustomReason('');
+    setShowReportModal(true);
+  };
+
+  // Submit report to backend
+  const handleReportSubmit = async () => {
+    if (!reportTargetUserId) return;
+    
+    let finalReason = selectedReason;
+    if (selectedReason.startsWith('Other') && !customReason.trim()) {
+      Alert.alert('Reason Required', 'Please type a reason for your report.');
+      return;
+    }
+    if (customReason.trim()) {
+      finalReason = `${selectedReason}: ${customReason.trim()}`;
+    }
+
+    setSubmittingReport(true);
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          target_user_id: reportTargetUserId,
+          reason: finalReason
+        })
+      });
+      if (response.ok) {
+        Alert.alert(
+          'Report Submitted 🛡️',
+          'Thank you for reporting. Our safety team will review this profile within 24 hours. The user has been unmatched and blocked.',
+          [{ text: 'OK' }]
+        );
+        setShowReportModal(false);
+        fetchConversations();
+        fetchMatches();
+      } else {
+        const data = await response.json();
+        Alert.alert('Error', data.detail || 'Failed to submit report.');
+      }
+    } catch (err) {
+      console.error('Report error:', err);
+      Alert.alert('Network Error', 'Could not submit report. Please check connection.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
+  const renderRightActions = (progress: any, dragX: any, targetUser: any) => {
+    return (
+      <View style={styles.rightActionsContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.unmatchButton]}
+          onPress={() => handleUnmatch(targetUser.user_id, targetUser.name)}
+        >
+          <Ionicons name="close-circle-outline" size={20} color="#FFF" />
+          <Text style={styles.actionButtonText}>Unmatch</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.reportButton]}
+          onPress={() => handleReportPress(targetUser.user_id)}
+        >
+          <Ionicons name="flag-outline" size={20} color="#FFF" />
+          <Text style={styles.actionButtonText}>Report</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   useEffect(() => {
     fetchConversations();
@@ -186,59 +318,139 @@ export default function Messages() {
           filteredConversations.map((conv: any) => {
             const hasUnread = conv.unread_count > 0;
             return (
-              <TouchableOpacity
+              <Swipeable
                 key={conv.user.user_id}
-                style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
-                onPress={() => router.push(`/chat/${conv.user.user_id}`)}
-                activeOpacity={0.7}
+                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, conv.user)}
+                containerStyle={styles.swipeContainer}
               >
-                <View style={styles.avatarWrapper}>
-                  <Image
-                    source={{
-                      uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
-                    }}
-                    style={styles.avatar}
-                  />
-                  {conv.user.is_on_campus && (
-                    <View style={styles.onlineBadge} />
-                  )}
-                </View>
-                <View style={styles.convInfo}>
-                  <View style={styles.convHeader}>
-                    <Text style={styles.convName}>{conv.user.name}</Text>
-                    {conv.last_message?.created_at && (
-                      <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
-                        {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
-                      </Text>
+                <TouchableOpacity
+                  style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
+                  onPress={() => router.push(`/chat/${conv.user.user_id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.avatarWrapper}>
+                    <Image
+                      source={{
+                        uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
+                      }}
+                      style={styles.avatar}
+                    />
+                    {conv.user.is_on_campus && (
+                      <View style={styles.onlineBadge} />
                     )}
                   </View>
-                  <View style={styles.convPreview}>
-                    <Text
-                      style={[
-                        styles.convMessage,
-                        hasUnread && styles.convMessageUnread
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {conv.last_message?.content || 'Say hi! 👋'}
-                    </Text>
-                    {hasUnread && (
-                      <LinearGradient
-                        colors={['#C2FF3D', '#C2FF3D']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.unreadBadge}
+                  <View style={styles.convInfo}>
+                    <View style={styles.convHeader}>
+                      <Text style={styles.convName}>{conv.user.name}</Text>
+                      {conv.last_message?.created_at && (
+                        <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
+                          {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.convPreview}>
+                      <Text
+                        style={[
+                          styles.convMessage,
+                          hasUnread && styles.convMessageUnread
+                        ]}
+                        numberOfLines={1}
                       >
-                        <Text style={styles.unreadCount}>{conv.unread_count}</Text>
-                      </LinearGradient>
-                    )}
+                        {conv.last_message?.content || 'Say hi! 👋'}
+                      </Text>
+                      {hasUnread && (
+                        <LinearGradient
+                          colors={['#C2FF3D', '#C2FF3D']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.unreadBadge}
+                        >
+                          <Text style={styles.unreadCount}>{conv.unread_count}</Text>
+                        </LinearGradient>
+                      )}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </Swipeable>
             );
           })
         )}
       </ScrollView>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Report User 🛡️</Text>
+              <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalDesc}>
+                Help us keep Off-Campus safe. Tell us why you are reporting this user. They will be unmatched and blocked instantly.
+              </Text>
+
+              <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+              {reportReasons.map((reason) => {
+                const isSelected = selectedReason === reason;
+                return (
+                  <TouchableOpacity
+                    key={reason}
+                    style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                    onPress={() => setSelectedReason(reason)}
+                  >
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                      {reason}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Enter details here..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                multiline={true}
+                numberOfLines={4}
+                value={customReason}
+                onChangeText={setCustomReason}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setShowReportModal(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitBtn, submittingReport && { opacity: 0.5 }]}
+                  onPress={handleReportSubmit}
+                  disabled={submittingReport}
+                >
+                  {submittingReport ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Submit Report</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </BlurView>
+        </View>
+      </Modal>
         </SafeAreaView>
       </BlurView>
     </View>
@@ -301,4 +513,163 @@ const styles = StyleSheet.create({
   emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18, paddingHorizontal: 10 },
   exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
   exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14 },
+
+  // Swipeable right actions
+  swipeContainer: {
+    backgroundColor: '#050005',
+  },
+  rightActionsContainer: {
+    flexDirection: 'row',
+    width: 170,
+  },
+  actionButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 85,
+    height: '100%',
+  },
+  unmatchButton: {
+    backgroundColor: '#475569',
+  },
+  reportButton: {
+    backgroundColor: '#EF4444',
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Modal styling
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 24,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalContent: {
+    gap: 16,
+  },
+  modalDesc: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reasonLabel: {
+    color: '#C2FF3D',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 8,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+  },
+  reasonOptionActive: {
+    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: '#EF4444',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+  reasonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reasonTextActive: {
+    color: '#FFF',
+    fontWeight: '800',
+  },
+  reasonInput: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 14,
+    color: '#FFF',
+    padding: 12,
+    height: 90,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  submitBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    backgroundColor: '#EF4444',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 14,
+  },
 });

@@ -128,6 +128,7 @@ export default function Likes() {
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any | null>(null);
   const [showFullProfile, setShowFullProfile] = useState(false);
+  const [activeProfileIndex, setActiveProfileIndex] = useState<number>(0);
 
   useEffect(() => {
     fetchLikes();
@@ -188,6 +189,7 @@ export default function Likes() {
         }
         return nextList;
       });
+      setActiveProfileIndex(0);
 
       if (d.is_match && targetProfile) {
         setShowMatch(targetProfile);
@@ -225,6 +227,7 @@ export default function Likes() {
         }
         return nextList;
       });
+      setActiveProfileIndex(0);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to pass profile');
@@ -295,13 +298,16 @@ export default function Likes() {
               {/* 3x3 Photo Cubes Grid */}
               <View style={styles.gridContainer}>
                 {gridData.map((profile, index) => {
-                  if (index === 0 && profile) {
-                    // 1st cell: Active Profile, color, clickable, overlay cross/handshake buttons
+                  if (profile) {
+                    // Active Profile, color, clickable, overlay cross/handshake buttons
                     return (
                       <TouchableOpacity
                         key={profile.user_id || index}
                         style={styles.gridCellActive}
-                        onPress={() => setShowFullProfile(true)}
+                        onPress={() => {
+                          setActiveProfileIndex(index);
+                          setShowFullProfile(true);
+                        }}
                         activeOpacity={0.9}
                       >
                         <Image
@@ -338,41 +344,18 @@ export default function Likes() {
                       </TouchableOpacity>
                     );
                   } else {
-                    // 2nd-9th cells: Locked, blurred, tap redirects to /premium
-                    const cellPhoto = profile 
-                      ? getProfilePhotos(profile)[0]
-                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop';
-
+                    // Empty cell placeholder
                     return (
-                      <TouchableOpacity
-                        key={profile?.user_id || `locked-${index}`}
+                      <View
+                        key={`empty-${index}`}
                         style={styles.gridCellLocked}
-                        onPress={() => router.push('/premium')}
-                        activeOpacity={0.9}
                       >
-                        <Image
-                          source={{ uri: cellPhoto }}
-                          style={styles.gridPhoto}
-                          blurRadius={10}
-                        />
-                        {/* Frosted Glass overlay */}
-                        <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject}>
+                        <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject}>
                           <View style={styles.lockedOverlay}>
-                            <View style={styles.gridLockBadge}>
-                              <Ionicons name="lock-closed" size={14} color="#FFF" />
-                            </View>
+                            <Ionicons name="heart-outline" size={20} color="rgba(255,255,255,0.15)" />
                           </View>
                         </BlurView>
-                        {/* Glass shine reflection overlay */}
-                        <LinearGradient
-                          colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
-                          locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={StyleSheet.absoluteFillObject}
-                          pointerEvents="none"
-                        />
-                      </TouchableOpacity>
+                      </View>
                     );
                   }
                 })}
@@ -437,7 +420,7 @@ export default function Likes() {
             blurRadius={Platform.OS === 'android' ? 25 : 0}
           />
           <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-            {likes.length > 0 && likes[0] && (
+            {likes.length > 0 && likes[activeProfileIndex] && (
               <View style={styles.cardWrapper}>
                 {/* Floating Header Overlay at the top */}
                 <SafeAreaView style={styles.modalHeaderFloatingOverlay} pointerEvents="box-none">
@@ -463,7 +446,7 @@ export default function Likes() {
                   {/* 1. Standalone Fullscreen Photo Card */}
                   <View style={styles.mainPhotoCard}>
                     <Image
-                      source={{ uri: getBWPhotoUrl(getProfilePhotos(likes[0])[0]) }}
+                      source={{ uri: getBWPhotoUrl(getProfilePhotos(likes[activeProfileIndex])[0]) }}
                       style={StyleSheet.absoluteFillObject}
                       resizeMode="cover"
                     />
@@ -473,14 +456,14 @@ export default function Likes() {
                       <View style={styles.profileDetails}>
                         {/* Name & Age */}
                         <View style={styles.cardNameRow}>
-                          <Text style={styles.cardName}>{likes[0].name}, {likes[0].age}</Text>
-                          {likes[0].verification_status === 'verified' && (
+                          <Text style={styles.cardName}>{likes[activeProfileIndex].name}, {likes[activeProfileIndex].age}</Text>
+                          {likes[activeProfileIndex].verification_status === 'verified' && (
                             <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
                           )}
                           <View style={{ flex: 1 }} />
                           <View style={styles.innovativeVibeBadge}>
                             <Ionicons name="sparkles" size={13} color="#FFD700" />
-                            <Text style={styles.innovativeVibeText}>{likes[0].vibe_score?.toFixed(1)}</Text>
+                            <Text style={styles.innovativeVibeText}>{likes[activeProfileIndex].vibe_score?.toFixed(1)}</Text>
                           </View>
                         </View>
 
@@ -489,15 +472,15 @@ export default function Likes() {
                           <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
                           <Text style={styles.cardCollegeText}>
                             {[
-                              getCollegeName(likes[0]),
-                              likes[0].course,
-                              likes[0].year
+                              getCollegeName(likes[activeProfileIndex]),
+                              likes[activeProfileIndex].course,
+                              likes[activeProfileIndex].year
                             ].filter(Boolean).join(' • ')}
                           </Text>
                         </View>
 
                         {/* Bio */}
-                        {likes[0].bio && <Text style={styles.cardBio}>{likes[0].bio}</Text>}
+                        {likes[activeProfileIndex].bio && <Text style={styles.cardBio}>{likes[activeProfileIndex].bio}</Text>}
 
                         {/* Characteristics Scrollable Row */}
                         <View style={styles.scrollWrapper}>
@@ -506,13 +489,13 @@ export default function Likes() {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.scrollContentContainer}
                           >
-                            {getScrollableItems(likes[0]).map((item, idx) => (
+                            {getScrollableItems(likes[activeProfileIndex]).map((item, idx) => (
                               <React.Fragment key={idx}>
                                 <View style={styles.scrollItem}>
                                   <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
                                   <Text style={styles.scrollItemText}>{item.text}</Text>
                                 </View>
-                                {idx < getScrollableItems(likes[0]).length - 1 && (
+                                {idx < getScrollableItems(likes[activeProfileIndex]).length - 1 && (
                                   <View style={styles.scrollSeparator} />
                                 )}
                               </React.Fragment>
@@ -521,9 +504,9 @@ export default function Likes() {
                         </View>
                         
                         {/* Interests / Tags */}
-                        {likes[0].interests?.length > 0 && (
+                        {likes[activeProfileIndex].interests?.length > 0 && (
                           <View style={styles.cardTagsRow}>
-                            {likes[0].interests.map((i: string) => (
+                            {likes[activeProfileIndex].interests.map((i: string) => (
                               <View key={i} style={styles.cardTag}>
                                 <Text style={styles.cardTagText}>{i}</Text>
                               </View>
@@ -535,10 +518,10 @@ export default function Likes() {
                   </View>
 
                   {/* 2. Standalone Spotify Card */}
-                  {likes[0].spotify_data?.top_tracks?.length > 0 && (
+                  {likes[activeProfileIndex].spotify_data?.top_tracks?.length > 0 && (
                     <View style={styles.spotifyCard}>
                       <Text style={styles.sectionTitle}>Top Spotify Tracks 🎵</Text>
-                      {likes[0].spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => (
+                      {likes[activeProfileIndex].spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => (
                         <View key={idx} style={styles.spotifyTrackRow}>
                           <Ionicons name="play" size={16} color="#1DB954" />
                           <View style={styles.spotifyTrackInfo}>
@@ -552,7 +535,7 @@ export default function Likes() {
 
                   {/* 3. Secondary Photos */}
                   <View style={styles.secondaryPhotosSection}>
-                    {getProfilePhotos(likes[0]).slice(1).map((photoUri, index) => {
+                    {getProfilePhotos(likes[activeProfileIndex]).slice(1).map((photoUri, index) => {
                       const photoIndex = index + 1;
                       const prompt = MOCK_PROMPTS.find(p => p.index === photoIndex);
 
@@ -586,7 +569,7 @@ export default function Likes() {
                 <View style={styles.floatingActionsContainer}>
                   <TouchableOpacity
                     style={[styles.floatingBtn, styles.floatingNope]}
-                    onPress={() => handleReject(likes[0].user_id)}
+                    onPress={() => handleReject(likes[activeProfileIndex].user_id)}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="close" size={24} color="#FF453A" />
@@ -594,7 +577,7 @@ export default function Likes() {
 
                   <TouchableOpacity
                     style={[styles.floatingBtn, styles.floatingLike]}
-                    onPress={() => handleAccept(likes[0].user_id)}
+                    onPress={() => handleAccept(likes[activeProfileIndex].user_id)}
                     activeOpacity={0.8}
                   >
                     <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />

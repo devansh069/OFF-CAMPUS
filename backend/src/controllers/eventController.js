@@ -36,16 +36,6 @@ exports.getEventsFeed = async (req, res) => {
 
     // Determine query filter
     const whereClause = { status: 'approved' };
-    
-    // Non-premium users can only see events from their own college or global (college_id is null)
-    if (!user.is_premium) {
-      if (user.college_id) {
-        whereClause.college_id = user.college_id;
-      } else {
-        // If user doesn't have a college_id set, only show global events (if any) or nothing
-        whereClause.college_id = null;
-      }
-    }
 
     // Fetch approved events
     const events = await Event.findAll({

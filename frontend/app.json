@@ -13,6 +13,13 @@
       "bundleIdentifier": "com.devansh.offcampus",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "app-1-948138685161-ios-3fc08ff789fed5e842b678"
+            ]
+          }
+        ],
         "NSLocationWhenInUseUsageDescription": "Check in to your campus and see classmates",
         "NSCameraUsageDescription": "Upload your ID for verification",
         "NSPhotoLibraryUsageDescription": "Add photos to your profile",

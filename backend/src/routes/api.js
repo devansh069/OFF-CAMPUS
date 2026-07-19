@@ -22,6 +22,8 @@ router.patch('/profile/update', authMiddleware, authController.onboard);
 router.post('/profile/photos', authMiddleware, authController.uploadPhoto);
 router.delete('/profile/photos/:index', authMiddleware, authController.deletePhoto);
 router.post('/verification/submit', authMiddleware, authController.submitVerification);
+router.post('/verification/send-email-otp', authMiddleware, authController.sendEmailOTP);
+router.post('/verification/verify-email-otp', authMiddleware, authController.verifyEmailOTP);
 
 // Discovery and matching routes (Protected)
 router.get('/discovery/profiles', authMiddleware, authController.getDiscoveryProfiles);
@@ -29,6 +31,8 @@ router.post('/discovery/like', authMiddleware, authController.likeUser);
 router.post('/discovery/pass', authMiddleware, authController.passUser);
 router.get('/discovery/likes-received', authMiddleware, authController.getLikesReceived);
 router.get('/discovery/matches', authMiddleware, authController.getMatches);
+router.post('/discovery/unmatch', authMiddleware, authController.unmatchUser);
+router.post('/discovery/report', authMiddleware, authController.reportUser);
 
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);

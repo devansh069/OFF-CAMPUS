@@ -338,11 +338,6 @@ export default function CampusLive() {
 
   // Story Posting Handlers
   const handlePostStory = async (audience: 'matches' | 'college' | 'global') => {
-    if (audience === 'global' && !user?.is_premium) {
-      setShowAudienceModal(false);
-      router.push('/premium');
-      return;
-    }
 
     if (!storyImage) {
       Alert.alert('Error', 'No image selected to post');

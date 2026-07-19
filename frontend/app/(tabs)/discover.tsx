@@ -519,23 +519,25 @@ export default function Discover() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any>(null);
-  const [college, setCollege] = useState<any>(null);
+  const [college, setCollege] = useState<any>(user?.college || null);
 
   // Navigation & Filter state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [globalMode, setGlobalMode] = useState(false);
-  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | 'both'>('both');
+  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | 'both'>(user?.gender_preference || 'both');
 
   // Premium Custom Filters
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filterGender, setFilterGender] = useState<'male' | 'female' | 'both'>('both');
+  const [filterGender, setFilterGender] = useState<'male' | 'female' | 'both'>(user?.gender_preference || 'both');
   const [filterAgeMin, setFilterAgeMin] = useState(18);
   const [filterAgeMax, setFilterAgeMax] = useState(25);
   const [filterHeightMin, setFilterHeightMin] = useState(150);
   const [filterHeightMax, setFilterHeightMax] = useState(190);
   const [filterDistanceMin, setFilterDistanceMin] = useState(1);
   const [filterDistanceMax, setFilterDistanceMax] = useState(50);
-  const [filterLookingFor, setFilterLookingFor] = useState<'friends' | 'dating' | 'both'>('both');
+  const [filterLookingFor, setFilterLookingFor] = useState<'friends' | 'dating' | 'both'>(
+    user?.looking_for === 'dating' || user?.looking_for === 'friends' ? user.looking_for : 'both'
+  );
   const [filterVerifiedOnly, setFilterVerifiedOnly] = useState(false);
 
   // Animation Refs
@@ -544,8 +546,18 @@ export default function Discover() {
 
   useEffect(() => {
     fetchProfiles();
-    if (user?.college_id) {
+    if (user?.college) {
+      setCollege(user.college);
+    } else if (user?.college_id) {
       fetchCollege();
+    }
+
+    if (user?.gender_preference) {
+      setGenderFilter(user.gender_preference);
+      setFilterGender(user.gender_preference);
+    }
+    if (user?.looking_for === 'dating' || user?.looking_for === 'friends') {
+      setFilterLookingFor(user.looking_for);
     }
   }, [user]);
 
@@ -562,10 +574,10 @@ export default function Discover() {
       if (!r.ok) throw new Error('Failed to fetch from backend');
       const d = await r.json();
       console.log('fetchProfiles (frontend): Response count:', d.profiles ? d.profiles.length : 0);
-      setProfiles(d.profiles || MOCK_PROFILES);
+      setProfiles(d.profiles || []);
     } catch (e: any) {
-      console.warn('fetchProfiles failed, using mock profiles instead:', e.message);
-      setProfiles(MOCK_PROFILES);
+      console.warn('fetchProfiles failed:', e.message);
+      setProfiles([]);
     } finally {
       setLoading(false);
     }
@@ -594,17 +606,8 @@ export default function Discover() {
   };
 
   const handleGlobalToggle = (enableGlobal: boolean) => {
-    if (enableGlobal) {
-      if (user?.is_premium) {
-        setGlobalMode(true);
-        setCurrentIndex(0);
-      } else {
-        router.push('/premium');
-      }
-    } else {
-      setGlobalMode(false);
-      setCurrentIndex(0);
-    }
+    setGlobalMode(enableGlobal);
+    setCurrentIndex(0);
   };
 
   const handleLike = async (targetUserId: string) => {
@@ -698,6 +701,18 @@ export default function Discover() {
     });
   };
 
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in km
+  };
+
   // Locally filtered list
   const getFilteredProfiles = () => {
     let result = [...profiles];
@@ -714,6 +729,21 @@ export default function Discover() {
 
     // Age filter
     result = result.filter(p => p.age >= filterAgeMin && p.age <= filterAgeMax);
+
+    // Height filter (in cm)
+    result = result.filter(p => {
+      const height = p.height || 165; // fallback default
+      return height >= filterHeightMin && height <= filterHeightMax;
+    });
+
+    // Distance filter (in km)
+    if (user?.latitude && user?.longitude) {
+      result = result.filter(p => {
+        if (!p.latitude || !p.longitude) return true; // fallback default
+        const dist = calculateDistance(user.latitude, user.longitude, p.latitude, p.longitude);
+        return dist >= (filterDistanceMin <= 1 ? 0 : filterDistanceMin) && dist <= filterDistanceMax;
+      });
+    }
 
     // Looking For filter
     if (filterLookingFor !== 'both') {
@@ -1145,6 +1175,8 @@ export default function Discover() {
                       setFilterDistanceMax(50);
                       setFilterLookingFor('both');
                       setFilterVerifiedOnly(false);
+                      setGenderFilter('both');
+                      setCurrentIndex(0);
                     }}
                   >
                     <Text style={styles.resetBtnText}>Reset</Text>
