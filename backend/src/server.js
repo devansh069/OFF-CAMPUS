@@ -58,14 +58,26 @@ const startServer = async () => {
     await sequelize.sync({ alter: true });
     console.log('Database schemas synced successfully.');
 
-    // Production Patch: Force add verification_method column if sync failed
+    // Production Patch: Force add verification_method and new referral columns if sync failed
     try {
       await sequelize.query("ALTER TABLE users ADD COLUMN verification_method ENUM('email', 'manual') DEFAULT NULL;");
-      console.log('[Patch] Manually added verification_method column to users table');
-    } catch (e) {
-      // Ignore if column already exists
-      console.log('[Patch] verification_method column already exists or alter skipped:', e.message);
-    }
+      console.log('[Patch] Manually added verification_method column');
+    } catch (e) {}
+    
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN total_referrals INT NOT NULL DEFAULT 0;");
+      console.log('[Patch] Manually added total_referrals column');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN profile_visibility FLOAT NOT NULL DEFAULT 1.0;");
+      console.log('[Patch] Manually added profile_visibility column');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN has_event_pass TINYINT(1) NOT NULL DEFAULT 0;");
+      console.log('[Patch] Manually added has_event_pass column');
+    } catch (e) {}
 
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
