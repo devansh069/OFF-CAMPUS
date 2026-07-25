@@ -130,62 +130,78 @@ export default function ChatScreen() {
   const [submittingReport, setSubmittingReport] = useState(false);
 
   // Voice Recording States
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
 
   // Start Audio Recording
   const startRecording = async () => {
     try {
+      console.log('[VoiceNote] Requesting permissions...');
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
         Alert.alert('Permission Denied', 'Microphone access is required to record voice notes.');
         return;
       }
 
+      console.log('[VoiceNote] Setting audio mode...');
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
       // Discard any previous unsaved recording
-      if (recording) {
+      if (recordingRef.current) {
         try {
-          await recording.stopAndUnloadAsync();
+          await recordingRef.current.stopAndUnloadAsync();
         } catch (e) {}
+        recordingRef.current = null;
       }
 
+      console.log('[VoiceNote] Creating Recording object...');
       const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
       
-      setRecording(newRecording);
+      recordingRef.current = newRecording;
       setIsRecording(true);
-    } catch (err) {
-      console.error('Failed to start recording', err);
-      Alert.alert('Error', 'Failed to start recording.');
+      console.log('[VoiceNote] Recording started successfully!');
+    } catch (err: any) {
+      console.error('[VoiceNote] Failed to start recording', err);
+      Alert.alert('Start Recording Error', err.message || String(err));
     }
   };
 
   // Stop Recording & Send Voice Note
   const stopRecording = async () => {
-    if (!recording) return;
+    console.log('[VoiceNote] stopRecording called. Active recording exists:', !!recordingRef.current);
+    const activeRecording = recordingRef.current;
+    if (!activeRecording) {
+      Alert.alert('Stop Error', 'No active recording found.');
+      return;
+    }
 
     setIsRecording(false);
-    setRecording(null);
+    recordingRef.current = null;
 
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      if (!uri) return;
+      console.log('[VoiceNote] Stopping and unloading recording...');
+      await activeRecording.stopAndUnloadAsync();
+      const uri = activeRecording.getURI();
+      console.log('[VoiceNote] Recording URI:', uri);
+      if (!uri) {
+        Alert.alert('Error', 'Could not retrieve recording URI.');
+        return;
+      }
 
-      // Convert file to base64 string
+      console.log('[VoiceNote] Reading audio file as base64...');
       const base64Audio = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+      console.log('[VoiceNote] Base64 length:', base64Audio.length);
 
       setSending(true);
 
-      // Upload to Cloudinary via new voice note upload route
+      console.log('[VoiceNote] Uploading to backend...', `${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-audio`);
       const uploadRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-audio`, {
         method: 'POST',
         headers: {
@@ -195,14 +211,16 @@ export default function ChatScreen() {
         body: JSON.stringify({ audio: base64Audio })
       });
 
+      console.log('[VoiceNote] Upload response status:', uploadRes.status);
       if (!uploadRes.ok) {
         const errorData = await uploadRes.json();
         throw new Error(errorData.detail || 'Upload failed');
       }
       
       const { audio_url } = await uploadRes.json();
+      console.log('[VoiceNote] Uploaded audio URL:', audio_url);
 
-      // Send via socket/DB as an audio message
+      console.log('[VoiceNote] Sending message...');
       const sendRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
         method: 'POST',
         headers: {
@@ -217,14 +235,18 @@ export default function ChatScreen() {
         })
       });
 
+      console.log('[VoiceNote] Message send response status:', sendRes.status);
       if (sendRes.ok) {
         const data = await sendRes.json();
         setMessages(prev => [...prev, data.message]);
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      } else {
+        const errorData = await sendRes.json();
+        throw new Error(errorData.detail || 'Failed to send message reference');
       }
     } catch (err: any) {
-      console.error('Failed to upload/send audio', err);
-      Alert.alert('Error', 'Failed to send voice note: ' + err.message);
+      console.error('[VoiceNote] Failed to upload/send audio', err);
+      Alert.alert('Send Error', err.message || String(err));
     } finally {
       setSending(false);
     }
@@ -669,6 +691,7 @@ export default function ChatScreen() {
               const isMine = msg.from_user_id === user?.user_id;
               const msgDate = new Date(msg.created_at);
               const formattedTime = msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              const isAudio = msg.message_type === 'audio' || (msg.image_url && msg.image_url.includes('voice_notes'));
               return (
                 <View
                   key={msg.message_id}
@@ -682,7 +705,7 @@ export default function ChatScreen() {
                   )}
                   <View style={styles.bubbleWrapper}>
                     {isMine ? (
-                      msg.message_type === 'audio' ? (
+                      isAudio ? (
                         <VoiceMessageBubble audioUrl={msg.image_url} isMine={true} />
                       ) : (
                         <LinearGradient
@@ -707,7 +730,7 @@ export default function ChatScreen() {
                         </LinearGradient>
                       )
                     ) : (
-                      msg.message_type === 'audio' ? (
+                      isAudio ? (
                         <VoiceMessageBubble audioUrl={msg.image_url} isMine={false} />
                       ) : (
                         <View style={[
