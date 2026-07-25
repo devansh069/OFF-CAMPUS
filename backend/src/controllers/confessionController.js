@@ -36,7 +36,10 @@ exports.getConfessionsFeed = async (req, res) => {
 
     // Fetch confessions sorted by created_at DESC
     const confessions = await sequelize.query(
-      'SELECT confession_id, user_id, college_id, content, likes, comments, created_at FROM confessions ORDER BY created_at DESC LIMIT 100',
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.likes, c.comments, c.created_at, col.short_name as college_name 
+       FROM confessions c
+       LEFT JOIN colleges col ON c.college_id = col.college_id
+       ORDER BY c.created_at DESC LIMIT 100`,
       {
         type: sequelize.QueryTypes.SELECT
       }
@@ -110,7 +113,10 @@ exports.createConfession = async (req, res) => {
 
     // Return created confession object
     const [newConf] = await sequelize.query(
-      'SELECT confession_id, user_id, college_id, content, likes, comments, created_at FROM confessions WHERE confession_id = ? LIMIT 1',
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.likes, c.comments, c.created_at, col.short_name as college_name 
+       FROM confessions c
+       LEFT JOIN colleges col ON c.college_id = col.college_id
+       WHERE c.confession_id = ? LIMIT 1`,
       {
         replacements: [confessionId],
         type: sequelize.QueryTypes.SELECT

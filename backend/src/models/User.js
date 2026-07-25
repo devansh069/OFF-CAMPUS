@@ -121,7 +121,7 @@ const User = sequelize.define('User', {
   vibe_score: {
     type: DataTypes.FLOAT,
     allowNull: false,
-    defaultValue: 5,
+    defaultValue: 10,
     field: 'vibe_score'
   },
   spotify_data: {
@@ -160,6 +160,24 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'last_location_update'
+  },
+  total_referrals: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'total_referrals'
+  },
+  profile_visibility: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    defaultValue: 1.0,
+    field: 'profile_visibility'
+  },
+  has_event_pass: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'has_event_pass'
   },
   total_ratings: {
     type: DataTypes.INTEGER,

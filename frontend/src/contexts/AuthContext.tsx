@@ -54,7 +54,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (phoneNumber: string) => Promise<void>;
+  login: (tokenOrPhone: string, isRealToken?: boolean, referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
@@ -253,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   };
-  const login = async (tokenOrPhone: string, isRealToken: boolean = false) => {
+  const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -268,7 +268,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          firebaseToken
+          firebaseToken,
+          referralCode
         }),
         signal: controller.signal,
       });

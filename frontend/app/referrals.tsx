@@ -83,16 +83,7 @@ export default function Referrals() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient
-          colors={['#FFD700', '#FFA500', '#FF6B35']}
-          style={styles.heroCard}
-        >
-          <Ionicons name="gift" size={56} color="#FFF" />
-          <Text style={styles.heroTitle}>Get Free Premium!</Text>
-          <Text style={styles.heroSubtitle}>
-            Earn 7 days of Premium for every friend who joins
-          </Text>
-        </LinearGradient>
+
 
         <View style={styles.codeCard}>
           <Text style={styles.codeLabel}>YOUR REFERRAL CODE</Text>
@@ -102,10 +93,6 @@ export default function Referrals() {
               <Ionicons name="copy" size={20} color="#FF3366" />
               <Text style={styles.codeBtnText}>Copy</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.codeBtn, styles.shareBtn]} onPress={shareCode}>
-              <Ionicons name="share-social" size={20} color="#FFF" />
-              <Text style={[styles.codeBtnText, { color: '#FFF' }]}>Share</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -114,33 +101,29 @@ export default function Referrals() {
             <Text style={styles.statValue}>{stats?.referral_count || 0}</Text>
             <Text style={styles.statLabel}>Friends Joined</Text>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats?.rewards_earned_days || 0}</Text>
-            <Text style={styles.statLabel}>Days Earned</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats?.premium_days_remaining || 0}</Text>
-            <Text style={styles.statLabel}>Days Left</Text>
-          </View>
         </View>
 
         <View style={styles.howSection}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
+          <Text style={styles.sectionTitle}>Referral Perks</Text>
           <View style={styles.step}>
             <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-            <Text style={styles.stepText}>Share your code with college friends</Text>
-          </View>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
-            <Text style={styles.stepText}>They sign up using your code</Text>
+            <Text style={styles.stepText}>+2 Vibe Score boost</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-            <Text style={styles.stepText}>You both get 7 days of Premium FREE</Text>
+            <Text style={styles.stepText}>1.5x Profile Visibility to matches</Text>
           </View>
           <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>4</Text></View>
-            <Text style={styles.stepText}>Premium = access to ALL colleges! 🔥</Text>
+            <View style={styles.stepNum}><Text style={styles.stepNumText}>5</Text></View>
+            <Text style={styles.stepText}>Instant 10/10 Vibe Score</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNum}><Text style={styles.stepNumText}>7</Text></View>
+            <Text style={styles.stepText}>2.0x Ultimate Profile Visibility</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNum}><Text style={styles.stepNumText}>10</Text></View>
+            <Text style={styles.stepText}>Free Pass for Off-Campus Events</Text>
           </View>
         </View>
 
@@ -152,7 +135,7 @@ export default function Referrals() {
                 <Ionicons name="person-circle" size={32} color="#FF3366" />
                 <Text style={styles.referredName}>{u.name}</Text>
                 <View style={styles.successBadge}>
-                  <Text style={styles.successBadgeText}>+7 days</Text>
+                  <Text style={styles.successBadgeText}>Joined</Text>
                 </View>
               </View>
             ))}

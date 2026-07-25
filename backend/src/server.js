@@ -49,6 +49,7 @@ const startServer = async () => {
     require('./models/Rating');
     require('./models/UserSession');
     require('./models/VerificationRequest');
+    require('./models/Referral');
 
     // 2. Synchronize Sequelize database tables (create tables dynamically if they don't exist)
     // Using alter: true updates any column schema changes automatically in local MySQL

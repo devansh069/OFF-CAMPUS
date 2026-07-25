@@ -57,6 +57,7 @@ export default function Welcome() {
   
   // OTP States
   const [otpCode, setOtpCode] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [timer, setTimer] = useState(30);
   const [confirmResult, setConfirmResult] = useState<any>(null);
@@ -136,7 +137,7 @@ export default function Welcome() {
         // Get verified ID Token from Firebase
         const idToken = await firebaseAuth().currentUser?.getIdToken();
         if (idToken) {
-          await login(idToken, true);
+          await login(idToken, true, referralCode.trim());
         } else {
           throw new Error('Failed to retrieve Firebase ID Token.');
         }
@@ -145,7 +146,7 @@ export default function Welcome() {
         Alert.alert('Verification Failed', 'The code you entered is invalid. Please try again.');
       }
     } else {
-      await login(fullNumber, false);
+      await login(fullNumber, false, referralCode.trim());
     }
   };
 
@@ -302,6 +303,20 @@ export default function Welcome() {
                       )}
                     </View>
 
+                    {/* Referral Code Input */}
+                    <View style={styles.referralContainer}>
+                      <Ionicons name="gift-outline" size={16} color="#A1A1AA" />
+                      <TextInput
+                        style={styles.referralInput}
+                        placeholder="Referral Code (Optional)"
+                        placeholderTextColor="#A1A1AA"
+                        value={referralCode}
+                        onChangeText={setReferralCode}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                      />
+                    </View>
+
                     <TouchableOpacity 
                       style={styles.actionBtn} 
                       onPress={handleVerifyOTP}
@@ -453,9 +468,28 @@ const styles = StyleSheet.create({
   resendText: { color: '#F43F5E', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
 
   // Purple-to-pink gradient button style with white text
-  actionBtn: { width: '100%', borderRadius: 30, overflow: 'hidden', marginTop: 10 },
-  btnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16 },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  actionBtn: { width: '100%', height: 50, borderRadius: 12, overflow: 'hidden', marginTop: 16 },
+  btnGrad: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  referralContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 16,
+    height: 50,
+    marginTop: 8,
+    marginBottom: 8,
+    gap: 8,
+    width: '100%',
+  },
+  referralInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 15,
+  },
   
   // OTP Number setup
   numberRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginVertical: 4 },

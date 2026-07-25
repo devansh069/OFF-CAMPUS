@@ -906,16 +906,10 @@ export default function CampusLive() {
 
                     {/* Card Header Overlay */}
                     <View style={styles.cardHeader}>
-                      <LinearGradient
-                        colors={['#FF1B6B', '#FF8C00']}
-                        style={styles.cardHeaderAvatar}
-                      >
-                        <Ionicons name="eye" size={10} color="#FFF" />
-                      </LinearGradient>
                       <View style={{ flex: 1, marginLeft: 6 }}>
                         <Text style={styles.cardHeaderName} numberOfLines={1}>Anon</Text>
                         <Text style={styles.cardHeaderSub} numberOfLines={1}>
-                          {c.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
+                          {c.college_name || 'Campus'}
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -937,13 +931,6 @@ export default function CampusLive() {
 
                     {/* Bottom overlay badges */}
                     <View style={styles.cardBottomRow}>
-                      <View style={styles.liveBadgeMini}>
-                        <Text style={styles.liveBadgeMiniText}>LIVE</Text>
-                      </View>
-                      <Text style={styles.cardTimeText}>
-                        {c.created_at && formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim()}
-                      </Text>
-
                       <View style={styles.cardStatsGroup}>
                         <TouchableOpacity style={styles.cardStatIconBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
                           <Ionicons name="heart" size={11} color="#FF2D55" />
@@ -990,7 +977,7 @@ export default function CampusLive() {
                   <View style={styles.modalConfCard}>
                     <View style={styles.modalConfTop}>
                       <Text style={styles.modalConfHeaderAnon}>
-                        Anonymous • {selectedConfession.college_id === user?.college_id ? (college?.short_name || 'Campus') : 'Global'}
+                        Anonymous • {selectedConfession.college_name || 'Campus'}
                       </Text>
                       <Text style={styles.modalConfTime}>
                         {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago

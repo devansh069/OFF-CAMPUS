@@ -4,6 +4,7 @@ const User = require('../models/User');
 const College = require('../models/College');
 const Like = require('../models/Like');
 const Message = require('../models/Message');
+const Referral = require('../models/Referral');
 const Op = {
   in: '$in',
   notIn: '$notIn',
@@ -74,7 +75,7 @@ const emailOtps = new Map();
 // 1. Verify OTP token from Firebase Client and handle initial login
 exports.verifyOTP = async (req, res) => {
   try {
-    const { firebaseToken } = req.body;
+    const { firebaseToken, referralCode } = req.body;
 
     if (!firebaseToken) {
       return res.status(400).json({ detail: 'Firebase ID token is required' });
@@ -129,7 +130,7 @@ exports.verifyOTP = async (req, res) => {
         firebase_uid: uid,
         phone_number: phone_number,
         verification_status: 'pending',
-        vibe_score: 5,
+        vibe_score: 10,
         interests: [],
         photos: [],
         spotify_data: {},
@@ -137,6 +138,36 @@ exports.verifyOTP = async (req, res) => {
         is_on_campus: false,
         referral_code: `REF_${phone_number.replace(/\D/g, '') || uniqueSuffix}`
       });
+
+      // Handle Referral Logic
+      if (referralCode) {
+        const referrer = await User.findOne({ where: { referral_code: referralCode } });
+        if (referrer && referrer.user_id !== user.user_id) {
+          // Record the referral
+          await Referral.create({
+            referrer_id: referrer.user_id,
+            referred_id: user.user_id
+          });
+
+          // Update referrer's perks
+          referrer.total_referrals += 1;
+          const tr = referrer.total_referrals;
+
+          if (tr === 1) {
+            referrer.vibe_score = Math.min(referrer.vibe_score + 2, 10);
+          } else if (tr === 3) {
+            referrer.profile_visibility = 1.5;
+          } else if (tr === 5) {
+            referrer.vibe_score = 10;
+          } else if (tr === 7) {
+            referrer.profile_visibility = 2.0;
+          } else if (tr >= 10 && !referrer.has_event_pass) {
+            referrer.has_event_pass = true;
+          }
+
+          await referrer.save();
+        }
+      }
     }
 
     // Fetch refreshed user record including associated college details
@@ -926,6 +957,26 @@ exports.reportUser = async (req, res) => {
         replacements: [reportId, currentUserId, target_user_id, reason]
       }
     );
+
+    // Calculate total reports against this user
+    const [reportCountResult] = await sequelize.query(
+      'SELECT COUNT(*) as count FROM reports WHERE to_user_id = ?',
+      { replacements: [target_user_id], type: sequelize.QueryTypes.SELECT }
+    );
+    const totalReports = parseInt(reportCountResult.count) || 1;
+
+    // Apply the progressive penalty to vibe score
+    const targetUser = await User.findOne({ where: { user_id: target_user_id } });
+    if (targetUser) {
+      let currentVibeScore = targetUser.vibe_score || 10;
+      let newVibeScore = currentVibeScore - totalReports;
+      
+      // Ensure vibe score does not drop below 0
+      if (newVibeScore < 0) newVibeScore = 0;
+      
+      targetUser.vibe_score = newVibeScore;
+      await targetUser.save();
+    }
 
     await executeUnmatch(currentUserId, target_user_id);
 
