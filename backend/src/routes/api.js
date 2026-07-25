@@ -9,6 +9,7 @@ const storyController = require('../controllers/storyController');
 const spotifyController = require('../controllers/spotifyController');
 const ambassadorController = require('../controllers/ambassadorController');
 const referralController = require('../controllers/referralController');
+const queryController = require('../controllers/queryController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -89,6 +90,9 @@ router.get('/ambassadors/all', ambassadorController.getAllAmbassadors);
 
 // Referral endpoints
 router.get('/referrals/my-stats', authMiddleware, referralController.getMyStats);
+// Query endpoints
+router.post('/queries/submit', queryController.submitQuery);
+router.get('/queries/all', queryController.getAllQueries);
 
 module.exports = router;
 
