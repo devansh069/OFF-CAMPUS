@@ -389,10 +389,6 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please select your gender');
         return;
       }
-      if (!lookingFor) {
-        Alert.alert('Required', 'Please select who you are looking for');
-        return;
-      }
       const calculatedHeightCm = Math.round((heightFeet * 12 + heightInches) * 2.54);
       if (calculatedHeightCm <= 0) {
         Alert.alert('Required', 'Please select a valid height');
@@ -708,31 +704,6 @@ export default function ProfileSetup() {
                   </View>
                 </View>
 
-                {/* Vibe / Relationship Preference */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>VIBE MODE (LOOKING FOR)</Text>
-                  <View style={styles.optionsRow}>
-                    {[
-                      { value: 'dating', label: '💕 Dating' },
-                      { value: 'friends', label: '🤝 Friends' },
-                      { value: 'networking', label: '💼 Network' },
-                      { value: 'all', label: '✨ All' }
-                    ].map((o) => {
-                      const isActive = lookingFor === o.value;
-                      return (
-                        <TouchableOpacity
-                          key={o.value}
-                          style={[styles.optionGridButton, isActive && styles.optionGridButtonActive]}
-                          onPress={() => setLookingFor(o.value)}
-                        >
-                          <Text style={[styles.optionGridText, isActive && styles.optionGridTextActive]}>
-                            {o.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
               </View>
             )}
 
