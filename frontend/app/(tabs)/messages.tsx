@@ -493,8 +493,23 @@ const styles = StyleSheet.create({
 
   // Conversations Feed
   conversationsHeaderRow: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
-  conversationItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.04)' },
-  conversationItemUnread: { backgroundColor: 'rgba(255, 27, 107, 0.02)' },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 16,
+    marginVertical: 6,
+  },
+  conversationItemUnread: {
+    backgroundColor: 'rgba(194, 255, 61, 0.05)',
+    borderColor: 'rgba(194, 255, 61, 0.2)',
+  },
   avatarWrapper: { position: 'relative' },
   avatar: { width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
   onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#06D6A0', borderWidth: 2, borderColor: '#000000' },
@@ -516,7 +531,7 @@ const styles = StyleSheet.create({
 
   // Swipeable right actions
   swipeContainer: {
-    backgroundColor: '#050005',
+    backgroundColor: 'transparent',
   },
   rightActionsContainer: {
     flexDirection: 'row',

@@ -31,8 +31,131 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-
   const socketRef = useRef<any>(null);
+
+  // Report Modal States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('Spam / Fake Profile');
+  const [customReason, setCustomReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+
+  const reportReasons = [
+    'Spam / Fake Profile',
+    'Harassment or Abuse',
+    'Inappropriate Content / Photos',
+    'Underage User',
+    'Other (describe below)'
+  ];
+
+  // Unmatch handler
+  const handleUnmatch = (targetUserId: string, userName: string) => {
+    Alert.alert(
+      'Unmatch User ❌',
+      `Are you sure you want to unmatch with ${userName}? This will permanently remove your match and conversation history.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmatch',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/unmatch`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ target_user_id: targetUserId })
+              });
+              if (response.ok) {
+                Alert.alert('Unmatched', `You have successfully unmatched with ${userName}.`);
+                router.replace('/(tabs)/messages');
+              } else {
+                const data = await response.json();
+                Alert.alert('Error', data.detail || 'Failed to unmatch user.');
+              }
+            } catch (err) {
+              console.error('Unmatch error:', err);
+              Alert.alert('Network Error', 'Failed to reach the server.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Report handler (open modal)
+  const handleReportPress = (targetUserId: string) => {
+    setSelectedReason('Spam / Fake Profile');
+    setCustomReason('');
+    setShowReportModal(true);
+  };
+
+  // Submit report to backend
+  const handleReportSubmit = async () => {
+    if (!id) return;
+    
+    let finalReason = selectedReason;
+    if (selectedReason.startsWith('Other') && !customReason.trim()) {
+      Alert.alert('Reason Required', 'Please type a reason for your report.');
+      return;
+    }
+    if (customReason.trim()) {
+      finalReason = `${selectedReason}: ${customReason.trim()}`;
+    }
+
+    setSubmittingReport(true);
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          target_user_id: id,
+          reason: finalReason
+        })
+      });
+      if (response.ok) {
+        Alert.alert(
+          'Report Submitted 🛡️',
+          'Thank you for reporting. Our safety team will review this profile within 24 hours. The user has been unmatched and blocked.',
+          [{ text: 'OK', onPress: () => router.replace('/(tabs)/messages') }]
+        );
+      } else {
+        const data = await response.json();
+        Alert.alert('Error', data.detail || 'Failed to submit report.');
+      }
+    } catch (err) {
+      console.error('Report error:', err);
+      Alert.alert('Network Error', 'Could not submit report. Please check connection.');
+    } finally {
+      setSubmittingReport(false);
+      setShowReportModal(false);
+    }
+  };
+
+  const handleHeaderMenu = () => {
+    if (!otherUser) return;
+    Alert.alert(
+      'Chat Options ⚙️',
+      'What would you like to do?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Unmatch', 
+          style: 'destructive',
+          onPress: () => handleUnmatch(otherUser.user_id, otherUser.name)
+        },
+        { 
+          text: 'Report User', 
+          style: 'destructive',
+          onPress: () => handleReportPress(otherUser.user_id) 
+        }
+      ]
+    );
+  };
 
   useEffect(() => {
     fetchMessages();
@@ -278,7 +401,19 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* Ambient background linear gradient matching Vibe page */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      {/* Dark veil overlay */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+
+      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
       {/* Premium Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -303,16 +438,10 @@ export default function ChatScreen() {
             </View>
             <View style={styles.headerMeta}>
               <Text style={styles.headerName}>{otherUser.name}</Text>
-              <View style={styles.statusBadge}>
-                <View style={[styles.statusDot, { backgroundColor: otherUser.is_on_campus ? '#06D6A0' : 'rgba(255,255,255,0.3)' }]} />
-                <Text style={styles.headerStatus}>
-                  {otherUser.is_on_campus ? 'On Campus' : 'Off Campus'}
-                </Text>
-              </View>
             </View>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.headerInfoBtn}>
+        <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu}>
           <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
         </TouchableOpacity>
       </View>
@@ -411,9 +540,6 @@ export default function ChatScreen() {
 
         {/* Input Bar Section */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.micBtn} activeOpacity={0.7} onPress={pickChatImage}>
-            <Ionicons name="image-outline" size={20} color="rgba(255, 255, 255, 0.6)" />
-          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -437,7 +563,84 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Report User 🛡️</Text>
+              <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalDesc}>
+                Help us keep Off-Campus safe. Tell us why you are reporting this user. They will be unmatched and blocked instantly.
+              </Text>
+
+              <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+              {reportReasons.map((reason) => {
+                const isSelected = selectedReason === reason;
+                return (
+                  <TouchableOpacity
+                    key={reason}
+                    style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                    onPress={() => setSelectedReason(reason)}
+                  >
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                      {reason}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Enter details here..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                multiline={true}
+                numberOfLines={4}
+                value={customReason}
+                onChangeText={setCustomReason}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setShowReportModal(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitBtn, submittingReport && { opacity: 0.5 }]}
+                  onPress={handleReportSubmit}
+                  disabled={submittingReport}
+                >
+                  {submittingReport ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Submit Report</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </BlurView>
+        </View>
+      </Modal>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -649,5 +852,128 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     opacity: 0.8,
+  },
+
+  // Report Modal Styling
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  modalCloseBtn: {
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+  },
+  modalContent: {
+    paddingVertical: 12,
+  },
+  modalDesc: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  reasonLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  reasonOptionActive: {},
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  radioCircleActive: {
+    borderColor: '#ee4d4d',
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#ee4d4d',
+  },
+  reasonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reasonTextActive: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  reasonInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    color: '#FFF',
+    padding: 12,
+    fontSize: 13.5,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  cancelBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  submitBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ee4d4d',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
