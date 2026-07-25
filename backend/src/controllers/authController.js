@@ -141,43 +141,91 @@ exports.verifyOTP = async (req, res) => {
         referral_code: `REF_${phone_number.replace(/\D/g, '') || uniqueSuffix}`
       });
 
-      // Handle Referral Logic
-      if (referralCode) {
+    }
+
+    // Handle Referral Logic — runs for ALL users (new & returning), duplicate-safe
+    if (referralCode) {
+      try {
         const referrer = await User.findOne({ where: { referral_code: referralCode } });
         if (referrer && referrer.user_id !== user.user_id) {
-          // Check if this user was already referred by someone
+          // Strict duplicate check — one referral per referred user, ever
           const existingReferral = await Referral.findOne({ where: { referred_id: user.user_id } });
           if (!existingReferral) {
-            // Record the referral
-            // Record the referral
+            console.log(`[Referral] Recording referral: ${referrer.user_id} referred ${user.user_id}`);
+
+            // Record in referrals table
             await Referral.create({
               referrer_id: referrer.user_id,
               referred_id: user.user_id
             });
 
-            // Update referrer's perks
-            referrer.total_referrals += 1;
+            // Increment referral count
+            referrer.total_referrals = (referrer.total_referrals || 0) + 1;
             const tr = referrer.total_referrals;
+            console.log(`[Referral] ${referrer.user_id} now has ${tr} total referral(s)`);
+
+            const oldScore = parseFloat(referrer.vibe_score) || 10;
 
             if (tr === 1) {
-              const oldScore = referrer.vibe_score;
-              referrer.vibe_score = Math.min(referrer.vibe_score + 2, 10);
-              await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 1st friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
+              referrer.vibe_score = Math.min(oldScore + 2, 10);
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: '1st Referral: Friend joined using your code',
+                change_amount: parseFloat((referrer.vibe_score - oldScore).toFixed(2)),
+                new_score: referrer.vibe_score
+              });
             } else if (tr === 3) {
               referrer.profile_visibility = 1.5;
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: '3rd Referral: 1.5x Profile Visibility unlocked',
+                change_amount: 0,
+                new_score: parseFloat(referrer.vibe_score) || 10
+              });
             } else if (tr === 5) {
-              const oldScore = referrer.vibe_score;
               referrer.vibe_score = 10;
-              await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 5th friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: '5th Referral: Instant 10/10 Vibe Score!',
+                change_amount: parseFloat((10 - oldScore).toFixed(2)),
+                new_score: 10
+              });
             } else if (tr === 7) {
               referrer.profile_visibility = 2.0;
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: '7th Referral: 2.0x Ultimate Visibility unlocked',
+                change_amount: 0,
+                new_score: parseFloat(referrer.vibe_score) || 10
+              });
             } else if (tr >= 10 && !referrer.has_event_pass) {
               referrer.has_event_pass = true;
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: '10th Referral: Free Off-Campus Event Pass earned!',
+                change_amount: 0,
+                new_score: parseFloat(referrer.vibe_score) || 10
+              });
+            } else {
+              // Log every other referral too (2nd, 4th, 6th, 8th, 9th)
+              await VibeScoreLog.create({
+                user_id: referrer.user_id,
+                reason: `Referral #${tr}: Friend joined using your code`,
+                change_amount: 0,
+                new_score: parseFloat(referrer.vibe_score) || 10
+              });
             }
 
             await referrer.save();
+            console.log(`[Referral] Referrer ${referrer.user_id} saved. New vibe_score: ${referrer.vibe_score}, total_referrals: ${referrer.total_referrals}`);
+          } else {
+            console.log(`[Referral] Skipped: ${user.user_id} was already referred by someone.`);
           }
+        } else {
+          console.log(`[Referral] Code invalid or self-referral attempt. referrer found: ${!!referrer}`);
         }
+      } catch (refErr) {
+        console.error('[Referral Error] Referral processing failed silently:', refErr);
       }
     }
 
