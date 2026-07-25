@@ -204,6 +204,7 @@ exports.onboard = async (req, res) => {
     const {
       name,
       age,
+      bio,
       gender,
       looking_for,
       gender_preference,
@@ -266,6 +267,7 @@ exports.onboard = async (req, res) => {
     // Update user details
     user.name = name || user.name;
     user.age = age ? parseInt(age, 10) : user.age;
+    user.bio = bio !== undefined ? bio : user.bio;
     user.gender = gender || user.gender;
     user.looking_for = looking_for || user.looking_for;
     user.gender_preference = gender_preference || user.gender_preference;

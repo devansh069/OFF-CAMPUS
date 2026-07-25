@@ -6,9 +6,9 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Share,
   Alert,
   ActivityIndicator,
+  Share,
   Platform,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -57,7 +57,7 @@ export default function Referrals() {
     if (!stats?.referral_code) return;
     try {
       await Share.share({
-        message: `Hey! Join me on Off Campus - the dating app for college students! 🎓💕\n\nUse my code: ${stats.referral_code}\n\nWe both get 7 days of Premium FREE!`,
+        message: `Hey! Join me on Off Campus - the dating app for college students! 🎓💕\n\nUse my code: ${stats.referral_code}\n\nWe both get premium perks!`,
       });
     } catch (error) {
       console.error(error);
@@ -67,82 +67,86 @@ export default function Referrals() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF3366" />
+        <ActivityIndicator size="large" color="#C2FF3D" />
       </View>
     );
   }
 
+  const perks = [
+    { title: '+2 Vibe Score', desc: 'Instant boost to your profile', icon: 'sparkles' },
+    { title: '1.5x Visibility', desc: 'Get seen by more matches (3 Friends)', icon: 'eye' },
+    { title: '10/10 Vibe Score', desc: 'Max out your vibe instantly (5 Friends)', icon: 'star' },
+    { title: '2.0x Ultimate', desc: 'Maximum profile visibility (7 Friends)', icon: 'rocket' },
+    { title: 'Event Pass', desc: 'Free entry to Off-Campus events (10 Friends)', icon: 'ticket' },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#FFF" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Refer Friends</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.topTitle}>Referrals</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+        
+        {/* Dynamic Header */}
+        <View style={styles.headerSection}>
+          <View style={styles.glowCircle}>
+            <Ionicons name="people" size={48} color="#C2FF3D" />
+          </View>
+          <Text style={styles.mainHeading}>Invite Friends,</Text>
+          <Text style={styles.subHeading}>Unlock Premium Perks</Text>
+        </View>
 
-
-        <View style={styles.codeCard}>
-          <Text style={styles.codeLabel}>YOUR REFERRAL CODE</Text>
-          <Text style={styles.code}>{stats?.referral_code}</Text>
-          <View style={styles.codeActions}>
-            <TouchableOpacity style={styles.codeBtn} onPress={copyCode}>
-              <Ionicons name="copy" size={20} color="#FF3366" />
-              <Text style={styles.codeBtnText}>Copy</Text>
+        {/* Code Card */}
+        <View style={styles.glassCard}>
+          <Text style={styles.glassLabel}>YOUR UNIQUE CODE</Text>
+          <View style={styles.codeWrapper}>
+            <Text style={styles.codeText}>{stats?.referral_code || 'LOADING...'}</Text>
+          </View>
+          
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.actionBtn} onPress={copyCode}>
+              <Ionicons name="copy-outline" size={20} color="#C2FF3D" />
+              <Text style={styles.actionBtnText}>Copy Code</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={shareCode}>
+              <Ionicons name="share-social" size={20} color="#0A0A0A" />
+              <Text style={[styles.actionBtnText, { color: '#0A0A0A' }]}>Share Now</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats?.referral_count || 0}</Text>
-            <Text style={styles.statLabel}>Friends Joined</Text>
-          </View>
+        {/* Stats Row */}
+        <View style={styles.statsContainer}>
+          <LinearGradient colors={['rgba(194, 255, 61, 0.1)', 'rgba(194, 255, 61, 0.02)']} style={styles.statBox}>
+            <Text style={styles.statNumber}>{stats?.referral_count || 0}</Text>
+            <Text style={styles.statDesc}>Friends Joined</Text>
+          </LinearGradient>
         </View>
 
-        <View style={styles.howSection}>
-          <Text style={styles.sectionTitle}>Referral Perks</Text>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-            <Text style={styles.stepText}>+2 Vibe Score boost</Text>
-          </View>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-            <Text style={styles.stepText}>1.5x Profile Visibility to matches</Text>
-          </View>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>5</Text></View>
-            <Text style={styles.stepText}>Instant 10/10 Vibe Score</Text>
-          </View>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>7</Text></View>
-            <Text style={styles.stepText}>2.0x Ultimate Profile Visibility</Text>
-          </View>
-          <View style={styles.step}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>10</Text></View>
-            <Text style={styles.stepText}>Free Pass for Off-Campus Events</Text>
-          </View>
-        </View>
-
-        {stats?.referred_users?.length > 0 && (
-          <View style={styles.referredSection}>
-            <Text style={styles.sectionTitle}>Your Referrals</Text>
-            {stats.referred_users.map((u: any, i: number) => (
-              <View key={i} style={styles.referredItem}>
-                <Ionicons name="person-circle" size={32} color="#FF3366" />
-                <Text style={styles.referredName}>{u.name}</Text>
-                <View style={styles.successBadge}>
-                  <Text style={styles.successBadgeText}>Joined</Text>
+        {/* Perks Timeline */}
+        <View style={styles.perksSection}>
+          <Text style={styles.sectionTitle}>Unlock Timeline</Text>
+          <View style={styles.timeline}>
+            {perks.map((perk, index) => (
+              <View key={index} style={styles.timelineItem}>
+                <View style={styles.timelineIcon}>
+                  <Ionicons name={perk.icon as any} size={20} color="#0A0A0A" />
+                </View>
+                <View style={styles.timelineContent}>
+                  <Text style={styles.timelineTitle}>{perk.title}</Text>
+                  <Text style={styles.timelineDesc}>{perk.desc}</Text>
                 </View>
               </View>
             ))}
           </View>
-        )}
+        </View>
 
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -156,95 +160,120 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 16,
   },
-  topTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  heroCard: {
-    margin: 16,
-    padding: 32,
-    borderRadius: 24,
-    alignItems: 'center',
-    gap: 12,
-  },
-  heroTitle: { fontSize: 28, fontWeight: 'bold', color: '#FFF' },
-  heroSubtitle: { fontSize: 14, color: '#FFF', textAlign: 'center', opacity: 0.95 },
-  codeCard: {
-    margin: 16,
-    marginTop: 0,
-    padding: 24,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 2,
-    borderColor: '#FF3366',
-  },
-  codeLabel: { color: '#999', fontSize: 12, letterSpacing: 2, fontWeight: '600' },
-  code: { color: '#FFF', fontSize: 32, fontWeight: 'bold', letterSpacing: 4 },
-  codeActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  codeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#0A0A0A',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#FF3366',
-  },
-  shareBtn: { backgroundColor: '#FF3366' },
-  codeBtnText: { color: '#FF3366', fontWeight: 'bold' },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#1E1E1E',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: { color: '#FFD700', fontSize: 28, fontWeight: 'bold' },
-  statLabel: { color: '#999', fontSize: 11, textAlign: 'center' },
-  howSection: { padding: 16, gap: 12 },
-  sectionTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1E1E1E',
-    padding: 14,
-    borderRadius: 12,
-  },
-  stepNum: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FF3366',
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepNumText: { color: '#FFF', fontWeight: 'bold' },
-  stepText: { color: '#FFF', flex: 1, fontSize: 14 },
-  referredSection: { padding: 16 },
-  referredItem: {
+  topTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
+  headerSection: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+  },
+  glowCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.25)',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  mainHeading: { color: '#FFF', fontSize: 32, fontWeight: '800', marginBottom: 4 },
+  subHeading: { color: '#C2FF3D', fontSize: 18, fontWeight: '600' },
+  glassCard: {
+    marginHorizontal: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  glassLabel: { color: '#999', fontSize: 12, fontWeight: '700', letterSpacing: 2, marginBottom: 16 },
+  codeWrapper: {
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 32,
+    paddingVertical: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.2)',
+    marginBottom: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  codeText: { color: '#FFF', fontSize: 36, fontWeight: '900', letterSpacing: 4 },
+  actionRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1E1E1E',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 16,
+    borderRadius: 16,
   },
-  referredName: { color: '#FFF', flex: 1, fontWeight: '600' },
-  successBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+  actionBtnPrimary: {
+    backgroundColor: '#C2FF3D',
   },
-  successBadgeText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  actionBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  statsContainer: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  statBox: {
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.15)',
+  },
+  statNumber: { color: '#C2FF3D', fontSize: 56, fontWeight: '900', marginBottom: 4 },
+  statDesc: { color: '#FFF', fontSize: 16, fontWeight: '600', opacity: 0.8 },
+  perksSection: {
+    paddingHorizontal: 24,
+    marginTop: 40,
+  },
+  sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: '800', marginBottom: 24 },
+  timeline: {
+    paddingLeft: 8,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    marginBottom: 32,
+  },
+  timelineIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  timelineContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  timelineTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  timelineDesc: { color: '#999', fontSize: 14, lineHeight: 22 },
 });

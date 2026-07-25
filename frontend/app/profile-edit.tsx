@@ -364,7 +364,7 @@ export default function ProfileEdit() {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           {activeTab === 'edit' ? (
-            <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
               
               {/* SECTION 1: BASICS */}
               <Text style={styles.sectionHeader}>Basics</Text>
@@ -628,7 +628,7 @@ export default function ProfileEdit() {
             </ScrollView>
           ) : (
             /* VIEW PROFILE TAB: Displaying profile card mockup dynamically */
-            <ScrollView contentContainerStyle={styles.viewContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.viewContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
               <View style={styles.profileCard}>
                 <View style={styles.mainPhotoCard}>
                   {photos[0] ? (
