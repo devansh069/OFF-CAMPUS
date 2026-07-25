@@ -225,176 +225,190 @@ export default function Verification() {
   const currentStatus = user?.verification_status || 'pending';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>VERIFY IDENTITY</Text>
-          <View style={{ width: 40 }} />
-        </View>
+    <View style={styles.container}>
+      {/* Ambient background linear gradient matching profile */}
+      <LinearGradient
+        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      {/* Dark veil overlay */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} />
 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Current Real Status Banner */}
-          {currentStatus === 'verified' ? (
-            <View style={styles.verifiedBanner}>
-              <Ionicons name="checkmark-circle" size={28} color="#ee4d4d" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.bannerTitle}>OFFICIALLY VERIFIED</Text>
-                <Text style={styles.bannerSub}>You have earned your verified badge! Your profile is trusted.</Text>
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>VERIFY IDENTITY</Text>
+              <View style={{ width: 40 }} />
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Current Real Status Banner */}
+              {currentStatus === 'verified' ? (
+                <View style={styles.verifiedBanner}>
+                  <Ionicons name="checkmark-circle" size={28} color="#C2FF3D" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.bannerTitle}>OFFICIALLY VERIFIED</Text>
+                    <Text style={styles.bannerSub}>You have earned your verified badge! Your profile is trusted.</Text>
+                  </View>
+                </View>
+              ) : currentStatus === 'pending' ? (
+                <View style={styles.pendingBanner}>
+                  <Ionicons name="time" size={28} color="#C2FF3D" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.bannerTitle}>VERIFICATION PENDING</Text>
+                    <Text style={styles.bannerSub}>Your ID photo is currently being reviewed in the Admin Portal.</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Intro Section */}
+              <View style={styles.introSection}>
+                <Text style={styles.mainTitle}>Get Your Verified Badge</Text>
+                <Text style={styles.mainSub}>
+                  Choose from two simple ways to verify your student status.
+                </Text>
               </View>
-            </View>
-          ) : currentStatus === 'pending' ? (
-            <View style={styles.pendingBanner}>
-              <Ionicons name="time" size={28} color="#ee4d4d" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.bannerTitle}>VERIFICATION PENDING</Text>
-                <Text style={styles.bannerSub}>Your ID photo is currently being reviewed in the Admin Portal.</Text>
+
+              {/* BOX 1: INSTANT COLLEGE EMAIL VERIFICATION */}
+              <View style={styles.box}>
+                <View style={styles.boxHeader}>
+                  <Ionicons name="mail" size={24} color="#C2FF3D" />
+                  <Text style={styles.boxTitle}>Instant Email Verification</Text>
+                </View>
+
+                <Text style={styles.boxDesc}>
+                  Enter your official college email address. We'll send a live OTP to your inbox.
+                </Text>
+
+                {emailStep === 'input' ? (
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. krish@iitd.ac.in"
+                      placeholderTextColor="#64748B"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity
+                      style={[styles.actionBtn, sendingOtp && { opacity: 0.7 }]}
+                      onPress={handleSendEmailOtp}
+                      disabled={sendingOtp}
+                    >
+                      {sendingOtp ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.actionBtnText}>Send Live OTP</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={[styles.textInput, { letterSpacing: 6, fontSize: 20, textAlign: 'center' }]}
+                      placeholder="------"
+                      placeholderTextColor="#64748B"
+                      value={otp}
+                      onChangeText={setOtp}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { flex: 1 }, verifyingOtp && { opacity: 0.7 }]}
+                        onPress={handleVerifyEmailOtp}
+                        disabled={verifyingOtp}
+                      >
+                        {verifyingOtp ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <Text style={styles.actionBtnText}>Verify OTP</Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.resendBtn}
+                        onPress={() => setEmailStep('input')}
+                      >
+                        <Text style={styles.resendText}>Change Email</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
-            </View>
-          ) : null}
 
-          {/* Intro Section */}
-          <View style={styles.introSection}>
-            <Text style={styles.mainTitle}>Get Your Verified Badge</Text>
-            <Text style={styles.mainSub}>
-              Choose from two simple ways to verify your student status.
-            </Text>
-          </View>
+              {/* BOX 2: MANUAL ID CARD VERIFICATION */}
+              <View style={styles.box}>
+                <View style={styles.boxHeader}>
+                  <Ionicons name="id-card" size={24} color="#C2FF3D" />
+                  <Text style={styles.boxTitle}>Manual ID Verification</Text>
+                </View>
 
-          {/* BOX 1: INSTANT COLLEGE EMAIL VERIFICATION */}
-          <View style={styles.box}>
-            <View style={styles.boxHeader}>
-              <Ionicons name="mail" size={24} color="#ee4d4d" />
-              <Text style={styles.boxTitle}>Instant Email Verification</Text>
-            </View>
+                <Text style={styles.boxDesc}>
+                  Upload a clear photo of yourself holding your college ID card. Both your face and ID details must be visible.
+                </Text>
 
-            <Text style={styles.boxDesc}>
-              Enter your official college email address. We'll send a live OTP to your inbox.
-            </Text>
+                {/* Photo Preview or Upload Actions */}
+                {idImage ? (
+                  <View style={styles.previewContainer}>
+                    <Image source={{ uri: idImage }} style={styles.previewImage} />
+                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setIdImage(null)}>
+                      <View style={styles.removeIconCircle}>
+                        <Ionicons name="close" size={20} color="#FFF" />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.uploadContainer}>
+                    <TouchableOpacity
+                      style={styles.dummyBtn}
+                      onPress={() => {
+                        setIdImage(DUMMY_ID_CARD_PHOTO);
+                        Alert.alert('Testing Mode 🧪', 'Loaded dummy student ID card photo! Click submit below.');
+                      }}
+                    >
+                      <Ionicons name="flask" size={20} color="#C2FF3D" />
+                      <Text style={styles.dummyTitleText}>Use Dummy Photo</Text>
+                    </TouchableOpacity>
 
-            {emailStep === 'input' ? (
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. krish@iitd.ac.in"
-                  placeholderTextColor="#64748B"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
+                    <TouchableOpacity style={styles.cameraBtn} onPress={handleOpenCamera}>
+                      <Ionicons name="camera" size={28} color="#C2FF3D" />
+                      <Text style={styles.uploadBtnTitle}>Open Camera</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <TouchableOpacity
-                  style={[styles.actionBtn, sendingOtp && { opacity: 0.7 }]}
-                  onPress={handleSendEmailOtp}
-                  disabled={sendingOtp}
+                  style={[styles.actionBtn, (!idImage || submittingId) && { opacity: 0.5 }]}
+                  onPress={handleSubmitManualVerification}
+                  disabled={!idImage || submittingId}
                 >
-                  {sendingOtp ? (
+                  {submittingId ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.actionBtnText}>Send Live OTP</Text>
+                    <Text style={styles.actionBtnText}>Submit for Review</Text>
                   )}
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={[styles.textInput, { letterSpacing: 6, fontSize: 20, textAlign: 'center' }]}
-                  placeholder="------"
-                  placeholderTextColor="#64748B"
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { flex: 1 }, verifyingOtp && { opacity: 0.7 }]}
-                    onPress={handleVerifyEmailOtp}
-                    disabled={verifyingOtp}
-                  >
-                    {verifyingOtp ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.actionBtnText}>Verify OTP</Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.resendBtn}
-                    onPress={() => setEmailStep('input')}
-                  >
-                    <Text style={styles.resendText}>Change Email</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* BOX 2: MANUAL ID CARD VERIFICATION */}
-          <View style={styles.box}>
-            <View style={styles.boxHeader}>
-              <Ionicons name="id-card" size={24} color="#ee4d4d" />
-              <Text style={styles.boxTitle}>Manual ID Verification</Text>
-            </View>
-
-            <Text style={styles.boxDesc}>
-              Upload a clear photo of yourself holding your college ID card. Both your face and ID details must be visible.
-            </Text>
-
-            {/* Photo Preview or Upload Actions */}
-            {idImage ? (
-              <View style={styles.previewContainer}>
-                <Image source={{ uri: idImage }} style={styles.previewImage} />
-                <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setIdImage(null)}>
-                  <View style={styles.removeIconCircle}>
-                    <Ionicons name="close" size={20} color="#FFF" />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.uploadContainer}>
-                <TouchableOpacity
-                  style={styles.dummyBtn}
-                  onPress={() => {
-                    setIdImage(DUMMY_ID_CARD_PHOTO);
-                    Alert.alert('Testing Mode 🧪', 'Loaded dummy student ID card photo! Click submit below.');
-                  }}
-                >
-                  <Ionicons name="flask" size={20} color="#ee4d4d" />
-                  <Text style={styles.dummyTitleText}>Use Dummy Photo</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.cameraBtn} onPress={handleOpenCamera}>
-                  <Ionicons name="camera" size={28} color="#ee4d4d" />
-                  <Text style={styles.uploadBtnTitle}>Open Camera</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.actionBtn, (!idImage || submittingId) && { opacity: 0.5 }]}
-              onPress={handleSubmitManualVerification}
-              disabled={!idImage || submittingId}
-            >
-              {submittingId ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.actionBtnText}>Submit for Review</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </BlurView>
+    </View>
   );
 }
 
@@ -431,9 +445,9 @@ const styles = StyleSheet.create({
   verifiedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(238, 77, 77, 0.1)',
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(238, 77, 77, 0.3)',
+    borderColor: 'rgba(194, 255, 61, 0.3)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -515,7 +529,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   actionBtn: {
-    backgroundColor: '#ee4d4d',
+    backgroundColor: '#C2FF3D',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -548,14 +562,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 14,
-    backgroundColor: 'rgba(238, 77, 77, 0.1)',
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(238, 77, 77, 0.3)',
+    borderColor: 'rgba(194, 255, 61, 0.3)',
     gap: 8,
   },
   dummyTitleText: {
-    color: '#ee4d4d',
+    color: '#C2FF3D',
     fontSize: 14,
     fontWeight: '600',
   },
