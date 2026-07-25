@@ -745,10 +745,6 @@ export default function Discover() {
       });
     }
 
-    // Looking For filter
-    if (filterLookingFor !== 'both') {
-      result = result.filter(p => p.looking_for === filterLookingFor);
-    }
 
     // Verified accounts only filter
     if (filterVerifiedOnly) {
@@ -954,14 +950,6 @@ export default function Discover() {
             <View style={styles.logoContainer}>
               <Text style={styles.logoText}>off campus</Text>
             </View>
-            <TouchableOpacity
-              style={styles.modeBtn}
-              onPress={() => router.push('/premium')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="diamond" size={12} color="#FFD700" />
-              <Text style={styles.modeText}>VIPS</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Top Controls Row */}
@@ -1115,36 +1103,6 @@ export default function Discover() {
                     />
                   </View>
 
-                  {/* Looking For */}
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterSectionTitle}>Looking For</Text>
-                    <View style={styles.genderOptions}>
-                      {(['friends', 'dating', 'both'] as const).map((option) => {
-                        const isActive = filterLookingFor === option;
-                        const label = option === 'friends' ? 'Friends' : option === 'dating' ? 'Dating' : 'Both';
-                        return (
-                          <TouchableOpacity
-                            key={option}
-                            style={[styles.genderBtn, isActive && styles.genderBtnActive]}
-                            onPress={() => setFilterLookingFor(option)}
-                          >
-                            {isActive ? (
-                              <LinearGradient
-                                colors={['#FFFFFF', '#FFFFFF']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.genderBtnGrad}
-                              >
-                                <Text style={styles.genderBtnTextActive}>{label}</Text>
-                              </LinearGradient>
-                            ) : (
-                              <Text style={styles.genderBtnText}>{label}</Text>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
 
                   {/* Verified Accounts Switch */}
                   <View style={styles.switchRow}>
