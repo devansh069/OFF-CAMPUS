@@ -31,25 +31,51 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
+    let isMounted = true;
+    let localSound: Audio.Sound | null = null;
 
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
+    const loadMetadata = async () => {
+      try {
+        const { sound: newSound, status } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: false },
+          (status: any) => {
+            if (!isMounted) return;
+            if (status.isLoaded) {
+              setPosition(status.positionMillis);
+              setDuration(status.durationMillis || 0);
+              if (status.didJustFinish) {
+                setIsPlaying(false);
+                setPosition(0);
+              }
+            }
+          }
+        );
+        localSound = newSound;
+        if (isMounted) {
+          setSound(newSound);
+          setIsLoaded(true);
+          if (status.isLoaded) {
+            setDuration(status.durationMillis || 0);
+          }
+        }
+      } catch (err) {
+        console.warn('Metadata load error:', err);
       }
-    }
-  };
+    };
+
+    loadMetadata();
+
+    return () => {
+      isMounted = false;
+      if (localSound) {
+        localSound.unloadAsync();
+      }
+    };
+  }, [audioUrl]);
 
   const playSound = async () => {
     try {
@@ -58,20 +84,12 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
           await sound.pauseAsync();
           setIsPlaying(false);
         } else {
-          if (position >= duration) {
+          if (position >= duration && duration > 0) {
             await sound.setPositionAsync(0);
           }
           await sound.playAsync();
           setIsPlaying(true);
         }
-      } else {
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioUrl },
-          { shouldPlay: true },
-          onPlaybackStatusUpdate
-        );
-        setSound(newSound);
-        setIsPlaying(true);
       }
     } catch (error) {
       console.warn('Playback error:', error);
@@ -85,29 +103,86 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
+  const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
+
   return (
-    <TouchableOpacity
-      onPress={playSound}
+    <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        paddingVertical: 8,
+        gap: 12,
+        paddingVertical: 10,
         paddingHorizontal: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 16,
-        minWidth: 150,
+        backgroundColor: isMine ? 'rgba(238, 77, 77, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 20,
+        minWidth: 220,
+        maxWidth: 280,
+        borderWidth: 1,
+        borderColor: isMine ? 'rgba(238, 77, 77, 0.3)' : 'rgba(255, 255, 255, 0.1)'
       }}
-      activeOpacity={0.8}
     >
-      <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={isMine ? '#FFF' : '#C2FF3D'} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>Voice Note</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, marginTop: 1 }}>
-          {duration ? `${formatTime(position)} / ${formatTime(duration)}` : '0:00'}
-        </Text>
+      <TouchableOpacity
+        onPress={playSound}
+        disabled={!isLoaded}
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: isMine ? '#ee4d4d' : 'rgba(255, 255, 255, 0.15)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}
+        activeOpacity={0.7}
+      >
+        {!isLoaded ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Ionicons 
+            name={isPlaying ? 'pause' : 'play'} 
+            size={22} 
+            color="#FFF" 
+            style={{ marginLeft: isPlaying ? 0 : 3 }} 
+          />
+        )}
+      </TouchableOpacity>
+
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        {/* Progress Bar Track */}
+        <View style={{ 
+          height: 4, 
+          backgroundColor: isMine ? 'rgba(238, 77, 77, 0.3)' : 'rgba(255, 255, 255, 0.2)', 
+          borderRadius: 2, 
+          overflow: 'hidden' 
+        }}>
+          <View style={{ 
+            height: '100%', 
+            width: `${progressPercent}%`, 
+            backgroundColor: isMine ? '#ee4d4d' : '#FFF', 
+            borderRadius: 2 
+          }} />
+        </View>
+        
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+          <Text style={{ 
+            color: isMine ? '#ee4d4d' : 'rgba(255,255,255,0.7)', 
+            fontSize: 11, 
+            fontWeight: '600',
+            fontVariant: ['tabular-nums'] 
+          }}>
+            {formatTime(position)}
+          </Text>
+          {duration > 0 && (
+            <Text style={{ 
+              color: 'rgba(255,255,255,0.4)', 
+              fontSize: 10, 
+              fontVariant: ['tabular-nums'] 
+            }}>
+              {formatTime(duration)}
+            </Text>
+          )}
+        </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -230,7 +305,7 @@ export default function ChatScreen() {
         body: JSON.stringify({
           to_user_id: id,
           content: '🎵 Sent a voice note',
-          message_type: 'audio',
+          message_type: 'image',
           image_url: audio_url // store audio link in image_url DB column
         })
       });

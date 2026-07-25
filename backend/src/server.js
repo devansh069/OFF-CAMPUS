@@ -41,6 +41,14 @@ const startServer = async () => {
     // 1. Connect to MySQL Database
     await connectDB();
 
+    // Register all models explicitly before syncing so Sequelize knows about them
+    require('./models/Confession');
+    require('./models/Story');
+    require('./models/Comment');
+    require('./models/Rating');
+    require('./models/UserSession');
+    require('./models/VerificationRequest');
+
     // 2. Synchronize Sequelize database tables (create tables dynamically if they don't exist)
     // Using alter: true updates any column schema changes automatically in local MySQL
     await sequelize.sync({ alter: true });
