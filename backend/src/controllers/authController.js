@@ -83,7 +83,7 @@ exports.verifyOTP = async (req, res) => {
     let uid, phone_number;
 
     // Check for development bypass token
-    if ((!process.env.NODE_ENV || process.env.NODE_ENV === 'development') && firebaseToken.startsWith('dev-token-')) {
+    if ((!process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_BYPASS === 'true') && firebaseToken.startsWith('dev-token-')) {
       phone_number = firebaseToken.replace('dev-token-', '');
       uid = 'dev_user_' + phone_number.replace(/\D/g, '');
       console.log(`[Auth Dev Bypass] Logging in with test number: ${phone_number}`);
