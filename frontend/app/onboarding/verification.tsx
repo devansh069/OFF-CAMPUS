@@ -207,9 +207,9 @@ export default function Verification() {
         try { await refreshUser(); } catch (e) {}
 
         Alert.alert(
-          'Submitted For Admin Review! 📋',
-          'Your ID verification request has been sent to the Admin Portal. Manual review takes up to 12 hours.',
-          [{ text: 'Go To Admin Portal', onPress: () => router.back() }]
+          'Submitted Successfully! 📋',
+          'Your ID verification request has been received. Manual review takes up to 12 hours.',
+          [{ text: 'Okay', onPress: () => router.back() }]
         );
       } else {
         Alert.alert('Error', data.detail || 'Failed to submit verification.');
