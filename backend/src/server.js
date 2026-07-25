@@ -55,6 +55,15 @@ const startServer = async () => {
     await sequelize.sync({ alter: true });
     console.log('Database schemas synced successfully.');
 
+    // Production Patch: Force add verification_method column if sync failed
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN verification_method ENUM('email', 'manual') DEFAULT NULL;");
+      console.log('[Patch] Manually added verification_method column to users table');
+    } catch (e) {
+      // Ignore if column already exists
+      console.log('[Patch] verification_method column already exists or alter skipped:', e.message);
+    }
+
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
 
