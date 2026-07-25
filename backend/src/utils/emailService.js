@@ -18,7 +18,10 @@ const getTransporter = () => {
     auth: {
       user,
       pass
-    }
+    },
+    connectionTimeout: 4000, // Fail fast if blocked by cloud firewall
+    greetingTimeout: 4000,
+    socketTimeout: 4000
   });
 };
 

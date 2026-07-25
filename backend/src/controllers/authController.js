@@ -356,10 +356,12 @@ exports.sendEmailOTP = async (req, res) => {
 
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
 
+    let emailSent = false;
     if (smtpUser) {
       try {
         await emailService.sendVerificationOTP(email, otp);
         console.log(`[Email Verification] Successfully sent live OTP email via emailService to ${email}`);
+        emailSent = true;
       } catch (mailErr) {
         console.error(`[EmailService Error]: Failed to send live email: ${mailErr.message}`);
         console.log(`[Email Verification Fallback] OTP for ${email} is: [ ${otp} ]`);
@@ -374,8 +376,8 @@ exports.sendEmailOTP = async (req, res) => {
     }
 
     return res.status(200).json({
-      detail: smtpUser ? 'Live OTP email dispatched via Resend!' : 'SMTP not configured in .env. Use dev code to test.',
-      dev_otp: !smtpUser ? otp : undefined
+      detail: emailSent ? 'Live OTP email dispatched via Resend!' : 'SMTP not configured or failed to send. Use dev code to test.',
+      dev_otp: !emailSent ? otp : undefined
     });
   } catch (error) {
     console.error('[Send Email OTP Error]:', error);
