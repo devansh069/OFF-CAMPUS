@@ -243,9 +243,10 @@ export default function CampusLive() {
 
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
-      const [c, s] = await Promise.all([
+      const [c, s, liveCountsRes] = await Promise.all([
         fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/feed`, { headers }).then(r => r.json()),
         fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/feed`, { headers }).then(r => r.json()),
+        fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/live-count`, { headers }).then(r => r.json()),
       ]);
 
       if (c.confessions) {
@@ -260,8 +261,10 @@ export default function CampusLive() {
         setStories(MOCK_STORIES);
       }
 
-      if (c.live_count_global !== undefined) setLiveCountGlobal(c.live_count_global);
-      if (c.live_count_college !== undefined) setLiveCountCollege(c.live_count_college);
+      if (liveCountsRes) {
+        setLiveCountGlobal(liveCountsRes.global || 0);
+        setLiveCountCollege(liveCountsRes.college || 0);
+      }
     } catch (e) {
       console.warn('fetchLive failed, using mock live data instead:', e);
       setConfessions(MOCK_CONFESSIONS);
@@ -736,6 +739,12 @@ export default function CampusLive() {
       return c.college_id === user?.college_id;
     }
     return true;
+  }).sort((a: any, b: any) => {
+    if (feedType === 'college') {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    } else {
+      return (b.likes || 0) - (a.likes || 0);
+    }
   });
 
   return (
@@ -765,14 +774,6 @@ export default function CampusLive() {
             {/* Redesigned Premium Header Bar */}
             <View style={styles.newHeaderBar}>
               <View style={styles.newHeaderLeft}>
-                <LinearGradient
-                  colors={['#FF007F', '#7F00FF', '#00FFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.logoGradient}
-                >
-                  <Ionicons name="sparkles" size={15} color="#FFF" />
-                </LinearGradient>
                 <TouchableOpacity
                   style={styles.newHeaderDropdown}
                   onPress={() => setFeedType(prev => prev === 'global' ? 'college' : 'global')}
@@ -791,18 +792,6 @@ export default function CampusLive() {
                   <View style={styles.newLiveDot} />
                   <Text style={styles.newLiveText}>{feedType === 'global' ? `${liveCountGlobal} Live` : `${liveCountCollege} Live`}</Text>
                 </View>
-                <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-                  <Ionicons name="notifications-outline" size={22} color="#FFF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
-                  {user?.picture || user?.photos?.[0] ? (
-                    <Image source={{ uri: user.picture || user.photos[0] }} style={styles.headerAvatar} />
-                  ) : (
-                    <View style={[styles.headerAvatar, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{user?.name?.[0] || 'U'}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
               </View>
             </View>
 

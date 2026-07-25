@@ -113,12 +113,12 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
         gap: 12,
         paddingVertical: 10,
         paddingHorizontal: 12,
-        backgroundColor: isMine ? 'rgba(238, 77, 77, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: isMine ? 'rgba(194, 255, 61, 0.15)' : 'rgba(255, 255, 255, 0.05)',
         borderRadius: 20,
         minWidth: 220,
         maxWidth: 280,
         borderWidth: 1,
-        borderColor: isMine ? 'rgba(238, 77, 77, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+        borderColor: isMine ? 'rgba(194, 255, 61, 0.3)' : 'rgba(255, 255, 255, 0.1)'
       }}
     >
       <TouchableOpacity
@@ -128,19 +128,19 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
           width: 42,
           height: 42,
           borderRadius: 21,
-          backgroundColor: isMine ? '#ee4d4d' : 'rgba(255, 255, 255, 0.15)',
+          backgroundColor: isMine ? '#C2FF3D' : 'rgba(255, 255, 255, 0.15)',
           justifyContent: 'center',
           alignItems: 'center'
         }}
         activeOpacity={0.7}
       >
         {!isLoaded ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color={isMine ? "#000" : "#FFF"} />
         ) : (
           <Ionicons 
             name={isPlaying ? 'pause' : 'play'} 
             size={22} 
-            color="#FFF" 
+            color={isMine ? "#000" : "#FFF"} 
             style={{ marginLeft: isPlaying ? 0 : 3 }} 
           />
         )}
@@ -150,21 +150,21 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
         {/* Progress Bar Track */}
         <View style={{ 
           height: 4, 
-          backgroundColor: isMine ? 'rgba(238, 77, 77, 0.3)' : 'rgba(255, 255, 255, 0.2)', 
+          backgroundColor: isMine ? 'rgba(194, 255, 61, 0.3)' : 'rgba(255, 255, 255, 0.2)', 
           borderRadius: 2, 
           overflow: 'hidden' 
         }}>
           <View style={{ 
             height: '100%', 
             width: `${progressPercent}%`, 
-            backgroundColor: isMine ? '#ee4d4d' : '#FFF', 
+            backgroundColor: isMine ? '#C2FF3D' : '#FFF', 
             borderRadius: 2 
           }} />
         </View>
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
           <Text style={{ 
-            color: isMine ? '#ee4d4d' : 'rgba(255,255,255,0.7)', 
+            color: isMine ? '#C2FF3D' : 'rgba(255,255,255,0.7)', 
             fontSize: 11, 
             fontWeight: '600',
             fontVariant: ['tabular-nums'] 
@@ -703,7 +703,7 @@ export default function ChatScreen() {
       <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
       {/* Premium Header */}
-      <View style={styles.header}>
+      <BlurView intensity={90} tint="dark" style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
@@ -732,7 +732,7 @@ export default function ChatScreen() {
         <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu}>
           <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
         </TouchableOpacity>
-      </View>
+      </BlurView>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -784,7 +784,7 @@ export default function ChatScreen() {
                         <VoiceMessageBubble audioUrl={msg.image_url} isMine={true} />
                       ) : (
                         <LinearGradient
-                          colors={['#ee4d4d', '#780505']}
+                          colors={['#C2FF3D', '#98D014']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={[
@@ -836,13 +836,13 @@ export default function ChatScreen() {
         )}
 
         {/* Input Bar Section */}
-        <View style={styles.inputContainer}>
+        <BlurView intensity={90} tint="dark" style={styles.inputContainer}>
           <TouchableOpacity
-            style={[styles.micBtn, isRecording && { backgroundColor: '#ee4d4d' }]}
+            style={[styles.micBtn, isRecording && { backgroundColor: '#C2FF3D' }]}
             onPress={isRecording ? stopRecording : startRecording}
             activeOpacity={0.7}
           >
-            <Ionicons name="mic" size={20} color={isRecording ? '#FFF' : 'rgba(255, 255, 255, 0.6)'} />
+            <Ionicons name="mic" size={20} color={isRecording ? '#000' : 'rgba(255, 255, 255, 0.6)'} />
           </TouchableOpacity>
           <TextInput
             style={styles.input}
@@ -865,7 +865,7 @@ export default function ChatScreen() {
               <Ionicons name="send" size={16} color="#FFF" style={{ marginLeft: 2 }} />
             )}
           </TouchableOpacity>
-        </View>
+        </BlurView>
       </KeyboardAvoidingView>
 
       {/* Report Modal */}
@@ -960,8 +960,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: '#000000',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     gap: 12,
   },
   backBtn: {
@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.03)',
   },
-  myText: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  myText: { color: '#000000', fontSize: 14, fontWeight: '600', lineHeight: 20 },
   theirText: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
   msgTime: {
     fontSize: 10,
@@ -1119,9 +1119,9 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
   micBtn: {

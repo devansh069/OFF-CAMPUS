@@ -36,6 +36,7 @@ router.get('/discovery/likes-received', authMiddleware, authController.getLikesR
 router.get('/discovery/matches', authMiddleware, authController.getMatches);
 router.post('/discovery/unmatch', authMiddleware, authController.unmatchUser);
 router.post('/discovery/report', authMiddleware, authController.reportUser);
+router.get('/discovery/live-count', authMiddleware, authController.getLiveCounts);
 
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);

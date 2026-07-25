@@ -746,9 +746,6 @@ export default function Events() {
                                 <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
                                   {categoryObj.label.toUpperCase()}
                                 </Text>
-                                {e.is_starred ? (
-                                  <Ionicons name="star" size={10} color="#FFD700" />
-                                ) : null}
                               </View>
                               <Text style={styles.miniCardDaysAway}>
                                 {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
@@ -772,15 +769,15 @@ export default function Events() {
                             </View>
                           </View>
 
-                          {/* Right Column: Inline quick RSVP button */}
+                          {/* Right Column: Favorite/Star button */}
                           <TouchableOpacity
                             style={styles.miniCardRsvpBtn}
                             activeOpacity={0.8}
-                            onPress={() => handleRSVP(e.event_id)}
+                            onPress={() => handleToggleStar(e.event_id)}
                           >
-                            {e.is_attending ? (
+                            {e.is_starred ? (
                               <LinearGradient
-                                colors={['#C2FF3D', '#C2FF3D']}
+                                colors={['#FFD700', '#FFD700']}
                                 style={styles.miniRsvpGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}

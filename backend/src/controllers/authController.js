@@ -983,3 +983,18 @@ exports.uploadChatAudio = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to upload voice note: ' + error.message });
   }
 };
+
+exports.getLiveCounts = async (req, res) => {
+  try {
+    const user = await User.findOne({ where: { user_id: req.user.user_id } });
+    const globalCount = await User.count();
+    let collegeCount = 0;
+    if (user && user.college_id) {
+      collegeCount = await User.count({ where: { college_id: user.college_id } });
+    }
+    return res.status(200).json({ global: globalCount, college: collegeCount });
+  } catch (error) {
+    console.error('[getLiveCounts Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch live counts' });
+  }
+};
