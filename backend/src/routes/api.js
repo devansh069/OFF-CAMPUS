@@ -52,11 +52,12 @@ router.get('/admin/verification-requests', authMiddleware, adminMiddleware, admi
 router.post('/admin/verification/:id/approve', authMiddleware, adminMiddleware, adminController.approveVerification);
 router.post('/admin/verification/:id/reject', authMiddleware, adminMiddleware, adminController.rejectVerification);
 router.delete('/admin/confessions/:id', authMiddleware, adminMiddleware, adminController.deleteConfession);
-router.get('/admin/pending-events', authMiddleware, adminMiddleware, adminController.getPendingEvents);
-router.post('/admin/events/:id/approve', authMiddleware, adminMiddleware, adminController.approveEvent);
-router.post('/admin/events/:id/reject', authMiddleware, adminMiddleware, adminController.rejectEvent);
+router.get('/admin/pending-events', adminController.getPendingEvents);
+router.post('/admin/events/:id/approve', adminController.approveEvent);
+router.post('/admin/events/:id/reject', adminController.rejectEvent);
 
-// Event endpoints (Protected)
+// Event endpoints (Protected, except /events which is public)
+router.get('/events', eventController.getAllEvents);
 router.get('/events/feed', authMiddleware, eventController.getEventsFeed);
 router.post('/events/create', authMiddleware, eventController.createEvent);
 router.post('/events/:id/rsvp', authMiddleware, eventController.toggleRSVP);

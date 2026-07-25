@@ -251,6 +251,10 @@ exports.getPendingEvents = async (req, res) => {
   try {
     const events = await Event.findAll({
       where: { status: 'pending' },
+      include: [
+        { model: User, as: 'host', attributes: ['user_id', 'name', 'photos'] },
+        { model: College, as: 'college', attributes: ['college_id', 'name', 'short_name'] }
+      ],
       order: [['created_at', 'DESC']]
     });
     return res.status(200).json({ events });

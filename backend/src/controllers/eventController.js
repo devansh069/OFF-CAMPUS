@@ -266,3 +266,21 @@ exports.toggleStar = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to toggle star: ' + error.message });
   }
 };
+// 4. Get All Events (unfiltered event list)
+exports.getAllEvents = async (req, res) => {
+  try {
+    const events = await Event.findAll({
+      include: [
+        { model: User, as: 'host', attributes: ['user_id', 'name', 'photos'] },
+        { model: College, as: 'college', attributes: ['college_id', 'name', 'short_name'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    return res.status(200).json({ events });
+  } catch (error) {
+    console.error('[GetAllEvents Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve all events: ' + error.message });
+  }
+};
+
