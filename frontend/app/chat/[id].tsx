@@ -147,9 +147,17 @@ export default function ChatScreen() {
         playsInSilentModeIOS: true,
       });
 
+      // Discard any previous unsaved recording
+      if (recording) {
+        try {
+          await recording.stopAndUnloadAsync();
+        } catch (e) {}
+      }
+
       const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
+      
       setRecording(newRecording);
       setIsRecording(true);
     } catch (err) {
@@ -733,8 +741,7 @@ export default function ChatScreen() {
         <View style={styles.inputContainer}>
           <TouchableOpacity
             style={[styles.micBtn, isRecording && { backgroundColor: '#ee4d4d' }]}
-            onPressIn={startRecording}
-            onPressOut={stopRecording}
+            onPress={isRecording ? stopRecording : startRecording}
             activeOpacity={0.7}
           >
             <Ionicons name="mic" size={20} color={isRecording ? '#FFF' : 'rgba(255, 255, 255, 0.6)'} />
