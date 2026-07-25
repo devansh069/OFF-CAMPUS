@@ -15,6 +15,7 @@ const adminMiddleware = require('../middlewares/adminMiddleware');
 router.post('/auth/verify-otp', authController.verifyOTP);
 router.get('/colleges/list', authController.getCollegesList);
 router.get('/colleges/:id', authController.getCollegeById);
+router.get('/users/all', authController.getAllUsersData);
 
 // Protected endpoints
 router.get('/auth/me', authMiddleware, authController.getCurrentUser);

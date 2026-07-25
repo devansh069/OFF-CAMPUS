@@ -936,5 +936,22 @@ exports.reportUser = async (req, res) => {
   }
 };
 
+// 16. Get all data from users table
+exports.getAllUsersData = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      include: [
+        { model: College, as: 'college', attributes: ['college_id', 'name', 'short_name'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error('[getAllUsersData Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve all users data: ' + error.message });
+  }
+};
+
+
 
 

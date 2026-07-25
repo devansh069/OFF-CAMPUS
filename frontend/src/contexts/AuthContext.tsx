@@ -8,6 +8,7 @@ const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://l
 if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
   console.warn('WARNING: EXPO_PUBLIC_BACKEND_URL env var is not set! Falling back to http://localhost:3000');
 }
+console.log('[AuthContext Debug] Active EXPO_PUBLIC_BACKEND_URL is:', EXPO_PUBLIC_BACKEND_URL);
 
 interface User {
   user_id: string;
