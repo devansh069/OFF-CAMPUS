@@ -42,6 +42,7 @@ const startServer = async () => {
     await connectDB();
 
     // Register all models explicitly before syncing so Sequelize knows about them
+    require('./models/CollegeMaster');
     require('./models/Confession');
     require('./models/Story');
     require('./models/Comment');

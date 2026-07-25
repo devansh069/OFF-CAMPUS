@@ -183,6 +183,7 @@ exports.approveVerification = async (req, res) => {
     }
 
     user.verification_status = 'verified';
+    user.verification_method = 'manual';
     await user.save();
 
     // Send status notification email to user

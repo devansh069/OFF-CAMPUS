@@ -278,15 +278,20 @@ export default function Verification() {
               <View style={styles.introSection}>
                 <Text style={styles.mainTitle}>Get Your Verified Badge</Text>
                 <Text style={styles.mainSub}>
-                  Choose from two simple ways to verify your student status.
+                  Earn the highly preferred <Text style={{color: '#3B82F6', fontWeight: 'bold'}}>Blue Tick</Text> instantly via College Email, or a <Text style={{color: '#F87171', fontWeight: 'bold'}}>Red Tick</Text> via Manual ID Upload!
                 </Text>
               </View>
 
               {/* BOX 1: INSTANT COLLEGE EMAIL VERIFICATION */}
-              <View style={styles.box}>
-                <View style={styles.boxHeader}>
-                  <Ionicons name="mail" size={24} color="#C2FF3D" />
-                  <Text style={styles.boxTitle}>Instant Email Verification</Text>
+              <View style={[styles.box, { borderColor: 'rgba(59, 130, 246, 0.3)' }]}>
+                <View style={[styles.boxHeader, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="mail" size={24} color="#3B82F6" />
+                    <Text style={styles.boxTitle}>Instant Email Verification</Text>
+                  </View>
+                  <View style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+                    <Text style={{ color: '#3B82F6', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>BLUE TICK</Text>
+                  </View>
                 </View>
 
                 <Text style={styles.boxDesc}>
@@ -352,10 +357,15 @@ export default function Verification() {
               </View>
 
               {/* BOX 2: MANUAL ID CARD VERIFICATION */}
-              <View style={styles.box}>
-                <View style={styles.boxHeader}>
-                  <Ionicons name="id-card" size={24} color="#C2FF3D" />
-                  <Text style={styles.boxTitle}>Manual ID Verification</Text>
+              <View style={[styles.box, { borderColor: 'rgba(248, 113, 113, 0.3)' }]}>
+                <View style={[styles.boxHeader, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="id-card" size={24} color="#F87171" />
+                    <Text style={styles.boxTitle}>Manual ID Verification</Text>
+                  </View>
+                  <View style={{ backgroundColor: 'rgba(248, 113, 113, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.4)' }}>
+                    <Text style={{ color: '#F87171', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>RED TICK</Text>
+                  </View>
                 </View>
 
                 <Text style={styles.boxDesc}>
@@ -529,16 +539,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   actionBtn: {
+    flexDirection: 'row',
     backgroundColor: '#C2FF3D',
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#FFF',
+    color: '#000000',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   resendBtn: {
     justifyContent: 'center',

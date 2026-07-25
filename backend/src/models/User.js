@@ -141,6 +141,11 @@ const User = sequelize.define('User', {
     defaultValue: 'pending',
     field: 'verification_status'
   },
+  verification_method: {
+    type: DataTypes.ENUM('email', 'manual'),
+    allowNull: true,
+    field: 'verification_method'
+  },
   picture: {
     type: DataTypes.TEXT,
     allowNull: true

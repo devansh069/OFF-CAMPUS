@@ -319,7 +319,11 @@ export default function Profile() {
                   <Ionicons 
                     name="checkmark-circle" 
                     size={18} 
-                    color={user.verification_status === 'verified' ? '#C2FF3D' : 'rgba(255, 255, 255, 0.4)'} 
+                    color={
+                      user.verification_status === 'verified' 
+                        ? (user.verification_method === 'manual' ? '#F87171' : '#3B82F6') 
+                        : 'rgba(255, 255, 255, 0.4)'
+                    } 
                     style={{ marginLeft: 6 }} 
                   />
                 </TouchableOpacity>
