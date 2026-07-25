@@ -5,6 +5,8 @@ const College = require('../models/College');
 const Like = require('../models/Like');
 const Message = require('../models/Message');
 const Referral = require('../models/Referral');
+const VibeScoreLog = require('../models/VibeScoreLog');
+const Report = require('../models/Report');
 const Op = {
   in: '$in',
   notIn: '$notIn',
@@ -154,11 +156,19 @@ exports.verifyOTP = async (req, res) => {
           const tr = referrer.total_referrals;
 
           if (tr === 1) {
+            const oldScore = referrer.vibe_score;
             referrer.vibe_score = Math.min(referrer.vibe_score + 2, 10);
+            if (oldScore !== referrer.vibe_score) {
+              await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 1st friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
+            }
           } else if (tr === 3) {
             referrer.profile_visibility = 1.5;
           } else if (tr === 5) {
+            const oldScore = referrer.vibe_score;
             referrer.vibe_score = 10;
+            if (oldScore !== referrer.vibe_score) {
+              await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 5th friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
+            }
           } else if (tr === 7) {
             referrer.profile_visibility = 2.0;
           } else if (tr >= 10 && !referrer.has_event_pass) {
@@ -952,32 +962,31 @@ exports.reportUser = async (req, res) => {
 
     const reportId = `rep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    await sequelize.query(
-      `INSERT INTO reports (report_id, from_user_id, to_user_id, reason, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      {
-        replacements: [reportId, currentUserId, target_user_id, reason]
-      }
-    );
+    await Report.create({
+      report_id: reportId,
+      from_user_id: currentUserId,
+      to_user_id: target_user_id,
+      reason: reason
+    });
 
     // Calculate total reports against this user
-    const [reportCountResult] = await sequelize.query(
-      'SELECT COUNT(*) as count FROM reports WHERE to_user_id = ?',
-      { replacements: [target_user_id], type: sequelize.QueryTypes.SELECT }
-    );
-    const totalReports = parseInt(reportCountResult.count) || 1;
+    const totalReports = await Report.count({ where: { to_user_id: target_user_id } });
 
     // Apply the progressive penalty to vibe score
     const targetUser = await User.findOne({ where: { user_id: target_user_id } });
     if (targetUser) {
       let currentVibeScore = targetUser.vibe_score || 10;
-      let newVibeScore = currentVibeScore - totalReports;
-      
-      // Ensure vibe score does not drop below 0
-      if (newVibeScore < 0) newVibeScore = 0;
+      let newVibeScore = Math.max(0, currentVibeScore - totalReports);
       
       targetUser.vibe_score = newVibeScore;
       await targetUser.save();
+      
+      await VibeScoreLog.create({
+        user_id: target_user_id,
+        reason: `Reported by user (Total reports: ${totalReports})`,
+        change_amount: -(totalReports),
+        new_score: newVibeScore
+      });
     }
 
     await executeUnmatch(currentUserId, target_user_id);
@@ -1004,6 +1013,21 @@ exports.getAllUsersData = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to retrieve all users data: ' + error.message });
   }
 };
+
+exports.getVibeScoreHistory = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const history = await VibeScoreLog.findAll({
+      where: { user_id: userId },
+      order: [['created_at', 'DESC']]
+    });
+    return res.status(200).json(history);
+  } catch (error) {
+    console.error('[getVibeScoreHistory Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch vibe score history.' });
+  }
+};
+
 // Upload Audio (Voice Note) to Cloudinary
 const uploadAudioToCloudinary = async (base64Str) => {
   try {

@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ export default function Profile() {
   const { user, sessionToken, logout, refreshUser, updateUser } = useAuth();
   const router = useRouter();
   const [college, setCollege] = useState<any>(user?.college || null);
+  const [vibeModalVisible, setVibeModalVisible] = useState(false);
+  const [vibeHistory, setVibeHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (user?.college) {
@@ -37,6 +40,24 @@ export default function Profile() {
       fetchCollege();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (vibeModalVisible && sessionToken && sessionToken !== 'dummy_token') {
+      fetchVibeHistory();
+    }
+  }, [vibeModalVisible]);
+
+  const fetchVibeHistory = async () => {
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/vibe-history`, {
+        headers: { Authorization: `Bearer ${sessionToken}` }
+      });
+      const data = await res.json();
+      setVibeHistory(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchCollege = async () => {
     if (sessionToken === 'dummy_token' || !sessionToken) {
@@ -347,7 +368,7 @@ export default function Profile() {
 
             {/* Stats Dashboard */}
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, styles.vibeStatCard, { flex: 1 }]}>
+              <TouchableOpacity style={[styles.statCard, styles.vibeStatCard, { flex: 1 }]} onPress={() => setVibeModalVisible(true)} activeOpacity={0.8}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <View style={styles.statIconRow}>
                     <Ionicons name="sparkles" size={24} color="#C2FF3D" />
@@ -358,7 +379,7 @@ export default function Profile() {
                 <Text style={styles.vibeScoreExplanation}>
                   Based on matches, profile completeness, and positive community interactions.
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Spotify Vibe Card Section */}
@@ -430,13 +451,7 @@ export default function Profile() {
               </TouchableOpacity>
             </View>
 
-            {/* Bio Info Summary */}
-            {user.bio && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>BIO</Text>
-                <Text style={styles.bioText}>{user.bio}</Text>
-              </View>
-            )}
+
 
             {/* Quick Actions List (Redesigned) */}
             <View style={styles.actionsContainer}>
@@ -488,6 +503,90 @@ export default function Profile() {
 
             <View style={{ height: 40 }} />
           </ScrollView>
+
+          {/* VIBE SCORE AUDIT MODAL */}
+          <Modal visible={vibeModalVisible} transparent={true} animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Vibe Score Audit</Text>
+                  <TouchableOpacity onPress={() => setVibeModalVisible(false)} style={styles.modalCloseBtn}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+                
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.modalIntro}>
+                    Your Vibe Score measures your reputation in the Off Campus community. It strictly updates based on your referrals and community reports.
+                  </Text>
+                  
+                  <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
+                  
+                  <View style={styles.auditItem}>
+                    <View style={styles.auditIconWrap}>
+                      <Ionicons name="people" size={20} color="#0A0A0A" />
+                    </View>
+                    <View style={styles.auditTextWrap}>
+                      <Text style={styles.auditItemTitle}>Refer Friends</Text>
+                      <Text style={styles.auditItemDesc}>
+                        • 1 Referral: +2 Vibe Score{'\n'}
+                        • 3 Referrals: 1.5x Profile Visibility{'\n'}
+                        • 5 Referrals: Instant 10/10 Vibe Score{'\n'}
+                        • 7 Referrals: 2.0x Ultimate Visibility{'\n'}
+                        • 10 Referrals: Free Off-Campus Event Pass{'\n'}
+                        Maximum score is capped at 10.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.auditSectionTitle, { color: '#FF3366', marginTop: 16 }]}>How it Decreases</Text>
+                  
+                  <View style={styles.auditItem}>
+                    <View style={[styles.auditIconWrap, { backgroundColor: '#FF3366' }]}>
+                      <Ionicons name="warning" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.auditTextWrap}>
+                      <Text style={styles.auditItemTitle}>Community Reports</Text>
+                      <Text style={styles.auditItemDesc}>
+                        When users report you, your score drops progressively:{'\n'}
+                        • 1st Report: -1 point{'\n'}
+                        • 2nd Report: -2 points{'\n'}
+                        • 3rd Report: -3 points{'\n'}
+                        • 4th Report: -4 points{'\n'}
+                        Minimum score is clamped at 0.
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 24 }} />
+                  
+                  <Text style={styles.auditSectionTitle}>Score History Log</Text>
+                  
+                  {vibeHistory.length === 0 ? (
+                    <Text style={styles.noHistoryText}>No vibe score changes yet.</Text>
+                  ) : (
+                    vibeHistory.map((log: any, idx: number) => (
+                      <View key={log.id || idx} style={styles.historyLogCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.historyReason}>{log.reason}</Text>
+                          <Text style={styles.historyDate}>{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={[styles.historyChange, { color: log.change_amount > 0 ? '#C2FF3D' : '#FF3366' }]}>
+                            {log.change_amount > 0 ? '+' : ''}{log.change_amount}
+                          </Text>
+                          <Text style={styles.historyResult}>Score: {log.new_score}</Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                  
+                  <View style={{height: 20}}/>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
         </SafeAreaView>
       </BlurView>
     </View>
@@ -848,6 +947,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  vibeScoreExplanation: {
+    color: '#999',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#1E1E1E', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
+  modalCloseBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
+  modalScroll: { marginTop: 8 },
+  modalIntro: { color: '#CCC', fontSize: 15, lineHeight: 22, marginBottom: 32 },
+  auditSectionTitle: { color: '#C2FF3D', fontSize: 18, fontWeight: '800', marginBottom: 20 },
+  auditItem: { flexDirection: 'row', marginBottom: 24, alignItems: 'flex-start', paddingRight: 10 },
+  auditIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#C2FF3D', alignItems: 'center', justifyContent: 'center' },
+  auditTextWrap: { marginLeft: 16, flex: 1 },
+  auditItemTitle: { color: '#FFF', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  auditItemDesc: { color: '#999', fontSize: 14, lineHeight: 20 },
+  historyLogCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  historyReason: { color: '#FFF', fontSize: 15, fontWeight: '600', marginBottom: 4 },
+  historyDate: { color: '#999', fontSize: 12 },
+  historyChange: { fontSize: 18, fontWeight: '900', marginBottom: 2 },
+  historyResult: { color: '#999', fontSize: 12, fontWeight: '600' },
+  noHistoryText: { color: '#999', fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 12 },
   bioText: {
     color: '#FFF',
     fontSize: 15,
