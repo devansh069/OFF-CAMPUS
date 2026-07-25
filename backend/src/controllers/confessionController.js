@@ -232,3 +232,50 @@ exports.createComment = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to post comment: ' + error.message });
   }
 };
+
+// 6. Get all confessions
+exports.getAllConfessions = async (req, res) => {
+  try {
+    const confessions = await sequelize.query(
+      'SELECT confession_id, user_id, college_id, content, likes, comments, created_at, updated_at FROM confessions ORDER BY created_at DESC',
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.status(200).json({ confessions });
+  } catch (error) {
+    console.error('[getAllConfessions Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve confessions: ' + error.message });
+  }
+};
+
+// 7. Get all likes on confessions (represented as like count statistics per confession)
+exports.getAllConfessionLikes = async (req, res) => {
+  try {
+    const likes = await sequelize.query(
+      'SELECT confession_id, content, likes as likes_count, user_id, college_id, created_at FROM confessions ORDER BY likes DESC',
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.status(200).json({ likes });
+  } catch (error) {
+    console.error('[getAllConfessionLikes Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve confession likes: ' + error.message });
+  }
+};
+
+// 8. Get all comments/replies on confessions
+exports.getAllComments = async (req, res) => {
+  try {
+    const comments = await sequelize.query(
+      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.created_at, c.updated_at, u.name as user_name, col.short_name as college_name 
+       FROM comments c 
+       LEFT JOIN users u ON c.user_id = u.user_id 
+       LEFT JOIN colleges col ON u.college_id = col.college_id 
+       ORDER BY c.created_at DESC`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.status(200).json({ comments });
+  } catch (error) {
+    console.error('[getAllComments Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve all comments: ' + error.message });
+  }
+};
+
