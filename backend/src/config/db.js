@@ -1,26 +1,41 @@
 const Sequelize = require('sequelize');
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'off_campus_db',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
-    dialect: 'mysql',
-    dialectModulePath: require.resolve('./mysql2-compat'), // Force using patched mysql2 driver for Sequelize v3 compatibility
-    logging: false,
-    pool: {
-      max: 5,
-      min: 0,
-      idle: 10000
-    },
-    define: {
-      timestamps: true,
-      underscored: true
-    }
-  }
-);
+const sequelize = (process.env.MYSQL_URL || process.env.DATABASE_URL)
+  ? new Sequelize(process.env.MYSQL_URL || process.env.DATABASE_URL, {
+      dialect: 'mysql',
+      dialectModulePath: require.resolve('./mysql2-compat'),
+      logging: false,
+      pool: {
+        max: 5,
+        min: 0,
+        idle: 10000
+      },
+      define: {
+        timestamps: true,
+        underscored: true
+      }
+    })
+  : new Sequelize(
+      process.env.DB_NAME || 'off_campus_db',
+      process.env.DB_USER || 'root',
+      process.env.DB_PASSWORD,
+      {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '3306', 10),
+        dialect: 'mysql',
+        dialectModulePath: require.resolve('./mysql2-compat'),
+        logging: false,
+        pool: {
+          max: 5,
+          min: 0,
+          idle: 10000
+        },
+        define: {
+          timestamps: true,
+          underscored: true
+        }
+      }
+    );
 
 const connectDB = async () => {
   try {

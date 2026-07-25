@@ -16,6 +16,8 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import io from 'socket.io-client';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -30,12 +32,50 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  const socketRef = useRef<any>(null);
+
   useEffect(() => {
     fetchMessages();
     fetchOtherUser();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, []);
+
+    if (sessionToken && sessionToken !== 'dummy_token') {
+      console.log('[Socket] Connecting to:', EXPO_PUBLIC_BACKEND_URL);
+      const socket = io(EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
+        transports: ['websocket'],
+        forceNew: true
+      });
+
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        console.log('[Socket] Connected! Registering room for user:', user?.user_id);
+        socket.emit('join_room', user?.user_id);
+      });
+
+      socket.on('new_message', (newMessage: any) => {
+        console.log('[Socket] Received new message:', newMessage);
+        // Only append messages from the current conversation partner
+        if (newMessage.from_user_id === id) {
+          setMessages(prev => {
+            // Prevent duplicates
+            if (prev.some(m => m.message_id === newMessage.message_id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        console.log('[Socket] Disconnected');
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [id, sessionToken, user]);
 
   const fetchOtherUser = async () => {
     const fallbackUsers = [
@@ -112,12 +152,14 @@ export default function ChatScreen() {
     const content = text.trim();
     setText('');
     
-    // Local optimistic append so users can type and see messages instantly in mock mode
+    // Local optimistic append so users can type and see messages instantly
     const newMsg = {
       message_id: `msg_local_${Date.now()}`,
       from_user_id: user?.user_id,
       to_user_id: id,
       content,
+      message_type: 'text',
+      image_url: null,
       created_at: new Date().toISOString()
     };
     setMessages(prev => [...prev, newMsg]);
@@ -134,16 +176,104 @@ export default function ChatScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ to_user_id: id, content }),
+        body: JSON.stringify({ to_user_id: id, content, message_type: 'text' }),
       });
       if (response.ok) {
-        // Refresh with real database state if online
-        await fetchMessages();
+        const data = await response.json();
+        // Replace optimistic msg with real db msg
+        setMessages(prev =>
+          prev.map(m => m.message_id === newMsg.message_id ? data.message : m)
+        );
       }
     } catch (error: any) {
       console.warn('Error sending message via backend, kept locally in mock state:', error.message);
     } finally {
       setSending(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  };
+
+  const pickChatImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access library was denied.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        setSending(true);
+
+        const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        
+        // optimistic local message preview
+        const localImgMsg = {
+          message_id: `msg_local_${Date.now()}`,
+          from_user_id: user?.user_id,
+          to_user_id: id,
+          content: 'Sent a photo',
+          message_type: 'image',
+          image_url: result.assets[0].uri,
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, localImgMsg]);
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+        if (sessionToken === 'dummy_token') {
+          setSending(false);
+          return;
+        }
+
+        // Upload to Cloudinary via backend
+        const uploadRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-image`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({ image: base64Img })
+        });
+
+        if (!uploadRes.ok) throw new Error('Image upload failed');
+        const uploadData = await uploadRes.json();
+        const secureUrl = uploadData.image_url;
+
+        // Send message
+        const sendRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({
+            to_user_id: id,
+            content: 'Sent a photo',
+            message_type: 'image',
+            image_url: secureUrl
+          })
+        });
+
+        if (sendRes.ok) {
+          const data = await sendRes.json();
+          // Update local optimistic message with the database message
+          setMessages(prev =>
+            prev.map(m => m.message_id === localImgMsg.message_id ? data.message : m)
+          );
+        }
+      }
+    } catch (error: any) {
+      console.warn('Chat image sending failed:', error.message);
+      alert('Failed to send image: ' + error.message);
+    } finally {
+      setSending(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
   };
 
@@ -236,13 +366,37 @@ export default function ChatScreen() {
                         colors={['#ee4d4d', '#780505']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={[styles.messageBubble, styles.myMessage]}
+                        style={[
+                          styles.messageBubble,
+                          styles.myMessage,
+                          msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
+                        ]}
                       >
-                        <Text style={styles.myText}>{msg.content}</Text>
+                        {msg.message_type === 'image' ? (
+                          <Image
+                            source={{ uri: msg.image_url }}
+                            style={{ width: 200, height: 200, borderRadius: 8 }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={styles.myText}>{msg.content}</Text>
+                        )}
                       </LinearGradient>
                     ) : (
-                      <View style={[styles.messageBubble, styles.theirMessage]}>
-                        <Text style={styles.theirText}>{msg.content}</Text>
+                      <View style={[
+                        styles.messageBubble,
+                        styles.theirMessage,
+                        msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
+                      ]}>
+                        {msg.message_type === 'image' ? (
+                          <Image
+                            source={{ uri: msg.image_url }}
+                            style={{ width: 200, height: 200, borderRadius: 8 }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={styles.theirText}>{msg.content}</Text>
+                        )}
                       </View>
                     )}
                     <Text style={[styles.msgTime, isMine ? styles.myTime : styles.theirTime]}>
@@ -257,6 +411,9 @@ export default function ChatScreen() {
 
         {/* Input Bar Section */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity style={styles.micBtn} activeOpacity={0.7} onPress={pickChatImage}>
+            <Ionicons name="image-outline" size={20} color="rgba(255, 255, 255, 0.6)" />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -266,9 +423,6 @@ export default function ChatScreen() {
             multiline
             maxLength={500}
           />
-          <TouchableOpacity style={styles.micBtn} activeOpacity={0.7}>
-            <Ionicons name="mic" size={20} color="rgba(255, 255, 255, 0.6)" />
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
             onPress={sendMessage}

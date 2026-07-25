@@ -164,6 +164,24 @@ exports.createStory = async (req, res) => {
       }
     );
 
+    // Emit real-time event via Socket.io to all users
+    const io = req.app.get('io');
+    if (io) {
+      console.log('[Socket] Broadcasting new_story to all connected users');
+      io.emit('new_story', {
+        story_id: storyId,
+        user_id: userId,
+        user_name: user.name || 'Anonymous Student',
+        user_picture: userPicture || null,
+        college_id: user.college_id || null,
+        image: storyImageUrl,
+        caption: caption || null,
+        audience: audience || 'global',
+        views: [],
+        createdAt: new Date().toISOString()
+      });
+    }
+
     return res.status(201).json({
       detail: 'Story created successfully',
       story: {

@@ -97,13 +97,13 @@ const getScrollableItems = (profile: any) => {
   const location = profile.location || 'Saket';
   const state = profile.state || 'Delhi';
 
-  const genderLabel = profile.gender 
-    ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) 
+  const genderLabel = profile.gender
+    ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1))
     : 'Man';
 
   const heightVal = cmToFeetInches(height);
   const locationLabel = `${location}, ${state}`;
-  
+
   const lookingLabel = looking === 'friends' ? 'Friends' : looking === 'dating' ? 'Dating' : looking === 'all' ? 'Dating/Friends' : looking;
   const drinkLabel = drink.toLowerCase() === 'yes' ? 'Drinks' : 'Drink: No';
   const smokeLabel = smoke.toLowerCase() === 'yes' ? 'Smoker' : 'Smoke: No';
@@ -180,7 +180,7 @@ export default function Likes() {
         body: JSON.stringify({ target_user_id: targetUserId }),
       });
       const d = await r.json();
-      
+
       // Filter out the resolved profile immediately
       setLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
@@ -218,7 +218,7 @@ export default function Likes() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
         body: JSON.stringify({ target_user_id: targetUserId }),
       });
-      
+
       // Filter out the resolved profile immediately
       setLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
@@ -257,7 +257,7 @@ export default function Likes() {
     <View style={styles.container}>
       {/* Ambient background linear gradient */}
       <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        colors={['#190924', '#94869eff']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -268,140 +268,140 @@ export default function Likes() {
       <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.bg}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.greet}>People Who</Text>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>Liked You 💖</Text>
-            </View>
-          </View>
-
-          {likes.length === 0 ? (
-            <View style={styles.empty}>
-              <View style={styles.emptyHeartGlow}>
-                <Text style={styles.oopsIconText}>!</Text>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.greet}>People Who</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>Liked You 💖</Text>
               </View>
-              <Text style={styles.emptyT}>Oops! You don't have any likes for now.</Text>
-              <Text style={styles.emptyS}>
-                Go to start vibing with other students and build up matches!
-              </Text>
-              <TouchableOpacity
-                style={styles.exploreBtn}
-                onPress={() => router.replace('/discover')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.exploreText}>Start Vibing </Text>
-              </TouchableOpacity>
             </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
-              {/* 3x3 Photo Cubes Grid */}
-              <View style={styles.gridContainer}>
-                {gridData.map((profile, index) => {
-                  if (profile) {
-                    // Active Profile, color, clickable, overlay cross/handshake buttons
-                    return (
-                      <TouchableOpacity
-                        key={profile.user_id || index}
-                        style={styles.gridCellActive}
-                        onPress={() => {
-                          setActiveProfileIndex(index);
-                          setShowFullProfile(true);
-                        }}
-                        activeOpacity={0.9}
-                      >
-                        <Image
-                          source={{ uri: getProfilePhotos(profile)[0] }}
-                          style={styles.gridPhoto}
-                        />
-                        
-                        {/* Glass shine reflection overlay */}
-                        <LinearGradient
-                          colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
-                          locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={StyleSheet.absoluteFillObject}
-                          pointerEvents="none"
-                        />
-                        
-                        {/* Symmetrical small bottom-corner action overlay buttons */}
-                        <TouchableOpacity
-                          style={[styles.smallActionBtn, styles.smallNopeBtn]}
-                          onPress={() => handleReject(profile.user_id)}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="close" size={16} color="#FF453A" />
-                        </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={[styles.smallActionBtn, styles.smallLikeBtn]}
-                          onPress={() => handleAccept(profile.user_id)}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons name="handshake" size={16} color="#C2FF3D" />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    );
-                  } else {
-                    // Empty cell placeholder
-                    return (
-                      <View
-                        key={`empty-${index}`}
-                        style={styles.gridCellLocked}
-                      >
-                        <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject}>
-                          <View style={styles.lockedOverlay}>
-                            <Ionicons name="heart-outline" size={20} color="rgba(255,255,255,0.15)" />
-                          </View>
-                        </BlurView>
-                      </View>
-                    );
-                  }
-                })}
-              </View>
-            </ScrollView>
-          )}
-
-          {/* Match Screen Overlay */}
-          {showMatch && (
-            <Modal transparent={true} visible={showMatch !== null} animationType="fade">
-              <View style={styles.matchOverlay}>
-                <LinearGradient
-                  colors={['#1F1D2B', '#0F0E17']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.matchInner}
+            {likes.length === 0 ? (
+              <View style={styles.empty}>
+                <View style={styles.emptyHeartGlow}>
+                  <Text style={styles.oopsIconText}>!</Text>
+                </View>
+                <Text style={styles.emptyT}>Oops! You don't have any likes for now.</Text>
+                <Text style={styles.emptyS}>
+                  Go to start vibing with other students and build up matches!
+                </Text>
+                <TouchableOpacity
+                  style={styles.exploreBtn}
+                  onPress={() => router.replace('/discover')}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
-                  <Text style={styles.matchSub}>You and {showMatch.name} liked each other</Text>
-                  <Image source={{ uri: getProfilePhotos(showMatch)[0] }} style={styles.matchPic} />
-                  <View style={styles.matchActions}>
-                    <TouchableOpacity
-                      style={styles.matchBtn}
-                      onPress={() => {
-                        const uid = showMatch.user_id;
-                        setShowMatch(null);
-                        router.push(`/chat/${uid}`);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.matchBtnText}>Say Hi 👋</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.matchBtnSecondary}
-                      onPress={() => setShowMatch(null)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.matchBtnTextSecondary}>Keep Swiping</Text>
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
+                  <Text style={styles.exploreText}>Start Vibing </Text>
+                </TouchableOpacity>
               </View>
-            </Modal>
-          )}
-        </View>
-      </SafeAreaView>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
+                {/* 3x3 Photo Cubes Grid */}
+                <View style={styles.gridContainer}>
+                  {gridData.map((profile, index) => {
+                    if (profile) {
+                      // Active Profile, color, clickable, overlay cross/handshake buttons
+                      return (
+                        <TouchableOpacity
+                          key={profile.user_id || index}
+                          style={styles.gridCellActive}
+                          onPress={() => {
+                            setActiveProfileIndex(index);
+                            setShowFullProfile(true);
+                          }}
+                          activeOpacity={0.9}
+                        >
+                          <Image
+                            source={{ uri: getProfilePhotos(profile)[0] }}
+                            style={styles.gridPhoto}
+                          />
+
+                          {/* Glass shine reflection overlay */}
+                          <LinearGradient
+                            colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
+                            locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={StyleSheet.absoluteFillObject}
+                            pointerEvents="none"
+                          />
+
+                          {/* Symmetrical small bottom-corner action overlay buttons */}
+                          <TouchableOpacity
+                            style={[styles.smallActionBtn, styles.smallNopeBtn]}
+                            onPress={() => handleReject(profile.user_id)}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="close" size={16} color="#FF453A" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.smallActionBtn, styles.smallLikeBtn]}
+                            onPress={() => handleAccept(profile.user_id)}
+                            activeOpacity={0.8}
+                          >
+                            <MaterialCommunityIcons name="handshake" size={16} color="#C2FF3D" />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      );
+                    } else {
+                      // Empty cell placeholder
+                      return (
+                        <View
+                          key={`empty-${index}`}
+                          style={styles.gridCellLocked}
+                        >
+                          <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject}>
+                            <View style={styles.lockedOverlay}>
+                              <Ionicons name="heart-outline" size={20} color="rgba(255,255,255,0.15)" />
+                            </View>
+                          </BlurView>
+                        </View>
+                      );
+                    }
+                  })}
+                </View>
+              </ScrollView>
+            )}
+
+            {/* Match Screen Overlay */}
+            {showMatch && (
+              <Modal transparent={true} visible={showMatch !== null} animationType="fade">
+                <View style={styles.matchOverlay}>
+                  <LinearGradient
+                    colors={['#1F1D2B', '#0F0E17']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.matchInner}
+                  >
+                    <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
+                    <Text style={styles.matchSub}>You and {showMatch.name} liked each other</Text>
+                    <Image source={{ uri: getProfilePhotos(showMatch)[0] }} style={styles.matchPic} />
+                    <View style={styles.matchActions}>
+                      <TouchableOpacity
+                        style={styles.matchBtn}
+                        onPress={() => {
+                          const uid = showMatch.user_id;
+                          setShowMatch(null);
+                          router.push(`/chat/${uid}`);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.matchBtnText}>Say Hi 👋</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.matchBtnSecondary}
+                        onPress={() => setShowMatch(null)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.matchBtnTextSecondary}>Keep Swiping</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </LinearGradient>
+                </View>
+              </Modal>
+            )}
+          </View>
+        </SafeAreaView>
       </BlurView>
 
       {/* Fullscreen Profile Detail Modal (Discover/Vibe style) */}
@@ -502,7 +502,7 @@ export default function Likes() {
                             ))}
                           </ScrollView>
                         </View>
-                        
+
                         {/* Interests / Tags */}
                         {likes[activeProfileIndex].interests?.length > 0 && (
                           <View style={styles.cardTagsRow}>
@@ -596,10 +596,10 @@ const cellWidth = (screenWidth - 64) / 3;
 const cellHeight = (screenHeight - 250) / 3;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#190924' },
   bg: { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   // Header styles
   header: { paddingVertical: 16 },
   greet: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 12, fontWeight: '600' },
@@ -607,15 +607,15 @@ const styles = StyleSheet.create({
   title: { color: '#FFF', fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
   countBadge: { backgroundColor: '#C2FF3D', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
   countText: { color: '#000', fontSize: 12, fontWeight: '900' },
-  
+
   // Empty State styles
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 18, paddingBottom: 80 },
-  emptyHeartGlow: { 
-    backgroundColor: 'rgba(194, 255, 61, 0.08)', 
+  emptyHeartGlow: {
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
     width: 140,
     height: 140,
-    borderRadius: 70, 
-    borderWidth: 1.5, 
+    borderRadius: 70,
+    borderWidth: 1.5,
     borderColor: 'rgba(194, 255, 61, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -634,13 +634,13 @@ const styles = StyleSheet.create({
   },
   emptyT: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
   emptyS: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: 15 },
-  exploreBtn: { 
-    marginTop: 20, 
-    backgroundColor: '#C2FF3D', 
-    paddingHorizontal: 32, 
-    paddingVertical: 14, 
-    borderRadius: 28, 
-    borderWidth: 1, 
+  exploreBtn: {
+    marginTop: 20,
+    backgroundColor: '#C2FF3D',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 28,
+    borderWidth: 1,
     borderColor: '#C2FF3D',
     shadowColor: '#C2FF3D',
     shadowOffset: { width: 0, height: 4 },
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)', // Polished glass edge
   },
-  
+
   // Symmetrical small grid overlay action buttons
   smallActionBtn: {
     position: 'absolute',

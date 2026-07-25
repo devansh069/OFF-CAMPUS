@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import io from 'socket.io-client';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -166,6 +167,70 @@ export default function CampusLive() {
       });
     }
   }, [user?.college_id]);
+
+  // Connect to socket.io on confessions screen for real-time stories
+  useEffect(() => {
+    if (sessionToken && sessionToken !== 'dummy_token') {
+      console.log('[Socket Stories] Connecting to socket.io...');
+      const socket = io(EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
+        transports: ['websocket'],
+        forceNew: true
+      });
+
+      socket.on('connect', () => {
+        console.log('[Socket Stories] Connected, joining room:', user?.user_id);
+        socket.emit('join_room', user?.user_id);
+      });
+
+      socket.on('new_story', (data: any) => {
+        console.log('[Socket Stories] Received new story:', data);
+        // If it's a story from another user, append to stories feed
+        if (data.user_id !== user?.user_id) {
+          setStories(prev => {
+            const updated = [...prev];
+            const existingUserIdx = updated.findIndex(u => u.user_id === data.user_id);
+            const newStoryItem = {
+              story_id: data.story_id,
+              image: data.image,
+              caption: data.caption,
+              audience: data.audience,
+              views: data.views,
+              createdAt: data.createdAt
+            };
+
+            if (existingUserIdx > -1) {
+              // Prevent duplicates
+              if (updated[existingUserIdx].stories.some((st: any) => st.story_id === data.story_id)) {
+                return prev;
+              }
+              updated[existingUserIdx] = {
+                ...updated[existingUserIdx],
+                has_unviewed: true,
+                stories: [...(updated[existingUserIdx].stories || []), newStoryItem]
+              };
+            } else {
+              updated.push({
+                user_id: data.user_id,
+                user_name: data.user_name,
+                user_picture: data.user_picture,
+                has_unviewed: true,
+                stories: [newStoryItem]
+              });
+            }
+            return updated;
+          });
+        }
+      });
+
+      socket.on('disconnect', () => {
+        console.log('[Socket Stories] Disconnected');
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [sessionToken, user]);
 
   const fetchAll = async () => {
     if (sessionToken === 'dummy_token') {

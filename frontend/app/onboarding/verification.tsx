@@ -111,7 +111,16 @@ export default function Verification() {
         Alert.alert(
           'Verified! 🎉',
           'Your college email has been verified. You have instantly earned your Blue Tick!',
-          [{ text: 'Awesome!', onPress: () => router.back() }]
+          [{
+            text: 'Awesome!',
+            onPress: () => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)/profile');
+              }
+            }
+          }]
         );
       } else {
         Alert.alert('Verification Failed', data.detail || 'Invalid OTP. Please try again.');

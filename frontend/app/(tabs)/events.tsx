@@ -11,7 +11,9 @@ import {
   Modal,
   Platform,
   TextInput,
+  Linking,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -190,6 +192,38 @@ const getEventFlyer = (e: any) => {
   return fallbacks[e.category] || fallbacks.fest;
 };
 
+const getHostAvatar = (host: any) => {
+  if (!host) return 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+  
+  let avatarUrl = '';
+  if (host.photos) {
+    let parsedPhotos: string[] = [];
+    if (Array.isArray(host.photos)) {
+      parsedPhotos = host.photos;
+    } else if (typeof host.photos === 'string') {
+      try {
+        parsedPhotos = JSON.parse(host.photos);
+      } catch {}
+    }
+    if (parsedPhotos.length > 0 && parsedPhotos[0]) {
+      avatarUrl = parsedPhotos[0];
+    }
+  }
+  
+  if (!avatarUrl && host.picture) {
+    avatarUrl = host.picture;
+  }
+  
+  if (!avatarUrl) {
+    return 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+  }
+  
+  if (avatarUrl.startsWith('http')) {
+    return avatarUrl;
+  }
+  return `${EXPO_PUBLIC_BACKEND_URL}/${avatarUrl}`;
+};
+
 // Split title for Oliver Bennet style stacked name layout
 const splitTitle = (title: string) => {
   if (!title) return ['', ''];
@@ -225,6 +259,12 @@ export default function Events() {
   const [formCoverImage, setFormCoverImage] = useState<string | null>(null);
   const [formGalleryPhotos, setFormGalleryPhotos] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [formRegistrationLink, setFormRegistrationLink] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [dateValue, setDateValue] = useState(new Date());
+  const [formContactEmail, setFormContactEmail] = useState('');
+  const [formContactPhone, setFormContactPhone] = useState('');
 
   // Gallery scroll coordinates map
   const galleryScrollCoords = useRef<{ [key: string]: number }>({});
@@ -236,8 +276,10 @@ export default function Events() {
   }, [sessionToken]);
 
   useEffect(() => {
-    if (user?.name) {
-      setFormHost(user.name);
+    if (user) {
+      if (user.name) setFormHost(user.name);
+      if (user.email) setFormContactEmail(user.email);
+      if (user.phone_number) setFormContactPhone(user.phone_number);
     }
   }, [user]);
 
@@ -328,6 +370,9 @@ export default function Events() {
         description: formDescription,
         cover_image: formCoverImage,
         gallery_photos: formGalleryPhotos,
+        registration_link: formRegistrationLink,
+        contact_email: formContactEmail,
+        contact_phone: formContactPhone,
       };
 
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/create`, {
@@ -354,6 +399,10 @@ export default function Events() {
       setFormDescription('');
       setFormCoverImage(null);
       setFormGalleryPhotos([]);
+      setFormRegistrationLink('');
+      setFormContactEmail(user?.email || '');
+      setFormContactPhone(user?.phone_number || '');
+      setDateValue(new Date());
       setCreateModalVisible(false);
       
       fetchEvents();
@@ -417,6 +466,36 @@ export default function Events() {
     }
   };
 
+  const handleToggleStar = async (eventId: string) => {
+    if (sessionToken === 'dummy_token') {
+      const updatedEvents = events.map(e =>
+        e.event_id === eventId ? { ...e, is_starred: !e.is_starred } : e
+      );
+      setEvents(updatedEvents);
+      setSelectedEvent((prev: any) =>
+        prev && prev.event_id === eventId ? { ...prev, is_starred: !prev.is_starred } : prev
+      );
+      return;
+    }
+
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/${eventId}/star`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      const d = await r.json();
+      const updatedEvents = events.map(e =>
+        e.event_id === eventId ? { ...e, is_starred: d.is_starred } : e
+      );
+      setEvents(updatedEvents);
+      setSelectedEvent((prev: any) =>
+        prev && prev.event_id === eventId ? { ...prev, is_starred: d.is_starred } : prev
+      );
+    } catch (e) {
+      console.error('Star toggling failed:', e);
+    }
+  };
+
   const handleMessageHost = (hostName: string) => {
     setSelectedEvent(null);
     router.push('/(tabs)/messages');
@@ -448,6 +527,15 @@ export default function Events() {
       return matchTitle || matchDesc || matchHost || matchLoc;
     }
     return true;
+  });
+
+  const sortedEvents = [...filtered].sort((a, b) => {
+    const aStarred = a.is_starred ? 1 : 0;
+    const bStarred = b.is_starred ? 1 : 0;
+    if (aStarred !== bStarred) {
+      return bStarred - aStarred; // Starred first
+    }
+    return 0; // maintain original database order
   });
 
   return (
@@ -519,38 +607,120 @@ export default function Events() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 100 }}
             >
-              {/* Start browsing section */}
-              <Text style={styles.sectionHeading}>Start browsing</Text>
-              <View style={styles.gridContainer}>
+              {/* Horizontal Category Filters */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.horizontalFiltersScroll}
+                contentContainerStyle={styles.horizontalFiltersContainer}
+              >
                 {categories.map((c) => {
                   const isSelected = activeCategory === c.key;
                   return (
                     <TouchableOpacity
                       key={c.key}
-                      style={[styles.gridCard, isSelected && styles.gridCardActive]}
+                      style={[
+                        styles.horizontalFilterPill,
+                        isSelected && styles.horizontalFilterPillActive
+                      ]}
                       activeOpacity={0.8}
                       onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
                     >
-                      <LinearGradient
-                        colors={c.colors}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.gridCardGradient}
+                      <Ionicons
+                        name={c.icon as any}
+                        size={14}
+                        color={isSelected ? '#000' : 'rgba(255,255,255,0.7)'}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.horizontalFilterText,
+                          isSelected && styles.horizontalFilterTextActive
+                        ]}
                       >
-                        <Text style={styles.gridCardText}>{c.label}</Text>
-                        <View style={styles.gridCardIconContainer}>
-                          <Ionicons name={c.icon as any} size={28} color="rgba(255,255,255,0.7)" />
-                        </View>
-                      </LinearGradient>
+                        {c.label}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
 
-              {/* Discover something new section */}
-              <Text style={styles.sectionHeading}>Discover something new</Text>
+              {/* Top 5 Events Horizontal Card List */}
+              {(() => {
+                const top5Events = [...filtered]
+                  .sort((a, b) => (b.attendee_count || 0) - (a.attendee_count || 0))
+                  .slice(0, 5);
 
-              {filtered.length === 0 ? (
+                if (top5Events.length === 0) return null;
+
+                return (
+                  <>
+                    <Text style={styles.sectionHeading}>Top 5 Events</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.topEventsScroll}
+                      contentContainerStyle={styles.topEventsScrollContent}
+                    >
+                      {top5Events.map((e: any) => {
+                        const categoryObj = categories.find(cat => cat.key === e.category) || {
+                          key: 'other',
+                          colors: ['#FF1B6B', '#FF7B00'],
+                          icon: 'calendar-outline'
+                        };
+                        const eventDate = new Date(e.date);
+                        const dateStr = eventDate.toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric'
+                        });
+
+                        return (
+                          <TouchableOpacity
+                            key={e.event_id}
+                            style={styles.topEventCard}
+                            activeOpacity={0.9}
+                            onPress={() => setSelectedEvent(e)}
+                          >
+                            <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFillObject} />
+                            {/* 50% Top: Event Cover Image */}
+                            <Image
+                              source={{ uri: getEventFlyer(e) }}
+                              style={styles.topEventImage}
+                            />
+                            {/* 50% Bottom: Event Info */}
+                            <View style={styles.topEventInfo}>
+                              <Text style={[styles.topEventCat, { color: categoryObj.colors[0] }]}>
+                                {e.category.toUpperCase()}
+                              </Text>
+                              <Text style={styles.topEventTitle} numberOfLines={1}>
+                                {e.title}
+                              </Text>
+                              <Text style={styles.topEventHost} numberOfLines={1}>
+                                by {e.host_name}
+                              </Text>
+                              <View style={styles.topEventMetaRow}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
+                                  <Text style={styles.topEventMetaText}>{dateStr}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
+                                  <Text style={styles.topEventMetaText}>{e.attendee_count || 0} going</Text>
+                                </View>
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                );
+              })()}
+
+              {/* Recent Events Vertical List */}
+              <Text style={styles.sectionHeading}>Recent Events</Text>
+
+              {sortedEvents.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
                   <Text style={styles.emptyT}>No events found matching current filters</Text>
@@ -569,7 +739,7 @@ export default function Events() {
                 </View>
               ) : (
                 <View style={styles.listContentContainer}>
-                  {filtered.map((e: any) => {
+                  {sortedEvents.map((e: any) => {
                     const eventDate = new Date(e.date);
                     const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     
@@ -595,9 +765,14 @@ export default function Events() {
                           {/* Center Column: Title, host, mini specs */}
                           <View style={styles.miniCardDetails}>
                             <View style={styles.miniCardTopRow}>
-                              <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
-                                {categoryObj.label.toUpperCase()}
-                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
+                                  {categoryObj.label.toUpperCase()}
+                                </Text>
+                                {e.is_starred ? (
+                                  <Ionicons name="star" size={10} color="#FFD700" />
+                                ) : null}
+                              </View>
                               <Text style={styles.miniCardDaysAway}>
                                 {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
                               </Text>
@@ -701,6 +876,17 @@ export default function Events() {
                           const hostHandleStr = selectedEvent.host_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
                           const sEventDate = new Date(selectedEvent.date);
                           const sDaysAway = Math.ceil((sEventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                          const isGoing = selectedEvent.is_attending;
+                          const onPressThumbsUp = () => {
+                            if (!isGoing) {
+                              handleRSVP(selectedEvent.event_id);
+                            }
+                          };
+                          const onPressThumbsDown = () => {
+                            if (isGoing) {
+                              handleRSVP(selectedEvent.event_id);
+                            }
+                          };
 
                           return (
                             <>
@@ -710,38 +896,23 @@ export default function Events() {
                                   {tSecond ? (
                                     <Text style={styles.eventTitleSecondLine} numberOfLines={1}>{tSecond}</Text>
                                   ) : null}
-                                  <Text style={styles.hostHandleText}>@{hostHandleStr}</Text>
                                 </View>
 
                                 <View style={styles.actionButtonsCol}>
-                                  {/* Glowing Star RSVP Toggle */}
+                                  {/* Star toggle button (Pin/Favorite) */}
                                   <TouchableOpacity
                                     activeOpacity={0.8}
-                                    onPress={() => handleRSVP(selectedEvent.event_id)}
+                                    style={[
+                                      styles.messageHostPill,
+                                      selectedEvent.is_starred && { backgroundColor: '#FFD700' }
+                                    ]}
+                                    onPress={() => handleToggleStar(selectedEvent.event_id)}
                                   >
-                                    {selectedEvent.is_attending ? (
-                                      <LinearGradient
-                                        colors={['#C2FF3D', '#C2FF3D']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.starGlowWrapper}
-                                      >
-                                        <Ionicons name="star" size={18} color="#000" />
-                                      </LinearGradient>
-                                    ) : (
-                                      <View style={styles.starEmptyWrapper}>
-                                        <Ionicons name="star-outline" size={18} color="rgba(255, 255, 255, 0.7)" />
-                                      </View>
-                                    )}
-                                  </TouchableOpacity>
-
-                                  {/* Message Host Envelope button */}
-                                  <TouchableOpacity
-                                    activeOpacity={0.8}
-                                    style={styles.messageHostPill}
-                                    onPress={() => handleMessageHost(selectedEvent.host_name)}
-                                  >
-                                    <Ionicons name="mail" size={16} color="#000" />
+                                    <Ionicons
+                                      name={selectedEvent.is_starred ? "star" : "star-outline"}
+                                      size={16}
+                                      color="#000"
+                                    />
                                   </TouchableOpacity>
                                 </View>
                               </View>
@@ -769,97 +940,192 @@ export default function Events() {
                                 </View>
                               </View>
 
-                              {/* Perks/Tags horizontal scroll */}
-                              {extras && extras.perks && (
-                                <ScrollView
-                                  horizontal
-                                  showsHorizontalScrollIndicator={false}
-                                  style={styles.tagsContainer}
-                                  contentContainerStyle={styles.tagsContent}
-                                >
-                                  {extras.perks.map((perk, pIndex) => (
-                                    <View key={pIndex} style={styles.tagPill}>
-                                      <Text style={styles.tagPillText}>{perk}</Text>
-                                    </View>
-                                  ))}
-                                </ScrollView>
-                              )}
-
                               {/* Creations Carousel Gallery */}
-                              {extras && extras.gallery && (
-                                <View style={styles.galleryWrapper}>
-                                  <ScrollView
-                                    ref={(ref) => {
-                                      galleryRefs.current[selectedEvent.event_id] = ref;
-                                    }}
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    style={styles.galleryScroll}
-                                    contentContainerStyle={styles.galleryScrollContent}
-                                    onScroll={(ev) => {
-                                      galleryScrollCoords.current[selectedEvent.event_id] = ev.nativeEvent.contentOffset.x;
-                                    }}
-                                    scrollEventThrottle={16}
-                                  >
-                                    {extras.gallery.map((imgUri, imgIndex) => (
-                                      <Image
-                                        key={imgIndex}
-                                        source={{ uri: imgUri }}
-                                        style={styles.galleryImage}
-                                      />
-                                    ))}
-                                  </ScrollView>
+                              {(() => {
+                                let galleryImages: string[] = [];
+                                if (selectedEvent.gallery_photos) {
+                                  if (Array.isArray(selectedEvent.gallery_photos)) {
+                                    galleryImages = selectedEvent.gallery_photos;
+                                  } else if (typeof selectedEvent.gallery_photos === 'string') {
+                                    try {
+                                      galleryImages = JSON.parse(selectedEvent.gallery_photos);
+                                    } catch {}
+                                  }
+                                }
+                                if (galleryImages.length === 0 && extras && extras.gallery) {
+                                  galleryImages = extras.gallery;
+                                }
 
-                                  <View style={styles.galleryArrowRow}>
-                                    <TouchableOpacity
-                                      style={styles.galleryArrowBtn}
-                                      activeOpacity={0.8}
-                                      onPress={() => {
-                                        const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
-                                        const newX = Math.max(0, currentX - 140);
-                                        galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
-                                        galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                if (galleryImages.length === 0) return null;
+
+                                return (
+                                  <View style={styles.galleryWrapper}>
+                                    <ScrollView
+                                      ref={(ref) => {
+                                        galleryRefs.current[selectedEvent.event_id] = ref;
                                       }}
-                                    >
-                                      <Ionicons name="arrow-back" size={14} color="#000" />
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                      style={styles.galleryArrowBtn}
-                                      activeOpacity={0.8}
-                                      onPress={() => {
-                                        const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
-                                        const newX = currentX + 140;
-                                        galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
-                                        galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                      horizontal
+                                      showsHorizontalScrollIndicator={false}
+                                      style={styles.galleryScroll}
+                                      contentContainerStyle={styles.galleryScrollContent}
+                                      onScroll={(ev) => {
+                                        galleryScrollCoords.current[selectedEvent.event_id] = ev.nativeEvent.contentOffset.x;
                                       }}
+                                      scrollEventThrottle={16}
                                     >
-                                      <Ionicons name="arrow-forward" size={14} color="#000" />
-                                    </TouchableOpacity>
-                                  </View>
-                                </View>
-                              )}
+                                      {galleryImages.map((imgUri, imgIndex) => {
+                                        const finalUri = imgUri.startsWith('http')
+                                          ? imgUri
+                                          : `${EXPO_PUBLIC_BACKEND_URL}/${imgUri}`;
+                                        return (
+                                          <Image
+                                            key={imgIndex}
+                                            source={{ uri: finalUri }}
+                                            style={styles.galleryImage}
+                                          />
+                                        );
+                                      })}
+                                    </ScrollView>
 
-                              {/* Testimonial Quote Bubble */}
-                              {extras && extras.testimonial && (
-                                <View style={styles.testimonialContainer}>
-                                  <View style={styles.testimonialSpeechBubble}>
-                                    <Text style={styles.testimonialText}>
-                                      {`"${extras.testimonial.text}"`}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.testimonialUserRow}>
-                                    <Image
-                                      source={{ uri: extras.testimonial.avatar }}
-                                      style={styles.testimonialAvatar}
-                                    />
-                                    <View>
-                                      <Text style={styles.testimonialName}>{extras.testimonial.name}</Text>
-                                      <Text style={styles.testimonialHandle}>{extras.testimonial.handle}</Text>
+                                    <View style={styles.galleryArrowRow}>
+                                      <TouchableOpacity
+                                        style={styles.galleryArrowBtn}
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                          const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
+                                          const newX = Math.max(0, currentX - 140);
+                                          galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
+                                          galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                        }}
+                                      >
+                                        <Ionicons name="arrow-back" size={14} color="#000" />
+                                      </TouchableOpacity>
+
+                                      <TouchableOpacity
+                                        style={styles.galleryArrowBtn}
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                          const currentX = galleryScrollCoords.current[selectedEvent.event_id] || 0;
+                                          const newX = currentX + 140;
+                                          galleryRefs.current[selectedEvent.event_id]?.scrollTo({ x: newX, animated: true });
+                                          galleryScrollCoords.current[selectedEvent.event_id] = newX;
+                                        }}
+                                      >
+                                        <Ionicons name="arrow-forward" size={14} color="#000" />
+                                      </TouchableOpacity>
                                     </View>
                                   </View>
+                                );
+                              })()}
+
+                              {/* Register Now Button */}
+                              {selectedEvent.registration_link ? (
+                                <View style={styles.linkContainer}>
+                                  <TouchableOpacity
+                                    style={styles.registerNowBtn}
+                                    activeOpacity={0.8}
+                                    onPress={() => {
+                                      if (selectedEvent.registration_link) {
+                                        Linking.openURL(selectedEvent.registration_link).catch(err => {
+                                          console.error("Failed to open link:", err);
+                                          alert("Could not open the link.");
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <LinearGradient
+                                      colors={['#C2FF3D', '#A3E31A']}
+                                      start={{ x: 0, y: 0 }}
+                                      end={{ x: 1, y: 1 }}
+                                      style={styles.registerGradient}
+                                    >
+                                      <Ionicons name="open-outline" size={18} color="#000" style={{ marginRight: 8 }} />
+                                      <Text style={styles.registerNowText}>Register Now</Text>
+                                    </LinearGradient>
+                                  </TouchableOpacity>
                                 </View>
-                              )}
+                              ) : null}
+
+                              {/* RSVP Thumbs Buttons */}
+                              <View style={styles.rsvpThumbsContainer}>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.thumbBtn,
+                                    isGoing ? styles.thumbBtnActiveGreen : styles.thumbBtnInactive,
+                                  ]}
+                                  activeOpacity={0.7}
+                                  onPress={onPressThumbsUp}
+                                >
+                                  <Ionicons
+                                    name={isGoing ? "thumbs-up" : "thumbs-up-outline"}
+                                    size={18}
+                                    color={isGoing ? "#00FF66" : "rgba(255,255,255,0.6)"}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.thumbText,
+                                      { color: isGoing ? "#00FF66" : "rgba(255,255,255,0.6)" }
+                                    ]}
+                                  >
+                                    Going
+                                  </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={[
+                                    styles.thumbBtn,
+                                    !isGoing ? styles.thumbBtnActiveRed : styles.thumbBtnInactive,
+                                  ]}
+                                  activeOpacity={0.7}
+                                  onPress={onPressThumbsDown}
+                                >
+                                  <Ionicons
+                                    name={!isGoing ? "thumbs-down" : "thumbs-down-outline"}
+                                    size={18}
+                                    color={!isGoing ? "#FF3366" : "rgba(255,255,255,0.6)"}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.thumbText,
+                                      { color: !isGoing ? "#FF3366" : "rgba(255,255,255,0.6)" }
+                                    ]}
+                                  >
+                                    Not Going
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+
+                              {/* Event Organizer Info */}
+                              {(() => {
+                                const displayEmail = selectedEvent.contact_email || selectedEvent.host?.email;
+                                const displayPhone = selectedEvent.contact_phone || selectedEvent.host?.phone_number;
+                                return (
+                                  <View style={styles.testimonialContainer}>
+                                    <Text style={styles.hostContactHeading}>Event Organizer</Text>
+                                    <View style={styles.testimonialUserRow}>
+                                      <Image
+                                        source={{ uri: getHostAvatar(selectedEvent.host) }}
+                                        style={styles.testimonialAvatar}
+                                      />
+                                      <View>
+                                        <Text style={styles.testimonialName}>
+                                          {selectedEvent.host?.name || selectedEvent.host_name}
+                                        </Text>
+                                        {displayEmail ? (
+                                          <Text style={styles.testimonialHandle}>
+                                            {displayEmail}
+                                          </Text>
+                                        ) : null}
+                                        {displayPhone ? (
+                                          <Text style={styles.testimonialHandle}>
+                                            {displayPhone}
+                                          </Text>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                  </View>
+                                );
+                              })()}
                             </>
                           );
                         })()}
@@ -959,12 +1225,106 @@ export default function Events() {
                     </View>
 
                     <Text style={styles.inputLabel}>Date & Time *</Text>
+                    {Platform.OS === 'web' ? (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 2026-07-15 18:00"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formDate}
+                        onChangeText={setFormDate}
+                      />
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={[
+                            styles.input,
+                            {
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              height: 50,
+                            },
+                          ]}
+                          activeOpacity={0.7}
+                          onPress={() => setShowDatePicker(true)}
+                        >
+                          <Text style={{ color: formDate ? '#FFF' : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                            {formDate
+                              ? new Date(formDate).toLocaleString(undefined, {
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                })
+                              : 'Select Date & Time'}
+                          </Text>
+                          <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.5)" />
+                        </TouchableOpacity>
+
+                        {showDatePicker && (
+                          <DateTimePicker
+                            value={dateValue}
+                            mode="date"
+                            display="default"
+                            onChange={(event, selectedDate) => {
+                              setShowDatePicker(false);
+                              if (selectedDate) {
+                                setDateValue(selectedDate);
+                                setShowTimePicker(true);
+                              }
+                            }}
+                          />
+                        )}
+
+                        {showTimePicker && (
+                          <DateTimePicker
+                            value={dateValue}
+                            mode="time"
+                            display="default"
+                            is24Hour={true}
+                            onChange={(event, selectedTime) => {
+                              setShowTimePicker(false);
+                              if (selectedTime) {
+                                const combinedDate = new Date(dateValue);
+                                combinedDate.setHours(selectedTime.getHours());
+                                combinedDate.setMinutes(selectedTime.getMinutes());
+                                setDateValue(combinedDate);
+                                setFormDate(combinedDate.toISOString());
+                              }
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+
+                    <Text style={styles.inputLabel}>Registration Link</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="e.g. 2026-07-15 18:00"
+                      placeholder="e.g. https://forms.gle/... or website link"
                       placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formDate}
-                      onChangeText={setFormDate}
+                      value={formRegistrationLink}
+                      onChangeText={setFormRegistrationLink}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+
+                    <Text style={styles.inputLabel}>Contact Email</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. contact@college.edu"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formContactEmail}
+                      onChangeText={setFormContactEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+
+                    <Text style={styles.inputLabel}>Contact Phone Number</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. +91 98765 43210"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={formContactPhone}
+                      onChangeText={setFormContactPhone}
+                      keyboardType="phone-pad"
                     />
 
                     <Text style={styles.inputLabel}>Location *</Text>
@@ -1516,21 +1876,21 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   testimonialAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   testimonialName: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
   },
   testimonialHandle: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 10.5,
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   fabBtn: {
     position: 'absolute',
@@ -1714,40 +2074,151 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // 2x2 Search Cards Grid
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  // Horizontal Category Filters
+  horizontalFiltersScroll: {
+    marginVertical: 10,
+    maxHeight: 46,
+  },
+  horizontalFiltersContainer: {
     paddingHorizontal: 20,
     gap: 10,
-    marginVertical: 6,
+    alignItems: 'center',
   },
-  gridCard: {
-    width: '48%',
-    height: 95,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
+  horizontalFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  gridCardActive: {
+  horizontalFilterPillActive: {
+    backgroundColor: '#C2FF3D',
     borderColor: '#C2FF3D',
   },
-  gridCardGradient: {
+  horizontalFilterText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  horizontalFilterTextActive: {
+    color: '#000',
+    fontWeight: '800',
+  },
+
+  // Top 5 Horizontal Event Cards
+  topEventsScroll: {
+    marginVertical: 10,
+  },
+  topEventsScrollContent: {
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  topEventCard: {
+    width: 230,
+    height: 230,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(7, 8, 15, 0.45)',
+  },
+  topEventImage: {
+    width: '100%',
+    height: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  topEventInfo: {
     flex: 1,
     padding: 12,
     justifyContent: 'space-between',
   },
-  gridCardText: {
+  topEventCat: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  topEventTitle: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: '900',
-    lineHeight: 18,
+    fontWeight: '800',
   },
-  gridCardIconContainer: {
-    alignSelf: 'flex-end',
-    marginBottom: -8,
-    marginRight: -8,
+  topEventHost: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  topEventMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  topEventMetaText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  linkContainer: {
+    marginTop: 18,
+  },
+  registerNowBtn: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  registerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  registerNowText: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  rsvpThumbsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  thumbBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  thumbBtnInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  thumbBtnActiveGreen: {
+    backgroundColor: 'rgba(0, 255, 102, 0.15)',
+    borderColor: 'rgba(0, 255, 102, 0.4)',
+  },
+  thumbBtnActiveRed: {
+    backgroundColor: 'rgba(255, 51, 102, 0.15)',
+    borderColor: 'rgba(255, 51, 102, 0.4)',
+  },
+  thumbText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  hostContactHeading: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
   },
 });

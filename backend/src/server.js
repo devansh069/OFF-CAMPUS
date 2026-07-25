@@ -2,8 +2,39 @@ require('dotenv').config();
 const app = require('./app');
 const { connectDB, sequelize } = require('./config/db');
 const { seedDatabase } = require('./utils/seeder');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
+
+// Create HTTP server wrapping Express app
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  }
+});
+
+// Attach Socket.io instance to Express app so controllers can access it
+app.set('io', io);
+
+// Handle WebSockets connection events
+io.on('connection', (socket) => {
+  console.log(`[Socket] Client connected: ${socket.id}`);
+
+  // Join a room specifically for this user to deliver messages privately
+  socket.on('join_room', (userId) => {
+    if (userId) {
+      socket.join(userId);
+      console.log(`[Socket] User ${userId} joined room on socket ${socket.id}`);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[Socket] Client disconnected: ${socket.id}`);
+  });
+});
 
 const startServer = async () => {
   try {
@@ -18,8 +49,8 @@ const startServer = async () => {
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
 
-    // 4. Start listening for incoming connections
-    app.listen(PORT, '0.0.0.0', () => {
+    // 4. Start listening for incoming connections on the HTTP server
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);
       console.log(`  Off Campus Dating App Server online!`);
       console.log(`  Running on: http://localhost:${PORT}`);

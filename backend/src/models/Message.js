@@ -19,6 +19,17 @@ const Message = sequelize.define('Message', {
     type: DataTypes.TEXT,
     allowNull: false
   },
+  message_type: {
+    type: DataTypes.ENUM('text', 'image'),
+    allowNull: false,
+    defaultValue: 'text',
+    field: 'message_type'
+  },
+  image_url: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'image_url'
+  },
   read: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

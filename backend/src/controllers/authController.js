@@ -15,13 +15,18 @@ const Op = {
 };
 const { sequelize } = require('../config/db');
 const cloudinary = require('cloudinary').v2;
-const nodemailer = require('nodemailer');
+const emailService = require('../utils/emailService');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
-  api_key: process.env.CLOUDINARY_API_KEY || '12345',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'abcde',
-});
+if (process.env.CLOUDINARY_URL) {
+  console.log('[Cloudinary] Configured automatically via CLOUDINARY_URL');
+} else {
+  console.log('[Cloudinary] Configured manually via individual keys');
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+    api_key: process.env.CLOUDINARY_API_KEY || '12345',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'abcde',
+  });
+}
 
 // Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
@@ -350,45 +355,18 @@ exports.sendEmailOTP = async (req, res) => {
     require('dotenv').config();
 
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
-    if (smtpUser && smtpPass) {
+    if (smtpUser) {
       try {
-        const transporter = nodemailer.createTransport({
-          service: process.env.SMTP_SERVICE || 'gmail',
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '587', 10),
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: {
-            user: smtpUser,
-            pass: smtpPass
-          }
-        });
-
-        await transporter.sendMail({
-          from: `"Off-Campus Verification" <${smtpUser}>`,
-          to: email,
-          subject: 'Off-Campus - Your College Email Verification OTP',
-          html: `
-            <div style="font-family: Arial, sans-serif; padding: 25px; background-color: #050005; color: #ffffff; border-radius: 12px; max-width: 500px; border: 1px solid #C2FF3D;">
-              <h2 style="color: #C2FF3D; margin-top: 0;">Off-Campus Verification 🎓</h2>
-              <p style="font-size: 15px; color: #cccccc;">Hey Student,</p>
-              <p style="font-size: 15px; color: #cccccc;">Here is your 6-digit verification code to claim your Verified Blue Tick:</p>
-              <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #000000; margin: 20px 0; padding: 15px 20px; background: #C2FF3D; display: inline-block; border-radius: 10px;">
-                ${otp}
-              </div>
-              <p style="font-size: 13px; color: #888888; margin-bottom: 0;">This OTP expires in 10 minutes. Never share this code with anyone.</p>
-            </div>
-          `
-        });
-        console.log(`[Email Verification] Successfully sent live OTP email via nodemailer to ${email}`);
+        await emailService.sendVerificationOTP(email, otp);
+        console.log(`[Email Verification] Successfully sent live OTP email via emailService to ${email}`);
       } catch (mailErr) {
-        console.error(`[Nodemailer Error]: Failed to send live email: ${mailErr.message}`);
+        console.error(`[EmailService Error]: Failed to send live email: ${mailErr.message}`);
         console.log(`[Email Verification Fallback] OTP for ${email} is: [ ${otp} ]`);
       }
     } else {
       console.log(`\n======================================================`);
-      console.log(`[Nodemailer] SMTP not configured in .env (SMTP_USER/SMTP_PASS).`);
+      console.log(`[EmailService] SMTP not configured in .env (SMTP_USER/SMTP_PASS).`);
       console.log(`To enable sending live emails to user inbox, add credentials to backend/.env.`);
       console.log(`Sent verification email to: ${email}`);
       console.log(`YOUR COLLEGE EMAIL OTP IS: [ ${otp} ]`);
@@ -396,7 +374,7 @@ exports.sendEmailOTP = async (req, res) => {
     }
 
     return res.status(200).json({
-      detail: smtpUser ? 'Live OTP email dispatched via Nodemailer!' : 'SMTP not configured in .env. Use dev code to test.',
+      detail: smtpUser ? 'Live OTP email dispatched via Resend!' : 'SMTP not configured in .env. Use dev code to test.',
       dev_otp: !smtpUser ? otp : undefined
     });
   } catch (error) {
@@ -839,10 +817,10 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
-    const { to_user_id, content } = req.body;
+    const { to_user_id, content, message_type, image_url } = req.body;
 
-    if (!to_user_id || !content) {
-      return res.status(400).json({ detail: 'to_user_id and content are required' });
+    if (!to_user_id || (!content && !image_url)) {
+      return res.status(400).json({ detail: 'to_user_id and content/image_url are required' });
     }
 
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -851,14 +829,39 @@ exports.sendMessage = async (req, res) => {
       message_id: messageId,
       from_user_id: currentUserId,
       to_user_id,
-      content,
+      content: content || 'Sent an image',
+      message_type: message_type || 'text',
+      image_url: image_url || null,
       read: false
     });
+
+    // Emit real-time message event via Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      console.log(`[Socket] Broadcasting new_message to room: ${to_user_id}`);
+      io.to(to_user_id).emit('new_message', message.toJSON());
+    }
 
     return res.status(201).json({ message });
   } catch (error) {
     console.error('[sendMessage Error]:', error);
     return res.status(500).json({ detail: 'Failed to send message: ' + error.message });
+  }
+};
+
+// 14. Upload chat image to Cloudinary
+exports.uploadChatImage = async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) {
+      return res.status(400).json({ detail: 'No image data provided' });
+    }
+    console.log('[Chat Cloudinary] Uploading chat image...');
+    const imageUrl = await uploadToCloudinary(image);
+    return res.status(200).json({ image_url: imageUrl });
+  } catch (error) {
+    console.error('[UploadChatImage Error]:', error);
+    return res.status(500).json({ detail: 'Failed to upload chat image: ' + error.message });
   }
 };
 

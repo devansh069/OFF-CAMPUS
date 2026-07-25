@@ -17,8 +17,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { BlurView } from 'expo-blur';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const EXPO_PUBLIC_SPOTIFY_CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
 
 export default function Profile() {
   const { user, sessionToken, logout, refreshUser, updateUser } = useAuth();
@@ -159,8 +164,69 @@ export default function Profile() {
   const addSpotifyData = async () => {
     Alert.alert(
       'Spotify Vibes',
-      'Add your favorite artists to boost your Vibe Score!',
+      'Choose how you want to connect Spotify to boost your Vibe Score!',
       [
+        {
+          text: 'Connect Real Spotify 🎵',
+          onPress: async () => {
+            try {
+              if (!EXPO_PUBLIC_SPOTIFY_CLIENT_ID) {
+                Alert.alert('Error', 'Spotify Client ID is not configured in frontend .env.');
+                return;
+              }
+
+              // Build a redirect URL using Expo's Linking helper
+              const redirectUri = Linking.createURL('spotify-callback');
+              console.log('[Spotify Auth] Generated redirect URI:', redirectUri);
+
+              // Spotify authorization endpoint
+              const authUrl = `https://accounts.spotify.com/authorize?` +
+                `client_id=${EXPO_PUBLIC_SPOTIFY_CLIENT_ID}` +
+                `&response_type=code` +
+                `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+                `&scope=${encodeURIComponent('user-top-read user-read-private')}`;
+
+              console.log('[Spotify Auth] Launching Browser session...');
+              const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+
+              if (result.type === 'success') {
+                const parsedUrl = Linking.parse(result.url);
+                const code = parsedUrl.queryParams?.code;
+
+                if (!code) {
+                  Alert.alert('Auth Failed', 'No authorization code returned from Spotify.');
+                  return;
+                }
+
+                console.log('[Spotify Auth] Exchanging authorization code on backend...');
+                const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/spotify`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionToken}`,
+                  },
+                  body: JSON.stringify({
+                    code,
+                    redirectUri
+                  }),
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.detail || 'Backend exchange failed');
+                }
+
+                await refreshUser();
+                Alert.alert('Success', 'Spotify profile connected! Vibe Score increased!');
+              } else {
+                console.log('[Spotify Auth] Browser session closed or canceled:', result.type);
+              }
+            } catch (error: any) {
+              console.error('[Spotify Auth Error]:', error);
+              Alert.alert('Connection Failed', error.message || 'Failed to connect Spotify.');
+            }
+          }
+        },
         {
           text: 'Add Sample Data',
           onPress: async () => {

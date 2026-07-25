@@ -3,6 +3,7 @@ const User = require('../models/User');
 const College = require('../models/College');
 const Event = require('../models/Event');
 const EventAttendee = require('../models/EventAttendee');
+const EventStar = require('../models/EventStar');
 const cloudinary = require('cloudinary').v2;
 
 // Helper to upload base64 string to Cloudinary
@@ -41,7 +42,7 @@ exports.getEventsFeed = async (req, res) => {
     const events = await Event.findAll({
       where: whereClause,
       include: [
-        { model: User, as: 'host', attributes: ['user_id', 'name', 'photos'] },
+        { model: User, as: 'host', attributes: ['user_id', 'name', 'photos', 'phone_number', 'email'] },
         { model: College, as: 'college', attributes: ['college_id', 'name', 'short_name'] }
       ],
       order: [['date', 'ASC']]
@@ -55,10 +56,19 @@ exports.getEventsFeed = async (req, res) => {
     
     const rsvpSet = new Set(userRSVPs.map(r => r.event_id));
 
-    // Map through events to append is_attending status
+    // Check which events the user has starred
+    const userStars = await EventStar.findAll({
+      where: { user_id: userId },
+      attributes: ['event_id']
+    });
+
+    const starSet = new Set(userStars.map(s => s.event_id));
+
+    // Map through events to append is_attending and is_starred status
     const eventsWithStatus = events.map(event => {
       const plainEvent = event.toJSON();
       plainEvent.is_attending = rsvpSet.has(plainEvent.event_id);
+      plainEvent.is_starred = starSet.has(plainEvent.event_id);
       return plainEvent;
     });
 
@@ -81,7 +91,10 @@ exports.createEvent = async (req, res) => {
       location,
       description,
       cover_image, // base64 string
-      gallery_photos // array of base64 strings
+      gallery_photos, // array of base64 strings
+      registration_link,
+      contact_email,
+      contact_phone
     } = req.body;
 
     if (!title || !host_name || !date || !location || !description) {
@@ -129,7 +142,10 @@ exports.createEvent = async (req, res) => {
       cover_image: coverUrl,
       gallery_photos: galleryUrls,
       status: 'pending',
-      college_id: user.college_id
+      college_id: user.college_id,
+      registration_link,
+      contact_email,
+      contact_phone
     });
 
     return res.status(201).json({
@@ -173,9 +189,8 @@ exports.toggleRSVP = async (req, res) => {
         where: { event_id: eventId, user_id: userId },
         transaction
       });
-      // Decrement attendee count
-      event.attendee_count = Math.max(0, event.attendee_count - 1);
-      await event.save({ transaction });
+      // Decrement attendee count safely
+      await event.decrement('attendee_count', { by: 1, transaction });
       isAttending = false;
     } else {
       // Create RSVP
@@ -183,22 +198,71 @@ exports.toggleRSVP = async (req, res) => {
         event_id: eventId,
         user_id: userId
       }, { transaction });
-      // Increment attendee count
-      event.attendee_count = event.attendee_count + 1;
-      await event.save({ transaction });
+      // Increment attendee count safely
+      await event.increment('attendee_count', { by: 1, transaction });
       isAttending = true;
     }
 
     await transaction.commit();
 
+    // Fetch the updated count to return
+    const updatedEvent = await Event.findOne({ where: { event_id: eventId } });
+    const attendeeCount = updatedEvent ? updatedEvent.attendee_count : 0;
+
     return res.status(200).json({
       detail: isAttending ? 'RSVP registered' : 'RSVP cancelled',
       is_attending: isAttending,
-      attendee_count: event.attendee_count
+      attendee_count: attendeeCount
     });
   } catch (error) {
     await transaction.rollback();
     console.error('[ToggleRSVP Error]:', error);
     return res.status(500).json({ detail: 'Failed to toggle RSVP: ' + error.message });
+  }
+};
+
+// 4. Toggle Star (Pin)
+exports.toggleStar = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const eventId = req.params.id;
+
+    // Check if event exists
+    const event = await Event.findOne({
+      where: { event_id: eventId }
+    });
+
+    if (!event) {
+      return res.status(404).json({ detail: 'Event not found' });
+    }
+
+    // Check if star record already exists
+    const existingStar = await EventStar.findOne({
+      where: { event_id: eventId, user_id: userId }
+    });
+
+    let isStarred = false;
+    if (existingStar) {
+      // Remove Star
+      await EventStar.destroy({
+        where: { event_id: eventId, user_id: userId }
+      });
+      isStarred = false;
+    } else {
+      // Create Star
+      await EventStar.create({
+        event_id: eventId,
+        user_id: userId
+      });
+      isStarred = true;
+    }
+
+    return res.status(200).json({
+      detail: isStarred ? 'Event starred' : 'Event unstarred',
+      is_starred: isStarred
+    });
+  } catch (error) {
+    console.error('[ToggleStar Error]:', error);
+    return res.status(500).json({ detail: 'Failed to toggle star: ' + error.message });
   }
 };

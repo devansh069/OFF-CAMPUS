@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const emailService = require('../utils/emailService');
 const { sequelize } = require('../config/db');
 const User = require('../models/User');
 const College = require('../models/College');
@@ -130,6 +131,16 @@ exports.grantPremium = async (req, res) => {
     user.premium_until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await user.save();
 
+    // Send status notification email to user
+    try {
+      if (user.email) {
+        await emailService.sendPremiumWelcome(user.email, user.name);
+        console.log(`[Admin Premium] Premium welcome email dispatched to ${user.email}`);
+      }
+    } catch (emailErr) {
+      console.error(`[Admin Premium Email Error]: Failed to send welcome email: ${emailErr.message}`);
+    }
+
     return res.status(200).json({ detail: `Premium granted for ${days} days`, user });
   } catch (error) {
     console.error('[Admin GrantPremium Error]:', error);
@@ -174,6 +185,16 @@ exports.approveVerification = async (req, res) => {
     user.verification_status = 'verified';
     await user.save();
 
+    // Send status notification email to user
+    try {
+      if (user.email) {
+        await emailService.sendVerificationApproval(user.email, user.name);
+        console.log(`[Admin Verification] Approval email dispatched to ${user.email}`);
+      }
+    } catch (emailErr) {
+      console.error(`[Admin Verification Email Error]: Failed to send approval email: ${emailErr.message}`);
+    }
+
     return res.status(200).json({ detail: 'Verification approved successfully', user });
   } catch (error) {
     console.error('[Admin ApproveVerif Error]:', error);
@@ -185,6 +206,7 @@ exports.approveVerification = async (req, res) => {
 exports.rejectVerification = async (req, res) => {
   try {
     const { id } = req.params; // request_id maps to user_id
+    const { reason } = req.body;
     const user = await User.findOne({ where: { user_id: id } });
     if (!user) {
       return res.status(404).json({ detail: 'User not found' });
@@ -192,6 +214,16 @@ exports.rejectVerification = async (req, res) => {
 
     user.verification_status = 'rejected';
     await user.save();
+
+    // Send status notification email to user
+    try {
+      if (user.email) {
+        await emailService.sendVerificationRejection(user.email, user.name, reason || 'The uploaded ID card image was blurry or invalid.');
+        console.log(`[Admin Verification] Rejection email dispatched to ${user.email}`);
+      }
+    } catch (emailErr) {
+      console.error(`[Admin Verification Email Error]: Failed to send rejection email: ${emailErr.message}`);
+    }
 
     return res.status(200).json({ detail: 'Verification rejected successfully', user });
   } catch (error) {

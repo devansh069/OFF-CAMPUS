@@ -6,6 +6,7 @@ const adminController = require('../controllers/adminController');
 const eventController = require('../controllers/eventController');
 const confessionController = require('../controllers/confessionController');
 const storyController = require('../controllers/storyController');
+const spotifyController = require('../controllers/spotifyController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -24,6 +25,7 @@ router.delete('/profile/photos/:index', authMiddleware, authController.deletePho
 router.post('/verification/submit', authMiddleware, authController.submitVerification);
 router.post('/verification/send-email-otp', authMiddleware, authController.sendEmailOTP);
 router.post('/verification/verify-email-otp', authMiddleware, authController.verifyEmailOTP);
+router.post('/profile/spotify', authMiddleware, spotifyController.exchangeCode);
 
 // Discovery and matching routes (Protected)
 router.get('/discovery/profiles', authMiddleware, authController.getDiscoveryProfiles);
@@ -37,6 +39,7 @@ router.post('/discovery/report', authMiddleware, authController.reportUser);
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);
 router.post('/messages/send', authMiddleware, authController.sendMessage);
+router.post('/messages/upload-image', authMiddleware, authController.uploadChatImage);
 router.get('/messages/:id', authMiddleware, authController.getMessages);
 
 // Admin endpoints (Public Login, rest Protected)
@@ -57,6 +60,7 @@ router.post('/admin/events/:id/reject', authMiddleware, adminMiddleware, adminCo
 router.get('/events/feed', authMiddleware, eventController.getEventsFeed);
 router.post('/events/create', authMiddleware, eventController.createEvent);
 router.post('/events/:id/rsvp', authMiddleware, eventController.toggleRSVP);
+router.post('/events/:id/star', authMiddleware, eventController.toggleStar);
 
 // Confessions endpoints
 router.get('/confessions/feed', authMiddleware, confessionController.getConfessionsFeed);

@@ -66,6 +66,21 @@ const Event = sequelize.define('Event', {
     allowNull: true,
     field: 'gallery_photos'
   },
+  registration_link: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'registration_link'
+  },
+  contact_email: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'contact_email'
+  },
+  contact_phone: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'contact_phone'
+  },
   status: {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     allowNull: false,
