@@ -11,15 +11,105 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import io from 'socket.io-client';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: boolean }) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
+
+  const onPlaybackStatusUpdate = (status: any) => {
+    if (status.isLoaded) {
+      setPosition(status.positionMillis);
+      setDuration(status.durationMillis || 0);
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        setPosition(0);
+      }
+    }
+  };
+
+  const playSound = async () => {
+    try {
+      if (sound) {
+        if (isPlaying) {
+          await sound.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          if (position >= duration) {
+            await sound.setPositionAsync(0);
+          }
+          await sound.playAsync();
+          setIsPlaying(true);
+        }
+      } else {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: true },
+          onPlaybackStatusUpdate
+        );
+        setSound(newSound);
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.warn('Playback error:', error);
+    }
+  };
+
+  const formatTime = (millis: number) => {
+    const totalSeconds = millis / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={playSound}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
+        minWidth: 150,
+      }}
+      activeOpacity={0.8}
+    >
+      <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={isMine ? '#FFF' : '#C2FF3D'} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>Voice Note</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, marginTop: 1 }}>
+          {duration ? `${formatTime(position)} / ${formatTime(duration)}` : '0:00'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +128,99 @@ export default function ChatScreen() {
   const [selectedReason, setSelectedReason] = useState('Spam / Fake Profile');
   const [customReason, setCustomReason] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
+
+  // Voice Recording States
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+
+  // Start Audio Recording
+  const startRecording = async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission Denied', 'Microphone access is required to record voice notes.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(newRecording);
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      Alert.alert('Error', 'Failed to start recording.');
+    }
+  };
+
+  // Stop Recording & Send Voice Note
+  const stopRecording = async () => {
+    if (!recording) return;
+
+    setIsRecording(false);
+    setRecording(null);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      if (!uri) return;
+
+      // Convert file to base64 string
+      const base64Audio = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      setSending(true);
+
+      // Upload to Cloudinary via new voice note upload route
+      const uploadRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-audio`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ audio: base64Audio })
+      });
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.detail || 'Upload failed');
+      }
+      
+      const { audio_url } = await uploadRes.json();
+
+      // Send via socket/DB as an audio message
+      const sendRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          to_user_id: id,
+          content: '🎵 Sent a voice note',
+          message_type: 'audio',
+          image_url: audio_url // store audio link in image_url DB column
+        })
+      });
+
+      if (sendRes.ok) {
+        const data = await sendRes.json();
+        setMessages(prev => [...prev, data.message]);
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    } catch (err: any) {
+      console.error('Failed to upload/send audio', err);
+      Alert.alert('Error', 'Failed to send voice note: ' + err.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   const reportReasons = [
     'Spam / Fake Profile',
@@ -491,42 +674,50 @@ export default function ChatScreen() {
                   )}
                   <View style={styles.bubbleWrapper}>
                     {isMine ? (
-                      <LinearGradient
-                        colors={['#ee4d4d', '#780505']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[
-                          styles.messageBubble,
-                          styles.myMessage,
-                          msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
-                        ]}
-                      >
-                        {msg.message_type === 'image' ? (
-                          <Image
-                            source={{ uri: msg.image_url }}
-                            style={{ width: 200, height: 200, borderRadius: 8 }}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <Text style={styles.myText}>{msg.content}</Text>
-                        )}
-                      </LinearGradient>
+                      msg.message_type === 'audio' ? (
+                        <VoiceMessageBubble audioUrl={msg.image_url} isMine={true} />
+                      ) : (
+                        <LinearGradient
+                          colors={['#ee4d4d', '#780505']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[
+                            styles.messageBubble,
+                            styles.myMessage,
+                            msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
+                          ]}
+                        >
+                          {msg.message_type === 'image' ? (
+                            <Image
+                              source={{ uri: msg.image_url }}
+                              style={{ width: 200, height: 200, borderRadius: 8 }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.myText}>{msg.content}</Text>
+                          )}
+                        </LinearGradient>
+                      )
                     ) : (
-                      <View style={[
-                        styles.messageBubble,
-                        styles.theirMessage,
-                        msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
-                      ]}>
-                        {msg.message_type === 'image' ? (
-                          <Image
-                            source={{ uri: msg.image_url }}
-                            style={{ width: 200, height: 200, borderRadius: 8 }}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <Text style={styles.theirText}>{msg.content}</Text>
-                        )}
-                      </View>
+                      msg.message_type === 'audio' ? (
+                        <VoiceMessageBubble audioUrl={msg.image_url} isMine={false} />
+                      ) : (
+                        <View style={[
+                          styles.messageBubble,
+                          styles.theirMessage,
+                          msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
+                        ]}>
+                          {msg.message_type === 'image' ? (
+                            <Image
+                              source={{ uri: msg.image_url }}
+                              style={{ width: 200, height: 200, borderRadius: 8 }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.theirText}>{msg.content}</Text>
+                          )}
+                        </View>
+                      )
                     )}
                     <Text style={[styles.msgTime, isMine ? styles.myTime : styles.theirTime]}>
                       {formattedTime}
@@ -540,6 +731,14 @@ export default function ChatScreen() {
 
         {/* Input Bar Section */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity
+            style={[styles.micBtn, isRecording && { backgroundColor: '#ee4d4d' }]}
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="mic" size={20} color={isRecording ? '#FFF' : 'rgba(255, 255, 255, 0.6)'} />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."

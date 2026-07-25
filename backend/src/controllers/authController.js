@@ -951,7 +951,35 @@ exports.getAllUsersData = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to retrieve all users data: ' + error.message });
   }
 };
+// Upload Audio (Voice Note) to Cloudinary
+const uploadAudioToCloudinary = async (base64Str) => {
+  try {
+    let formattedStr = base64Str;
+    if (!formattedStr.startsWith('data:')) {
+      formattedStr = `data:audio/mp4;base64,${formattedStr}`;
+    }
+    const uploadResponse = await cloudinary.uploader.upload(formattedStr, {
+      folder: 'off_campus_voice_notes',
+      resource_type: 'video' // Required by Cloudinary for audio files
+    });
+    return uploadResponse.secure_url;
+  } catch (error) {
+    console.error('[Cloudinary Audio Upload Error]:', error);
+    throw error;
+  }
+};
 
-
-
-
+exports.uploadChatAudio = async (req, res) => {
+  try {
+    const { audio } = req.body;
+    if (!audio) {
+      return res.status(400).json({ detail: 'No audio data provided' });
+    }
+    console.log('[Chat Cloudinary] Uploading voice note...');
+    const audioUrl = await uploadAudioToCloudinary(audio);
+    return res.status(200).json({ audio_url: audioUrl });
+  } catch (error) {
+    console.error('[UploadChatAudio Error]:', error);
+    return res.status(500).json({ detail: 'Failed to upload voice note: ' + error.message });
+  }
+};

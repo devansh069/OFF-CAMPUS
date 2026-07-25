@@ -41,6 +41,7 @@ router.post('/discovery/report', authMiddleware, authController.reportUser);
 router.get('/messages/conversations', authMiddleware, authController.getConversations);
 router.post('/messages/send', authMiddleware, authController.sendMessage);
 router.post('/messages/upload-image', authMiddleware, authController.uploadChatImage);
+router.post('/messages/upload-audio', authMiddleware, authController.uploadChatAudio);
 router.get('/messages/:id', authMiddleware, authController.getMessages);
 
 // Admin endpoints (Public Login, rest Protected)
