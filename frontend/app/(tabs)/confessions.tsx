@@ -1130,7 +1130,16 @@ export default function CampusLive() {
                 </TouchableOpacity>
 
                 {/* Global Network Visibility Option */}
-                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('global')} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => {
+                  Alert.alert(
+                    'Premium Feature 🌟',
+                    'Posting a story to the Global Network is a premium feature.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'OK', onPress: () => handlePostStory('global') }
+                    ]
+                  );
+                }} activeOpacity={0.8}>
                   <View style={styles.audienceIconWrapper}>
                     <Ionicons name="globe" size={22} color="#FFD700" />
                   </View>

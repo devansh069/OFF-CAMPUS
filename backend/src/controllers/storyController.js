@@ -37,9 +37,24 @@ exports.getStoriesFeed = async (req, res) => {
       }
     );
 
+    // Fetch user's college and matches to enforce audience privacy
+    const [currentUser] = await sequelize.query('SELECT college_id FROM users WHERE user_id = ? LIMIT 1', { replacements: [userId], type: sequelize.QueryTypes.SELECT });
+    const userCollegeId = currentUser ? currentUser.college_id : null;
+    
+    const matchesList = await sequelize.query('SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true', { replacements: [userId], type: sequelize.QueryTypes.SELECT });
+    const matchUserIds = matchesList.map(m => m.to_user_id);
+
+    const filteredStories = activeStories.filter(story => {
+      if (story.user_id === userId) return true; // always see own stories
+      if (story.audience === 'global') return true;
+      if (story.audience === 'college' && story.college_id === userCollegeId) return true;
+      if (story.audience === 'matches' && matchUserIds.includes(story.user_id)) return true;
+      return false; // hide otherwise
+    });
+
     const userMap = {};
 
-    for (const story of activeStories) {
+    for (const story of filteredStories) {
       if (!userMap[story.user_id]) {
         // Resolve profile picture
         let picture = story.user_picture || story.u_picture;
@@ -164,11 +179,10 @@ exports.createStory = async (req, res) => {
       }
     );
 
-    // Emit real-time event via Socket.io to all users
+    // Emit real-time event via Socket.io to appropriate users
     const io = req.app.get('io');
     if (io) {
-      console.log('[Socket] Broadcasting new_story to all connected users');
-      io.emit('new_story', {
+      const payload = {
         story_id: storyId,
         user_id: userId,
         user_name: user.name || 'Anonymous Student',
@@ -179,7 +193,30 @@ exports.createStory = async (req, res) => {
         audience: audience || 'global',
         views: [],
         createdAt: new Date().toISOString()
-      });
+      };
+
+      if (audience === 'global') {
+        console.log('[Socket] Broadcasting new_story globally');
+        io.emit('new_story', payload);
+      } else if (audience === 'college' && user.college_id) {
+        console.log('[Socket] Broadcasting new_story to college mates');
+        const collegeUsers = await sequelize.query(
+          'SELECT user_id FROM users WHERE college_id = ?',
+          { replacements: [user.college_id], type: sequelize.QueryTypes.SELECT }
+        );
+        collegeUsers.forEach(u => {
+          if (u.user_id !== userId) io.to(u.user_id).emit('new_story', payload);
+        });
+      } else if (audience === 'matches') {
+        console.log('[Socket] Broadcasting new_story to matches');
+        const matchesList = await sequelize.query(
+          'SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true',
+          { replacements: [userId], type: sequelize.QueryTypes.SELECT }
+        );
+        matchesList.forEach(m => {
+          io.to(m.to_user_id).emit('new_story', payload);
+        });
+      }
     }
 
     return res.status(201).json({
