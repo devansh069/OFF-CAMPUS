@@ -46,13 +46,11 @@ export default function AdminDashboard() {
   
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [verifications, setVerifications] = useState<any[]>([]);
-  const [tab, setTab] = useState<'stats' | 'users' | 'verifications' | 'confessions' | 'events'>('stats');
+  const [tab, setTab] = useState<'stats' | 'users' | 'confessions' | 'events'>('stats');
   const [confessions, setConfessions] = useState<any[]>([]);
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingEventId, setViewingEventId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,16 +81,14 @@ export default function AdminDashboard() {
 
   const loadData = async (t: string) => {
     try {
-      const [statsData, usersData, verifsData, confData, eventsData] = await Promise.all([
+      const [statsData, usersData, confData, eventsData] = await Promise.all([
         adminFetch('/admin/stats', t),
         adminFetch('/admin/users?limit=200', t),
-        adminFetch('/admin/verification-requests', t),
         adminFetch('/confessions/feed?limit=100', t).catch(() => ({ confessions: [] })),
         adminFetch('/admin/pending-events', t).catch(() => ({ events: [] })),
       ]);
       setStats(statsData);
       setUsers(usersData.users || []);
-      setVerifications(verifsData.requests || []);
       setConfessions(confData.confessions || []);
       setPendingEvents(eventsData.events || []);
     } catch (e) {
@@ -128,20 +124,6 @@ export default function AdminDashboard() {
     await clearAdminToken();
     setToken(null);
     setLoginPassword('');
-  };
-
-  const approveVerification = async (reqId: string) => {
-    if (!token) return;
-    await adminFetch(`/admin/verification/${reqId}/approve`, token, { method: 'POST' });
-    loadData(token);
-    setViewingId(null);
-  };
-
-  const rejectVerification = async (reqId: string) => {
-    if (!token) return;
-    await adminFetch(`/admin/verification/${reqId}/reject`, token, { method: 'POST' });
-    loadData(token);
-    setViewingId(null);
   };
 
   const approveEvent = async (eventId: string) => {
@@ -236,7 +218,6 @@ export default function AdminDashboard() {
     return matchesSearch && matchesStatus;
   });
 
-  const viewingVerif = verifications.find(v => v.request_id === viewingId);
   const viewingEvent = pendingEvents.find(e => e.event_id === viewingEventId);
 
   return (
@@ -255,7 +236,6 @@ export default function AdminDashboard() {
         {[
           { key: 'stats', icon: 'stats-chart', label: 'Stats' },
           { key: 'users', icon: 'people', label: 'Users' },
-          { key: 'verifications', icon: 'shield-checkmark', label: `Verify (${verifications.length})` },
           { key: 'events', icon: 'calendar', label: `Events (${pendingEvents.length})` },
           { key: 'confessions', icon: 'megaphone', label: 'Confess' },
         ].map((t: any) => (
@@ -340,22 +320,7 @@ export default function AdminDashboard() {
           </View>
         )}
 
-        {tab === 'verifications' && (
-          <View style={styles.section}>
-            {verifications.length === 0 ? (
-              <Text style={styles.emptyText}>No pending verifications 🎉</Text>
-            ) : verifications.map(v => (
-              <TouchableOpacity key={v.request_id} style={styles.verifCard} onPress={() => setViewingId(v.request_id)}>
-                <Image source={{ uri: v.id_card_image }} style={styles.verifThumb} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>User ID: {v.user_id.slice(0, 16)}...</Text>
-                  <Text style={styles.userEmail}>Submitted: {new Date(v.submitted_at).toLocaleDateString()}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color="#666" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+
 
         {tab === 'events' && (
           <View style={styles.section}>
@@ -399,29 +364,7 @@ export default function AdminDashboard() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <Modal visible={!!viewingVerif} transparent animationType="slide">
-        <View style={styles.modalBg}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity onPress={() => setViewingId(null)} style={{ alignSelf: 'flex-end' }}>
-              <Ionicons name="close" size={28} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Review ID Card</Text>
-            {viewingVerif && (
-              <>
-                <Image source={{ uri: viewingVerif.id_card_image }} style={styles.modalImage} />
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#F44336' }]} onPress={() => rejectVerification(viewingVerif.request_id)}>
-                    <Text style={styles.modalBtnText}>Reject</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#4CAF50' }]} onPress={() => approveVerification(viewingVerif.request_id)}>
-                    <Text style={styles.modalBtnText}>Approve</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+
 
       <Modal visible={!!viewingEvent} transparent animationType="slide">
         <View style={styles.modalBg}>

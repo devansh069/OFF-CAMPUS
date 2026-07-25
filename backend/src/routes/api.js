@@ -49,9 +49,9 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, adminController.getS
 router.get('/admin/users', authMiddleware, adminMiddleware, adminController.getUsers);
 router.delete('/admin/users/:userId', authMiddleware, adminMiddleware, adminController.deleteUser);
 router.post('/admin/users/:userId/grant-premium', authMiddleware, adminMiddleware, adminController.grantPremium);
-router.get('/admin/verification-requests', authMiddleware, adminMiddleware, adminController.getVerificationRequests);
-router.post('/admin/verification/:id/approve', authMiddleware, adminMiddleware, adminController.approveVerification);
-router.post('/admin/verification/:id/reject', authMiddleware, adminMiddleware, adminController.rejectVerification);
+router.get('/admin/verification-requests', adminController.getVerificationRequests);
+router.post('/admin/verification/:id/approve', adminController.approveVerification);
+router.post('/admin/verification/:id/reject', adminController.rejectVerification);
 router.delete('/admin/confessions/:id', authMiddleware, adminMiddleware, adminController.deleteConfession);
 router.get('/admin/pending-events', adminController.getPendingEvents);
 router.post('/admin/events/:id/approve', adminController.approveEvent);
