@@ -7,6 +7,7 @@ const eventController = require('../controllers/eventController');
 const confessionController = require('../controllers/confessionController');
 const storyController = require('../controllers/storyController');
 const spotifyController = require('../controllers/spotifyController');
+const ambassadorController = require('../controllers/ambassadorController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -80,6 +81,10 @@ router.get('/confessions/comments/all', confessionController.getAllComments);
 router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
 router.post('/stories/create', authMiddleware, storyController.createStory);
 router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
+
+// Campus Ambassador endpoints
+router.post('/ambassadors/apply', ambassadorController.applyAmbassador);
+router.get('/ambassadors/all', ambassadorController.getAllAmbassadors);
 
 module.exports = router;
 
