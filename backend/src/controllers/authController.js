@@ -145,37 +145,38 @@ exports.verifyOTP = async (req, res) => {
       if (referralCode) {
         const referrer = await User.findOne({ where: { referral_code: referralCode } });
         if (referrer && referrer.user_id !== user.user_id) {
-          // Record the referral
-          await Referral.create({
-            referrer_id: referrer.user_id,
-            referred_id: user.user_id
-          });
+          // Check if this user was already referred by someone
+          const existingReferral = await Referral.findOne({ where: { referred_id: user.user_id } });
+          if (!existingReferral) {
+            // Record the referral
+            // Record the referral
+            await Referral.create({
+              referrer_id: referrer.user_id,
+              referred_id: user.user_id
+            });
 
-          // Update referrer's perks
-          referrer.total_referrals += 1;
-          const tr = referrer.total_referrals;
+            // Update referrer's perks
+            referrer.total_referrals += 1;
+            const tr = referrer.total_referrals;
 
-          if (tr === 1) {
-            const oldScore = referrer.vibe_score;
-            referrer.vibe_score = Math.min(referrer.vibe_score + 2, 10);
-            if (oldScore !== referrer.vibe_score) {
+            if (tr === 1) {
+              const oldScore = referrer.vibe_score;
+              referrer.vibe_score = Math.min(referrer.vibe_score + 2, 10);
               await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 1st friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
-            }
-          } else if (tr === 3) {
-            referrer.profile_visibility = 1.5;
-          } else if (tr === 5) {
-            const oldScore = referrer.vibe_score;
-            referrer.vibe_score = 10;
-            if (oldScore !== referrer.vibe_score) {
+            } else if (tr === 3) {
+              referrer.profile_visibility = 1.5;
+            } else if (tr === 5) {
+              const oldScore = referrer.vibe_score;
+              referrer.vibe_score = 10;
               await VibeScoreLog.create({ user_id: referrer.user_id, reason: 'Referred 5th friend', change_amount: referrer.vibe_score - oldScore, new_score: referrer.vibe_score });
+            } else if (tr === 7) {
+              referrer.profile_visibility = 2.0;
+            } else if (tr >= 10 && !referrer.has_event_pass) {
+              referrer.has_event_pass = true;
             }
-          } else if (tr === 7) {
-            referrer.profile_visibility = 2.0;
-          } else if (tr >= 10 && !referrer.has_event_pass) {
-            referrer.has_event_pass = true;
-          }
 
-          await referrer.save();
+            await referrer.save();
+          }
         }
       }
     }

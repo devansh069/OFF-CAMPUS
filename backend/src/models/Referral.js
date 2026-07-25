@@ -31,7 +31,12 @@ const Referral = sequelize.define('Referral', {
   }
 }, {
   tableName: 'referrals',
-  timestamps: false
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: false
 });
+
+Referral.belongsTo(User, { foreignKey: 'referrer_id', as: 'ReferrerUser' });
+Referral.belongsTo(User, { foreignKey: 'referred_id', as: 'ReferredUser' });
 
 module.exports = Referral;
