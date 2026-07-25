@@ -8,6 +8,7 @@ const confessionController = require('../controllers/confessionController');
 const storyController = require('../controllers/storyController');
 const spotifyController = require('../controllers/spotifyController');
 const ambassadorController = require('../controllers/ambassadorController');
+const referralController = require('../controllers/referralController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -85,6 +86,9 @@ router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
 // Campus Ambassador endpoints
 router.post('/ambassadors/apply', ambassadorController.applyAmbassador);
 router.get('/ambassadors/all', ambassadorController.getAllAmbassadors);
+
+// Referral endpoints
+router.get('/referrals/my-stats', authMiddleware, referralController.getMyStats);
 
 module.exports = router;
 

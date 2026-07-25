@@ -356,7 +356,7 @@ export default function Profile() {
                 </View>
                 <Text style={styles.statLabel}>YOUR VIBE SCORE</Text>
                 <Text style={styles.vibeScoreExplanation}>
-                  Calculated dynamically based on your profile completeness, Spotify integration activity, verified status, active campus RSVPs, and positive ratings from other community members. Keep vibing to increase your score!
+                  Based on matches, profile completeness, and positive community interactions.
                 </Text>
               </View>
             </View>

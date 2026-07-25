@@ -415,6 +415,7 @@ export default function ProfileEdit() {
                 maxLength={150}
                 placeholder="Tell your story..."
                 placeholderTextColor="#6B5B7A"
+                scrollEnabled={true}
               />
 
               {/* SECTION 3: LOCATION */}
@@ -522,15 +523,7 @@ export default function ProfileEdit() {
                 ))}
               </View>
 
-              <Text style={styles.lbl}>VIBE MODE (LOOKING FOR)</Text>
-              <View style={styles.opts}>
-                {[{ v: 'dating', l: '💕 Dating' }, { v: 'friends', l: '🤝 Friends' }, { v: 'networking', l: '💼 Network' }, { v: 'all', l: '✨ All' }].map(o => (
-                  <TouchableOpacity key={o.v} style={[styles.opt, lookingFor === o.v && styles.optA]} onPress={() => setLookingFor(o.v)}>
-                    <Text style={[styles.optT, lookingFor === o.v && styles.optTA]}>{o.l}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
+
               <Text style={styles.lbl}>INTERESTS</Text>
               <View style={styles.opts}>
                 {INTERESTS.map(i => (
