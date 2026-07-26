@@ -89,6 +89,14 @@ export default function CampusLive() {
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
+  const [expandedConfessions, setExpandedConfessions] = useState<{[key: string]: boolean}>({});
+
+  const toggleExpand = (id: string) => {
+    setExpandedConfessions(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   const selectConfImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -831,8 +839,8 @@ export default function CampusLive() {
               <Text style={styles.sectionT}>Live Confessions</Text>
             </View>
 
-            {/* Premium Frosted Composer */}
-            <View style={styles.premiumComposerWrapper}>
+            {/* Confession Composer matching Events page Search bar */}
+            <View style={styles.searchBarWrapper}>
               {confessionImage && (
                 <View style={styles.composerImagePreviewContainer}>
                   <Image source={{ uri: `data:image/jpeg;base64,${confessionImage}` }} style={styles.composerImagePreview} />
@@ -842,53 +850,47 @@ export default function CampusLive() {
                 </View>
               )}
 
-              <BlurView intensity={35} tint="light" style={styles.composerGlass}>
+              <View style={styles.searchBarContainer}>
+                {/* Image selector button */}
                 <TouchableOpacity onPress={selectConfImage} style={styles.imageSelectBtn} activeOpacity={0.7}>
-                  <Ionicons name="image" size={20} color={confessionImage ? '#C2FF3D' : '#FFF'} />
+                  <Ionicons name="image" size={18} color={confessionImage ? '#C2FF3D' : 'rgba(255, 255, 255, 0.6)'} />
                 </TouchableOpacity>
 
                 <TextInput
-                  style={styles.composerInput}
+                  style={styles.searchBarInput}
                   placeholder="Drop an anonymous confession..."
-                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
                   value={text}
                   onChangeText={setText}
                   maxLength={300}
                 />
-                <TouchableOpacity
-                  style={[styles.composerSendBtn, (!text.trim() && !confessionImage) && styles.composerSendBtnDisabled]}
-                  onPress={post}
-                  disabled={(!text.trim() && !confessionImage) || posting}
-                  activeOpacity={0.7}
-                >
-                  {posting ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <LinearGradient
-                      colors={['#C2FF3D', '#C2FF3D']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.sendBtnGrad}
-                    >
-                      <Ionicons name="arrow-up" size={18} color="#000" />
-                    </LinearGradient>
-                  )}
-                </TouchableOpacity>
-              </BlurView>
+                
+                {(text.length > 0 || confessionImage) && (
+                  <TouchableOpacity
+                    onPress={post}
+                    disabled={posting}
+                    activeOpacity={0.7}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {posting ? (
+                      <ActivityIndicator color="#FF3366" size="small" />
+                    ) : (
+                      <Ionicons name="send" size={18} color="#FF3366" />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
             
-            {/* Confessions List (Premium Slate Glass style) */}
+            {/* Confessions List (Twitter style flat list with thin dividers) */}
             <View style={styles.gridContainer}>
               {filteredConfessions.map((c: any) => {
+                const isExpanded = !!expandedConfessions[c.confession_id];
                 return (
-                  <TouchableOpacity
+                  <View
                     key={c.confession_id}
                     style={styles.twitterCard}
-                    onPress={() => openComments(c)}
-                    activeOpacity={0.9}
                   >
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
- 
                     {/* Left: Minimal Slate Avatar */}
                     <View style={styles.twitterAvatarContainer}>
                       <View style={styles.twitterAvatarBg}>
@@ -914,13 +916,8 @@ export default function CampusLive() {
                           <Ionicons name="ellipsis-horizontal" size={14} color="#71717A" />
                         </View>
                       </View>
- 
-                      {/* Premium text body */}
-                      <Text style={styles.twitterText}>
-                        {c.content}
-                      </Text>
- 
-                      {/* Rounded attachment image */}
+
+                      {/* 1. Image first (if present) */}
                       {c.image && (
                         <View style={styles.imageAttachmentWrapper}>
                           <Image
@@ -931,7 +928,14 @@ export default function CampusLive() {
                         </View>
                       )}
  
-                      {/* Minimal actions footer */}
+                      {/* 2. Text description below (toggles expand on press) */}
+                      <TouchableOpacity onPress={() => toggleExpand(c.confession_id)} activeOpacity={0.85}>
+                        <Text style={styles.twitterText} numberOfLines={isExpanded ? undefined : 2}>
+                          {c.content}
+                        </Text>
+                      </TouchableOpacity>
+ 
+                      {/* 3. Actions row */}
                       <View style={styles.twitterActionBar}>
                         <TouchableOpacity style={styles.twitterActionBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
                           <Ionicons name="heart" size={16} color={c.likes > 0 ? "#FF3366" : "#71717A"} />
@@ -948,7 +952,7 @@ export default function CampusLive() {
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
@@ -1587,13 +1591,9 @@ const styles = StyleSheet.create({
   },
   twitterCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    overflow: 'hidden',
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   twitterAvatarContainer: {
     marginRight: 12,
@@ -1680,9 +1680,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  twitterActionCount: {
-    fontSize: 12,
+  // Search/Composer Input Styles
+  searchBarWrapper: {
+    paddingHorizontal: 16,
+    marginVertical: 12,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+  },
+  searchBarInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
     fontWeight: '600',
+    padding: 0,
   },
   imageSelectBtn: {
     marginRight: 10,
