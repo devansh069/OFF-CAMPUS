@@ -884,7 +884,7 @@ export default function CampusLive() {
                     onPress={() => openComments(c)}
                     activeOpacity={0.9}
                   >
-                    <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject} />
+                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
  
                     {/* Left: Minimal Slate Avatar */}
                     <View style={styles.twitterAvatarContainer}>
@@ -1584,12 +1584,12 @@ const styles = StyleSheet.create({
   },
   twitterCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
   },
   twitterAvatarContainer: {
