@@ -255,17 +255,16 @@ export default function Likes() {
 
   return (
     <View style={styles.container}>
-      {/* Simple bright pink gradient */}
-      <LinearGradient
-        colors={['#FF3366', '#C2185B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-
-
-      <BlurView intensity={Platform.OS === 'ios' ? 30 : 60} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+      <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.bg}>
             {/* Header */}
             <View style={styles.header}>
@@ -401,7 +400,6 @@ export default function Likes() {
             )}
           </View>
         </SafeAreaView>
-      </BlurView>
 
       {/* Fullscreen Profile Detail Modal (Discover/Vibe style) */}
       <Modal
@@ -595,7 +593,16 @@ const cellWidth = (screenWidth - 64) / 3;
 const cellHeight = (screenHeight - 250) / 3;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FF3366' },
+  container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
+  },
   bg: { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

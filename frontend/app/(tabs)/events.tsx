@@ -198,7 +198,7 @@ const getEventFlyer = (e: any) => {
 
 const getHostAvatar = (host: any) => {
   if (!host) return 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
-  
+
   let avatarUrl = '';
   if (host.photos) {
     let parsedPhotos: string[] = [];
@@ -207,21 +207,21 @@ const getHostAvatar = (host: any) => {
     } else if (typeof host.photos === 'string') {
       try {
         parsedPhotos = JSON.parse(host.photos);
-      } catch {}
+      } catch { }
     }
     if (parsedPhotos.length > 0 && parsedPhotos[0]) {
       avatarUrl = parsedPhotos[0];
     }
   }
-  
+
   if (!avatarUrl && host.picture) {
     avatarUrl = host.picture;
   }
-  
+
   if (!avatarUrl) {
     return 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
   }
-  
+
   if (avatarUrl.startsWith('http')) {
     return avatarUrl;
   }
@@ -424,7 +424,7 @@ export default function Events() {
       alert('Please fill out all required fields.');
       return;
     }
-    
+
     setCreating(true);
     try {
       const payload = {
@@ -456,7 +456,7 @@ export default function Events() {
       }
 
       alert('Event submitted successfully! It will be visible once approved by an administrator.');
-      
+
       // Reset form
       setFormTitle('');
       setFormCategory('fest');
@@ -470,7 +470,7 @@ export default function Events() {
       setFormContactPhone(user?.phone_number || '');
       setDateValue(new Date());
       setCreateModalVisible(false);
-      
+
       fetchEvents();
     } catch (e: any) {
       console.error(e);
@@ -602,566 +602,571 @@ export default function Events() {
 
   return (
     <View style={styles.container}>
-      {/* Top-Right Purple-Reddish Glow Ball */}
+      {/* Top-Left Dark Purple Glow Ball */}
       <View style={styles.glowBallContainer}>
         <LinearGradient
-          colors={['#8E24AA', '#E91E63', 'rgba(0,0,0,0)']}
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0.8, y: 0.8 }}
           style={StyleSheet.absoluteFillObject}
         />
       </View>
       <SafeAreaView style={{ flex: 1 }}>
-          {/* Header Bar */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.greet}>Campus Hub</Text>
-              <Text style={styles.title}>Events</Text>
-            </View>
+        {/* Header Bar */}
+        <View style={styles.header}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.greet}>Campus Hub</Text>
+            <Text style={styles.title}>Events</Text>
           </View>
+          <Image
+            source={require('../../assets/images/logo_off.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
 
-          {/* Search Bar Input */}
-          <View style={styles.searchBarWrapper}>
-            <View style={styles.searchBarContainer}>
-              <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.6)" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.searchBarInput}
-                placeholder="What events are you looking for?"
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.6)" />
-                </TouchableOpacity>
-              )}
-            </View>
+        {/* Search Bar Input */}
+        <View style={styles.searchBarWrapper}>
+          <View style={styles.searchBarContainer}>
+            <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.6)" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchBarInput}
+              placeholder="What events are you looking for?"
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
+            )}
           </View>
+        </View>
 
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color="#FF1B6B" />
-            </View>
-          ) : (
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#FF1B6B" />
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            {/* Horizontal Category Filters */}
             <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 100 }}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.horizontalFiltersScroll}
+              contentContainerStyle={styles.horizontalFiltersContainer}
             >
-              {/* Horizontal Category Filters */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.horizontalFiltersScroll}
-                contentContainerStyle={styles.horizontalFiltersContainer}
-              >
-                {categories.map((c) => {
-                  const isSelected = activeCategory === c.key;
+              {categories.map((c) => {
+                const isSelected = activeCategory === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[
+                      styles.horizontalFilterPill,
+                      isSelected && styles.horizontalFilterPillActive
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
+                  >
+                    <Ionicons
+                      name={c.icon as any}
+                      size={14}
+                      color={isSelected ? '#000' : 'rgba(255,255,255,0.7)'}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.horizontalFilterText,
+                        isSelected && styles.horizontalFilterTextActive
+                      ]}
+                    >
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Top 5 Events Horizontal Card List */}
+            {(() => {
+              const top5Events = [...filtered]
+                .sort((a, b) => (b.attendee_count || 0) - (a.attendee_count || 0))
+                .slice(0, 5);
+
+              if (top5Events.length === 0) return null;
+
+              return (
+                <>
+                  <Text style={styles.sectionHeading}>Top 5 Events</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.topEventsScroll}
+                    contentContainerStyle={styles.topEventsScrollContent}
+                  >
+                    {top5Events.map((e: any) => {
+                      const categoryObj = categories.find(cat => cat.key === e.category) || {
+                        key: 'other',
+                        colors: ['#FF1B6B', '#FF7B00'],
+                        icon: 'calendar-outline'
+                      };
+                      const eventDate = new Date(e.date);
+                      const dateStr = eventDate.toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric'
+                      });
+
+                      return (
+                        <TouchableOpacity
+                          key={e.event_id}
+                          style={styles.topEventCard}
+                          activeOpacity={0.9}
+                          onPress={() => setSelectedEvent(e)}
+                        >
+                          <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFillObject} />
+                          {/* 50% Top: Event Cover Image */}
+                          <Image
+                            source={{ uri: getEventFlyer(e) }}
+                            style={styles.topEventImage}
+                          />
+                          {/* 50% Bottom: Event Info */}
+                          <View style={styles.topEventInfo}>
+                            <Text style={[styles.topEventCat, { color: categoryObj.colors[0] }]}>
+                              {e.category.toUpperCase()}
+                            </Text>
+                            <Text style={styles.topEventTitle} numberOfLines={1}>
+                              {e.title}
+                            </Text>
+                            <Text style={styles.topEventHost} numberOfLines={1}>
+                              by {e.host_name}
+                            </Text>
+                            <View style={styles.topEventMetaRow}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
+                                <Text style={styles.topEventMetaText}>{dateStr}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
+                                <Text style={styles.topEventMetaText}>{e.attendee_count || 0} going</Text>
+                              </View>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              );
+            })()}
+
+            {/* Recent Events Vertical List */}
+            <Text style={styles.sectionHeading}>Recent Events</Text>
+
+            {sortedEvents.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
+                <Text style={styles.emptyT}>No events found matching current filters</Text>
+                {(activeCategory || searchQuery || feedMode === 'campus') && (
+                  <TouchableOpacity
+                    style={styles.resetFilterBtn}
+                    onPress={() => {
+                      setActiveCategory(null);
+                      setSearchQuery('');
+                      setFeedMode('global');
+                    }}
+                  >
+                    <Text style={styles.resetFilterText}>Clear All Filters</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={styles.listContentContainer}>
+                {sortedEvents.map((e: any) => {
+                  const eventDate = new Date(e.date);
+                  const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+                  // Match category configuration
+                  const categoryObj = categories.find(c => c.key === e.category) || {
+                    key: 'other',
+                    label: e.category || 'other',
+                    colors: ['#FF1B6B', '#FF7B00'],
+                    icon: 'calendar-outline'
+                  };
+
                   return (
                     <TouchableOpacity
-                      key={c.key}
-                      style={[
-                        styles.horizontalFilterPill,
-                        isSelected && styles.horizontalFilterPillActive
-                      ]}
-                      activeOpacity={0.8}
-                      onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
+                      key={e.event_id}
+                      style={styles.miniCardWrapper}
+                      activeOpacity={0.9}
+                      onPress={() => setSelectedEvent(e)}
                     >
-                      <Ionicons
-                        name={c.icon as any}
-                        size={14}
-                        color={isSelected ? '#000' : 'rgba(255,255,255,0.7)'}
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text
-                        style={[
-                          styles.horizontalFilterText,
-                          isSelected && styles.horizontalFilterTextActive
-                        ]}
-                      >
-                        {c.label}
-                      </Text>
+                      <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
+                        {/* Left Column: Cover art thumbnail */}
+                        <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
+
+                        {/* Center Column: Title, host, mini specs */}
+                        <View style={styles.miniCardDetails}>
+                          <View style={styles.miniCardTopRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
+                                {categoryObj.label.toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text style={styles.miniCardDaysAway}>
+                              {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
+                            </Text>
+                          </View>
+
+                          <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
+                          <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
+
+                          <View style={styles.miniCardStats}>
+                            <View style={styles.miniCardStatItem}>
+                              <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
+                              <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
+                            </View>
+                            <View style={styles.miniCardStatItem}>
+                              <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
+                              <Text style={styles.miniCardStatText} numberOfLines={1}>
+                                {e.location.split(',')[0]}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Right Column: Favorite/Star button */}
+                        <TouchableOpacity
+                          style={styles.miniCardRsvpBtn}
+                          activeOpacity={0.8}
+                          onPress={() => handleToggleStar(e.event_id)}
+                        >
+                          {e.is_starred ? (
+                            <LinearGradient
+                              colors={['#FFD700', '#FFD700']}
+                              style={styles.miniRsvpGradient}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                            >
+                              <Ionicons name="star" size={14} color="#000" />
+                            </LinearGradient>
+                          ) : (
+                            <View style={styles.miniRsvpOutline}>
+                              <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </BlurView>
                     </TouchableOpacity>
                   );
                 })}
-              </ScrollView>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
 
-              {/* Top 5 Events Horizontal Card List */}
-              {(() => {
-                const top5Events = [...filtered]
-                  .sort((a, b) => (b.attendee_count || 0) - (a.attendee_count || 0))
-                  .slice(0, 5);
+      {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={selectedEvent !== null}
+        onRequestClose={() => setSelectedEvent(null)}
+      >
+        {selectedEvent && (
+          <View style={styles.detailsModalContainer}>
+            {/* Full-Screen Cover Image Section */}
+            <View style={styles.modalCoverContainer}>
+              <Image
+                source={{ uri: getEventFlyer(selectedEvent) }}
+                style={styles.modalCoverImage}
+              />
 
-                if (top5Events.length === 0) return null;
+              {/* Header buttons overlay */}
+              <SafeAreaView style={styles.modalOverlayHeader}>
+                <TouchableOpacity
+                  style={styles.circularBackBtn}
+                  onPress={() => setSelectedEvent(null)}
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </TouchableOpacity>
 
-                return (
-                  <>
-                    <Text style={styles.sectionHeading}>Top 5 Events</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={styles.topEventsScroll}
-                      contentContainerStyle={styles.topEventsScrollContent}
-                    >
-                      {top5Events.map((e: any) => {
-                        const categoryObj = categories.find(cat => cat.key === e.category) || {
-                          key: 'other',
-                          colors: ['#FF1B6B', '#FF7B00'],
-                          icon: 'calendar-outline'
-                        };
-                        const eventDate = new Date(e.date);
-                        const dateStr = eventDate.toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric'
-                        });
+                <TouchableOpacity
+                  style={[
+                    styles.circularStarBtn,
+                    selectedEvent.is_starred && { backgroundColor: '#FFD700' }
+                  ]}
+                  onPress={() => handleToggleStar(selectedEvent.event_id)}
+                >
+                  <Ionicons
+                    name={selectedEvent.is_starred ? "star" : "star-outline"}
+                    size={20}
+                    color={selectedEvent.is_starred ? "#000" : "#FFF"}
+                  />
+                </TouchableOpacity>
+              </SafeAreaView>
 
-                        return (
-                          <TouchableOpacity
-                            key={e.event_id}
-                            style={styles.topEventCard}
-                            activeOpacity={0.9}
-                            onPress={() => setSelectedEvent(e)}
-                          >
-                            <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFillObject} />
-                            {/* 50% Top: Event Cover Image */}
-                            <Image
-                              source={{ uri: getEventFlyer(e) }}
-                              style={styles.topEventImage}
-                            />
-                            {/* 50% Bottom: Event Info */}
-                            <View style={styles.topEventInfo}>
-                              <Text style={[styles.topEventCat, { color: categoryObj.colors[0] }]}>
-                                {e.category.toUpperCase()}
-                              </Text>
-                              <Text style={styles.topEventTitle} numberOfLines={1}>
-                                {e.title}
-                              </Text>
-                              <Text style={styles.topEventHost} numberOfLines={1}>
-                                by {e.host_name}
-                              </Text>
-                              <View style={styles.topEventMetaRow}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                  <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
-                                  <Text style={styles.topEventMetaText}>{dateStr}</Text>
-                                </View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                  <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 4 }} />
-                                  <Text style={styles.topEventMetaText}>{e.attendee_count || 0} going</Text>
-                                </View>
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </>
-                );
-              })()}
+              {/* Overlaid Label & Title */}
+              <View style={styles.modalCoverTextOverlay}>
+                <Text style={styles.modalCoverCategory}>
+                  {selectedEvent.category ? selectedEvent.category.toUpperCase() : 'EVENT'}
+                </Text>
+                <Text style={styles.modalCoverTitle}>
+                  {selectedEvent.title}
+                </Text>
+              </View>
+            </View>
 
-              {/* Recent Events Vertical List */}
-              <Text style={styles.sectionHeading}>Recent Events</Text>
-
-              {sortedEvents.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="calendar-outline" size={64} color="rgba(255, 255, 255, 0.15)" />
-                  <Text style={styles.emptyT}>No events found matching current filters</Text>
-                  {(activeCategory || searchQuery || feedMode === 'campus') && (
-                    <TouchableOpacity
-                      style={styles.resetFilterBtn}
-                      onPress={() => {
-                        setActiveCategory(null);
-                        setSearchQuery('');
-                        setFeedMode('global');
-                      }}
-                    >
-                      <Text style={styles.resetFilterText}>Clear All Filters</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.listContentContainer}>
-                  {sortedEvents.map((e: any) => {
-                    const eventDate = new Date(e.date);
-                    const daysAway = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                    
-                    // Match category configuration
-                    const categoryObj = categories.find(c => c.key === e.category) || {
-                      key: 'other',
-                      label: e.category || 'other',
-                      colors: ['#FF1B6B', '#FF7B00'],
-                      icon: 'calendar-outline'
-                    };
-
-                    return (
-                      <TouchableOpacity
-                        key={e.event_id}
-                        style={styles.miniCardWrapper}
-                        activeOpacity={0.9}
-                        onPress={() => setSelectedEvent(e)}
-                      >
-                        <BlurView intensity={45} tint="dark" style={styles.miniCardGlass}>
-                          {/* Left Column: Cover art thumbnail */}
-                          <Image source={{ uri: getEventFlyer(e) }} style={styles.miniCardThumbnail} />
-
-                          {/* Center Column: Title, host, mini specs */}
-                          <View style={styles.miniCardDetails}>
-                            <View style={styles.miniCardTopRow}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
-                                  {categoryObj.label.toUpperCase()}
-                                </Text>
-                              </View>
-                              <Text style={styles.miniCardDaysAway}>
-                                {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
-                              </Text>
-                            </View>
-
-                            <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
-                            <Text style={styles.miniCardHost} numberOfLines={1}>by {e.host_name}</Text>
-
-                            <View style={styles.miniCardStats}>
-                              <View style={styles.miniCardStatItem}>
-                                <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
-                                <Text style={styles.miniCardStatText}>{e.attendee_count} going</Text>
-                              </View>
-                              <View style={styles.miniCardStatItem}>
-                                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.4)" />
-                                <Text style={styles.miniCardStatText} numberOfLines={1}>
-                                  {e.location.split(',')[0]}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-
-                          {/* Right Column: Favorite/Star button */}
-                          <TouchableOpacity
-                            style={styles.miniCardRsvpBtn}
-                            activeOpacity={0.8}
-                            onPress={() => handleToggleStar(e.event_id)}
-                          >
-                            {e.is_starred ? (
-                              <LinearGradient
-                                colors={['#FFD700', '#FFD700']}
-                                style={styles.miniRsvpGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                              >
-                                <Ionicons name="star" size={14} color="#000" />
-                              </LinearGradient>
-                            ) : (
-                              <View style={styles.miniRsvpOutline}>
-                                <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        </BlurView>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </ScrollView>
-          )}
-        </SafeAreaView>
-
-        {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={selectedEvent !== null}
-          onRequestClose={() => setSelectedEvent(null)}
-        >
-          {selectedEvent && (
-            <View style={styles.detailsModalContainer}>
-              {/* Full-Screen Cover Image Section */}
-              <View style={styles.modalCoverContainer}>
-                <Image
-                  source={{ uri: getEventFlyer(selectedEvent) }}
-                  style={styles.modalCoverImage}
-                />
-                
-                {/* Header buttons overlay */}
-                <SafeAreaView style={styles.modalOverlayHeader}>
-                  <TouchableOpacity
-                    style={styles.circularBackBtn}
-                    onPress={() => setSelectedEvent(null)}
-                  >
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.circularStarBtn,
-                      selectedEvent.is_starred && { backgroundColor: '#FFD700' }
-                    ]}
-                    onPress={() => handleToggleStar(selectedEvent.event_id)}
-                  >
-                    <Ionicons
-                      name={selectedEvent.is_starred ? "star" : "star-outline"}
-                      size={20}
-                      color={selectedEvent.is_starred ? "#000" : "#FFF"}
-                    />
-                  </TouchableOpacity>
-                </SafeAreaView>
-
-                {/* Overlaid Label & Title */}
-                <View style={styles.modalCoverTextOverlay}>
-                  <Text style={styles.modalCoverCategory}>
-                    {selectedEvent.category ? selectedEvent.category.toUpperCase() : 'EVENT'}
-                  </Text>
-                  <Text style={styles.modalCoverTitle}>
-                    {selectedEvent.title}
-                  </Text>
-                </View>
+            {/* Sliding Bottom Sheet */}
+            <Animated.View
+              style={[
+                styles.modalSheetContainer,
+                {
+                  position: 'absolute',
+                  top: translateY,
+                  left: 0,
+                  right: 0,
+                  height: SCREEN_HEIGHT - SNAP_TOP,
+                  zIndex: 10,
+                }
+              ]}
+            >
+              {/* Drag Handle Row */}
+              <View style={styles.modalDragHandleRow} {...panResponder.panHandlers}>
+                <View style={styles.modalDragHandle} />
               </View>
 
-              {/* Sliding Bottom Sheet */}
-              <Animated.View
-                style={[
-                  styles.modalSheetContainer,
-                  {
-                    position: 'absolute',
-                    top: translateY,
-                    left: 0,
-                    right: 0,
-                    height: SCREEN_HEIGHT - SNAP_TOP,
-                    zIndex: 10,
-                  }
-                ]}
-              >
-                {/* Drag Handle Row */}
-                <View style={styles.modalDragHandleRow} {...panResponder.panHandlers}>
-                  <View style={styles.modalDragHandle} />
+              {!sheetExpanded ? (
+                <View style={styles.minimizedSheetContent}>
+                  <TouchableOpacity
+                    style={styles.minimizedViewDetailsBtn}
+                    activeOpacity={0.85}
+                    onPress={() => animateTo(SNAP_TOP)}
+                  >
+                    <Text style={styles.minimizedViewDetailsText}>View Details</Text>
+                    <Ionicons name="chevron-up" size={18} color="#000" />
+                  </TouchableOpacity>
                 </View>
-
-                {!sheetExpanded ? (
-                  <View style={styles.minimizedSheetContent}>
+              ) : (
+                <>
+                  <View style={styles.expandedSheetHeader}>
+                    <Text style={styles.expandedSheetTitle}>Event Details</Text>
                     <TouchableOpacity
-                      style={styles.minimizedViewDetailsBtn}
-                      activeOpacity={0.85}
-                      onPress={() => animateTo(SNAP_TOP)}
+                      style={styles.expandedSheetCloseBtn}
+                      onPress={() => animateTo(SNAP_BOTTOM)}
                     >
-                      <Text style={styles.minimizedViewDetailsText}>View Details</Text>
-                      <Ionicons name="chevron-up" size={18} color="#000" />
+                      <Ionicons name="chevron-down" size={20} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                   </View>
-                ) : (
-                  <>
-                    <View style={styles.expandedSheetHeader}>
-                      <Text style={styles.expandedSheetTitle}>Event Details</Text>
-                      <TouchableOpacity
-                        style={styles.expandedSheetCloseBtn}
-                        onPress={() => animateTo(SNAP_BOTTOM)}
-                      >
-                        <Ionicons name="chevron-down" size={20} color="rgba(255,255,255,0.6)" />
-                      </TouchableOpacity>
-                    </View>
 
-                    <ScrollView
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={styles.modalSheetScrollContent}
-                    >
-                      {/* Gallery Photos Row */}
-                      {(() => {
-                        let galleryImages: string[] = [];
-                        if (selectedEvent.gallery_photos) {
-                          if (Array.isArray(selectedEvent.gallery_photos)) {
-                            galleryImages = selectedEvent.gallery_photos;
-                          } else if (typeof selectedEvent.gallery_photos === 'string') {
-                            try {
-                              galleryImages = JSON.parse(selectedEvent.gallery_photos);
-                            } catch {}
-                          }
-                        }
-                        const extras = getEventExtras(selectedEvent);
-                        if (galleryImages.length === 0 && extras && extras.gallery) {
-                          galleryImages = extras.gallery;
-                        }
-
-                        if (galleryImages.length === 0) return null;
-
-                        return (
-                          <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.modalGalleryScroll}
-                            contentContainerStyle={styles.modalGalleryScrollContent}
-                          >
-                            {galleryImages.map((imgUri, imgIndex) => {
-                              const finalUri = imgUri.startsWith('http')
-                                ? imgUri
-                                : `${EXPO_PUBLIC_BACKEND_URL}/${imgUri}`;
-                              return (
-                                <Image
-                                  key={imgIndex}
-                                  source={{ uri: finalUri }}
-                                  style={styles.modalGalleryThumbnail}
-                                />
-                              );
-                            })}
-                          </ScrollView>
-                        );
-                      })()}
-
-                      {/* Metrics Grid Row */}
-                      {(() => {
-                        const eventDate = new Date(selectedEvent.date);
-                        const dateStr = eventDate.toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        });
-
-                        return (
-                          <View style={styles.modalSpecsRow}>
-                            <View style={styles.modalSpecBox}>
-                              <Ionicons name="time" size={18} color="#C2FF3D" />
-                              <View style={{ marginLeft: 8 }}>
-                                <Text style={styles.modalSpecVal}>{dateStr}</Text>
-                                <Text style={styles.modalSpecLbl}>Date & Time</Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.modalSpecBox}>
-                              <Ionicons name="location" size={18} color="#C2FF3D" />
-                              <View style={{ marginLeft: 8, flex: 1 }}>
-                                <Text style={styles.modalSpecVal} numberOfLines={1}>
-                                  {selectedEvent.location || 'Campus'}
-                                </Text>
-                                <Text style={styles.modalSpecLbl}>Location</Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.modalSpecBox}>
-                              <Ionicons name="people" size={18} color="#C2FF3D" />
-                              <View style={{ marginLeft: 8 }}>
-                                <Text style={styles.modalSpecVal}>{selectedEvent.attendee_count || 0}</Text>
-                                <Text style={styles.modalSpecLbl}>Attendees</Text>
-                              </View>
-                            </View>
-                          </View>
-                        );
-                      })()}
-
-                      {/* About Event Description */}
-                      <Text style={styles.modalAboutHeading}>About event</Text>
-                      <Text style={styles.modalAboutText}>
-                        {selectedEvent.description || 'No description provided.'}
-                      </Text>
-
-                      {/* Organizer details */}
-                      {(() => {
-                        const displayEmail = selectedEvent.contact_email || selectedEvent.host?.email;
-                        const displayPhone = selectedEvent.contact_phone || selectedEvent.host?.phone_number;
-                        return (
-                          <View style={styles.modalOrganizerCard}>
-                            <Text style={styles.modalOrganizerTitle}>Event Organizer</Text>
-                            <View style={styles.modalOrganizerUserRow}>
-                              <Image
-                                source={{ uri: getHostAvatar(selectedEvent.host) }}
-                                style={styles.modalOrganizerAvatar}
-                              />
-                              <View style={{ flex: 1, marginLeft: 12 }}>
-                                <Text style={styles.modalOrganizerName}>
-                                  {selectedEvent.host?.name || selectedEvent.host_name}
-                                </Text>
-                                {displayEmail ? (
-                                  <Text style={styles.modalOrganizerMeta}>{displayEmail}</Text>
-                                ) : null}
-                                {displayPhone ? (
-                                  <Text style={styles.modalOrganizerMeta}>{displayPhone}</Text>
-                                ) : null}
-                              </View>
-                            </View>
-                          </View>
-                        );
-                      })()}
-
-                      {/* Extra bottom padding */}
-                      <View style={{ height: 120 }} />
-                    </ScrollView>
-
-                    {/* Absolute Bottom Actions Bar */}
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.modalSheetScrollContent}
+                  >
+                    {/* Gallery Photos Row */}
                     {(() => {
-                      const isGoing = selectedEvent.is_attending;
-                      return (
-                        <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={styles.modalBottomBar}>
-                          {/* Left Half: Thumbs Up / Down */}
-                          <View style={styles.thumbsContainer}>
-                            {/* Thumbs Up (attending / +1) */}
-                            <TouchableOpacity
-                              style={[
-                                styles.thumbActionBtn,
-                                isGoing ? styles.thumbUpActive : styles.thumbInactive
-                              ]}
-                              activeOpacity={0.8}
-                              onPress={() => {
-                                if (!isGoing) {
-                                  handleRSVP(selectedEvent.event_id);
-                                }
-                              }}
-                            >
-                              <Ionicons
-                                name={isGoing ? "thumbs-up" : "thumbs-up-outline"}
-                                size={18}
-                                color={isGoing ? "#000" : "#FFF"}
-                              />
-                              <Text style={[styles.thumbActionText, { color: isGoing ? "#000" : "#FFF" }]}>
-                                +1
-                              </Text>
-                            </TouchableOpacity>
+                      let galleryImages: string[] = [];
+                      if (selectedEvent.gallery_photos) {
+                        if (Array.isArray(selectedEvent.gallery_photos)) {
+                          galleryImages = selectedEvent.gallery_photos;
+                        } else if (typeof selectedEvent.gallery_photos === 'string') {
+                          try {
+                            galleryImages = JSON.parse(selectedEvent.gallery_photos);
+                          } catch { }
+                        }
+                      }
+                      const extras = getEventExtras(selectedEvent);
+                      if (galleryImages.length === 0 && extras && extras.gallery) {
+                        galleryImages = extras.gallery;
+                      }
 
-                            {/* Thumbs Down (not attending / -1) */}
-                            <TouchableOpacity
-                              style={[
-                                styles.thumbActionBtn,
-                                !isGoing ? styles.thumbDownActive : styles.thumbInactive
-                              ]}
-                              activeOpacity={0.8}
-                              onPress={() => {
-                                if (isGoing) {
-                                  handleRSVP(selectedEvent.event_id);
-                                }
-                              }}
-                            >
-                              <Ionicons
-                                name={!isGoing ? "thumbs-down" : "thumbs-down-outline"}
-                                size={18}
-                                color={!isGoing ? "#000" : "#FFF"}
+                      if (galleryImages.length === 0) return null;
+
+                      return (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={styles.modalGalleryScroll}
+                          contentContainerStyle={styles.modalGalleryScrollContent}
+                        >
+                          {galleryImages.map((imgUri, imgIndex) => {
+                            const finalUri = imgUri.startsWith('http')
+                              ? imgUri
+                              : `${EXPO_PUBLIC_BACKEND_URL}/${imgUri}`;
+                            return (
+                              <Image
+                                key={imgIndex}
+                                source={{ uri: finalUri }}
+                                style={styles.modalGalleryThumbnail}
                               />
-                              <Text style={[styles.thumbActionText, { color: !isGoing ? "#000" : "#FFF" }]}>
-                                -1
-                              </Text>
-                            </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      );
+                    })()}
+
+                    {/* Metrics Grid Row */}
+                    {(() => {
+                      const eventDate = new Date(selectedEvent.date);
+                      const dateStr = eventDate.toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+
+                      return (
+                        <View style={styles.modalSpecsRow}>
+                          <View style={styles.modalSpecBox}>
+                            <Ionicons name="time" size={18} color="#C2FF3D" />
+                            <View style={{ marginLeft: 8 }}>
+                              <Text style={styles.modalSpecVal}>{dateStr}</Text>
+                              <Text style={styles.modalSpecLbl}>Date & Time</Text>
+                            </View>
                           </View>
 
-                          {/* Right Half: Register Now */}
+                          <View style={styles.modalSpecBox}>
+                            <Ionicons name="location" size={18} color="#C2FF3D" />
+                            <View style={{ marginLeft: 8, flex: 1 }}>
+                              <Text style={styles.modalSpecVal} numberOfLines={1}>
+                                {selectedEvent.location || 'Campus'}
+                              </Text>
+                              <Text style={styles.modalSpecLbl}>Location</Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.modalSpecBox}>
+                            <Ionicons name="people" size={18} color="#C2FF3D" />
+                            <View style={{ marginLeft: 8 }}>
+                              <Text style={styles.modalSpecVal}>{selectedEvent.attendee_count || 0}</Text>
+                              <Text style={styles.modalSpecLbl}>Attendees</Text>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })()}
+
+                    {/* About Event Description */}
+                    <Text style={styles.modalAboutHeading}>About event</Text>
+                    <Text style={styles.modalAboutText}>
+                      {selectedEvent.description || 'No description provided.'}
+                    </Text>
+
+                    {/* Organizer details */}
+                    {(() => {
+                      const displayEmail = selectedEvent.contact_email || selectedEvent.host?.email;
+                      const displayPhone = selectedEvent.contact_phone || selectedEvent.host?.phone_number;
+                      return (
+                        <View style={styles.modalOrganizerCard}>
+                          <Text style={styles.modalOrganizerTitle}>Event Organizer</Text>
+                          <View style={styles.modalOrganizerUserRow}>
+                            <Image
+                              source={{ uri: getHostAvatar(selectedEvent.host) }}
+                              style={styles.modalOrganizerAvatar}
+                            />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <Text style={styles.modalOrganizerName}>
+                                {selectedEvent.host?.name || selectedEvent.host_name}
+                              </Text>
+                              {displayEmail ? (
+                                <Text style={styles.modalOrganizerMeta}>{displayEmail}</Text>
+                              ) : null}
+                              {displayPhone ? (
+                                <Text style={styles.modalOrganizerMeta}>{displayPhone}</Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })()}
+
+                    {/* Extra bottom padding */}
+                    <View style={{ height: 120 }} />
+                  </ScrollView>
+
+                  {/* Absolute Bottom Actions Bar */}
+                  {(() => {
+                    const isGoing = selectedEvent.is_attending;
+                    return (
+                      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={styles.modalBottomBar}>
+                        {/* Left Half: Thumbs Up / Down */}
+                        <View style={styles.thumbsContainer}>
+                          {/* Thumbs Up (attending / +1) */}
                           <TouchableOpacity
-                            style={styles.modalRegisterNowBtn}
-                            activeOpacity={0.85}
+                            style={[
+                              styles.thumbActionBtn,
+                              isGoing ? styles.thumbUpActive : styles.thumbInactive
+                            ]}
+                            activeOpacity={0.8}
                             onPress={() => {
-                              if (selectedEvent.registration_link) {
-                                Linking.openURL(selectedEvent.registration_link).catch(err => {
-                                  console.error(err);
-                                  alert("Could not open the link.");
-                                });
-                              } else {
-                                Alert.alert("No Link", "This event does not have a registration link.");
+                              if (!isGoing) {
+                                handleRSVP(selectedEvent.event_id);
                               }
                             }}
                           >
-                            <Text style={styles.modalRegisterNowText}>Register Now</Text>
+                            <Ionicons
+                              name={isGoing ? "thumbs-up" : "thumbs-up-outline"}
+                              size={18}
+                              color={isGoing ? "#000" : "#FFF"}
+                            />
+                            <Text style={[styles.thumbActionText, { color: isGoing ? "#000" : "#FFF" }]}>
+                              +1
+                            </Text>
                           </TouchableOpacity>
-                        </BlurView>
-                      );
-                    })()}
-                  </>
-                )}
-              </Animated.View>
-            </View>
-          )}
-        </Modal>
+
+                          {/* Thumbs Down (not attending / -1) */}
+                          <TouchableOpacity
+                            style={[
+                              styles.thumbActionBtn,
+                              !isGoing ? styles.thumbDownActive : styles.thumbInactive
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              if (isGoing) {
+                                handleRSVP(selectedEvent.event_id);
+                              }
+                            }}
+                          >
+                            <Ionicons
+                              name={!isGoing ? "thumbs-down" : "thumbs-down-outline"}
+                              size={18}
+                              color={!isGoing ? "#000" : "#FFF"}
+                            />
+                            <Text style={[styles.thumbActionText, { color: !isGoing ? "#000" : "#FFF" }]}>
+                              -1
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Right Half: Register Now */}
+                        <TouchableOpacity
+                          style={styles.modalRegisterNowBtn}
+                          activeOpacity={0.85}
+                          onPress={() => {
+                            if (selectedEvent.registration_link) {
+                              Linking.openURL(selectedEvent.registration_link).catch(err => {
+                                console.error(err);
+                                alert("Could not open the link.");
+                              });
+                            } else {
+                              Alert.alert("No Link", "This event does not have a registration link.");
+                            }
+                          }}
+                        >
+                          <Text style={styles.modalRegisterNowText}>Register Now</Text>
+                        </TouchableOpacity>
+                      </BlurView>
+                    );
+                  })()}
+                </>
+              )}
+            </Animated.View>
+          </View>
+        )}
+      </Modal>
 
       {user && (
         <TouchableOpacity
@@ -1274,9 +1279,9 @@ export default function Events() {
                           <Text style={{ color: formDate ? '#FFF' : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
                             {formDate
                               ? new Date(formDate).toLocaleString(undefined, {
-                                  dateStyle: 'medium',
-                                  timeStyle: 'short',
-                                })
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })
                               : 'Select Date & Time'}
                           </Text>
                           <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.5)" />
@@ -1444,15 +1449,15 @@ export default function Events() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FF3366',
+    backgroundColor: '#000000',
   },
   glowBallContainer: {
     position: 'absolute',
-    top: -150,
-    right: -150,
-    width: 400,
-    height: 400,
-    borderRadius: 200,
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
     overflow: 'hidden',
   },
   orbTopLeft: {
@@ -1480,6 +1485,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 12 : 24,
     paddingBottom: 8,
+  },
+  headerLogo: {
+    width: 60,
+    height: 60,
   },
   headerTitleContainer: {
     flex: 1,
