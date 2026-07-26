@@ -285,3 +285,17 @@ exports.viewStory = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to record story view: ' + error.message });
   }
 };
+
+// 4. Get All Stories
+exports.getAllStories = async (req, res) => {
+  try {
+    const stories = await sequelize.query(
+      'SELECT story_id, user_id, user_name, user_picture, college_id, image, caption, audience, views, expires_at, created_at, updated_at FROM stories ORDER BY created_at DESC',
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.status(200).json({ stories });
+  } catch (error) {
+    console.error('[getAllStories Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve all stories: ' + error.message });
+  }
+};

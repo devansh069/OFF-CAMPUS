@@ -84,6 +84,7 @@ router.get('/confessions/comments/all', confessionController.getAllComments);
 router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
 router.post('/stories/create', authMiddleware, storyController.createStory);
 router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
+router.get('/stories/all', storyController.getAllStories);
 
 // Campus Ambassador endpoints
 router.post('/ambassadors/apply', ambassadorController.applyAmbassador);
