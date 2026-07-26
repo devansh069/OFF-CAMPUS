@@ -933,6 +933,11 @@ export default function CampusLive() {
                         <Text style={styles.twitterText} numberOfLines={isExpanded ? undefined : 2}>
                           {c.content}
                         </Text>
+                        {c.content.length > 80 && (
+                          <Text style={styles.readMoreText}>
+                            {isExpanded ? 'Show less' : '...read more'}
+                          </Text>
+                        )}
                       </TouchableOpacity>
  
                       {/* 3. Actions row */}
@@ -1671,9 +1676,9 @@ const styles = StyleSheet.create({
   },
   twitterActionBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingRight: 80,
-    marginTop: 6,
+    alignItems: 'center',
+    gap: 40,
+    marginTop: 8,
   },
   twitterActionBtn: {
     flexDirection: 'row',
@@ -1708,19 +1713,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   composerImagePreviewContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 6,
+    position: 'relative',
+    width: 66,
+    height: 66,
+    marginBottom: 12,
   },
   composerImagePreview: {
     width: 60,
     height: 60,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   composerImageCloseBtn: {
-    marginLeft: -10,
-    marginTop: -50,
+    position: 'absolute',
+    top: -4,
+    right: 2,
+    backgroundColor: '#000',
+    borderRadius: 10,
+    zIndex: 10,
+  },
+  readMoreText: {
+    color: '#FF3366',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+    marginBottom: 6,
   },
 
   // Comments modal & threads styles
