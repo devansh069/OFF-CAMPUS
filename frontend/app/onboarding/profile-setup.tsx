@@ -400,10 +400,6 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please specify your location or auto-detect it.');
         return;
       }
-      if (!bio.trim() || bio.length < 10) {
-        Alert.alert('Required', 'Please write a short bio (at least 10 characters)');
-        return;
-      }
       if (interests.length < 3) {
         Alert.alert('Required', 'Please select at least 3 interests');
         return;
@@ -746,7 +742,7 @@ export default function ProfileSetup() {
 
                 {/* Religion */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>RELIGION</Text>
+                  <Text style={styles.label}>RELIGION (OPTIONAL)</Text>
                   <View style={styles.inputWrapper}>
                     <TextInput
                       style={styles.input}
@@ -793,7 +789,7 @@ export default function ProfileSetup() {
                 {/* Bio */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelRow}>
-                    <Text style={styles.label}>BIO</Text>
+                    <Text style={styles.label}>BIO (OPTIONAL)</Text>
                     <Text style={styles.charCount}>{bio.length}/150</Text>
                   </View>
                   <View style={styles.textAreaWrapper}>

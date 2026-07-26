@@ -404,7 +404,7 @@ export default function ProfileEdit() {
 
               {/* SECTION 2: BIO */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
-                <Text style={styles.sectionHeader}>Bio</Text>
+                <Text style={styles.sectionHeader}>Bio (Optional)</Text>
                 <Text style={[styles.cnt, { color: '#C2FF3D', marginTop: 0, fontWeight: '700' }]}>{bio.length}/150</Text>
               </View>
               <TextInput
@@ -481,7 +481,7 @@ export default function ProfileEdit() {
               {/* SECTION 5: HABITS */}
               <Text style={styles.sectionHeader}>Habits & Lifestyle</Text>
 
-              <Text style={styles.lbl}>RELIGION</Text>
+              <Text style={styles.lbl}>RELIGION (OPTIONAL)</Text>
               <TextInput style={styles.inp} value={religion} onChangeText={setReligion} placeholder="e.g. Hindu, Christian, None" placeholderTextColor="#6B5B7A" />
 
               <Text style={styles.lbl}>DRINK</Text>
