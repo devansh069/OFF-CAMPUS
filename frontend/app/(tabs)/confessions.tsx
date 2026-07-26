@@ -123,6 +123,23 @@ export default function CampusLive() {
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
 
+  const selectConfImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Media library permission is required to select photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]?.base64) {
+      setConfessionImage(result.assets[0].base64);
+    }
+  };
+
   const [college, setCollege] = useState<any>(null);
   const [feedType, setFeedType] = useState<'global' | 'college'>('global');
   const [liveCountGlobal, setLiveCountGlobal] = useState(142);
@@ -274,38 +291,19 @@ export default function CampusLive() {
       setLoading(false);
       setRefreshing(false);
     }
-  const pickConfessionImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Gallery storage permission is required to attach photos.');
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.6,
-        base64: true,
-      });
-      if (!result.canceled && result.assets[0].base64) {
-        setConfessionImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      }
-    } catch (error) {
-      console.warn("Confession image picker error:", error);
-    }
   };
 
   const post = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() && !confessionImage) return;
     setPosting(true);
-
+ 
     if (sessionToken === 'dummy_token') {
       const newConf = {
         confession_id: `conf_mock_${Date.now()}`,
         content: text.trim(),
-        image: confessionImage,
         likes: 0,
         comments: 0,
+        image: confessionImage ? `data:image/jpeg;base64,${confessionImage}` : null,
         created_at: new Date().toISOString(),
         college_id: feedType === 'college' ? user?.college_id : null
       };
@@ -315,7 +313,7 @@ export default function CampusLive() {
       setPosting(false);
       return;
     }
-
+ 
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
         method: 'POST',
@@ -332,6 +330,7 @@ export default function CampusLive() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to post confession' }));
         Alert.alert('Error', errorData.detail || 'Failed to post confession');
+        setPosting(false);
         return;
       }
       setText('');
@@ -615,15 +614,6 @@ export default function CampusLive() {
 
     setLoadingComments(true);
 
-    if (sessionToken === 'dummy_token') {
-      setComments([
-        { comment_id: 'c_1', content: 'Omg yes, totally agree with this! 🙌', created_at: new Date(Date.now() - 1800000).toISOString(), college_name: 'LSR', parent_id: null },
-        { comment_id: 'c_2', content: 'Same here, let’s connect!', created_at: new Date(Date.now() - 900000).toISOString(), college_name: 'Stephens', parent_id: 'c_1' }
-      ]);
-      setLoadingComments(false);
-      return;
-    }
-
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${confession.confession_id}/comments`, { headers });
@@ -866,8 +856,6 @@ export default function CampusLive() {
               ))}
             </ScrollView>
 
-
-
             {/* Confessions Title */}
             <View style={styles.sectionHead}>
               <View style={styles.megaphoneIc}>
@@ -879,14 +867,19 @@ export default function CampusLive() {
             {/* Premium Frosted Composer */}
             <View style={styles.premiumComposerWrapper}>
               {confessionImage && (
-                <View style={styles.previewImageContainer}>
-                  <Image source={{ uri: confessionImage }} style={styles.previewImage} />
-                  <TouchableOpacity style={styles.previewImageCloseBtn} onPress={() => setConfessionImage(null)}>
-                    <Ionicons name="close" size={12} color="#FFF" />
+                <View style={styles.composerImagePreviewContainer}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${confessionImage}` }} style={styles.composerImagePreview} />
+                  <TouchableOpacity style={styles.composerImageCloseBtn} onPress={() => setConfessionImage(null)}>
+                    <Ionicons name="close-circle" size={20} color="#FF2D55" />
                   </TouchableOpacity>
                 </View>
               )}
+
               <BlurView intensity={35} tint="light" style={styles.composerGlass}>
+                <TouchableOpacity onPress={selectConfImage} style={styles.imageSelectBtn} activeOpacity={0.7}>
+                  <Ionicons name="image" size={20} color={confessionImage ? '#C2FF3D' : '#FFF'} />
+                </TouchableOpacity>
+
                 <TextInput
                   style={styles.composerInput}
                   placeholder="Drop an anonymous confession..."
@@ -894,22 +887,9 @@ export default function CampusLive() {
                   value={text}
                   onChangeText={setText}
                   maxLength={300}
-                  returnKeyType="send"
-                  onSubmitEditing={post}
                 />
                 <TouchableOpacity
-                  style={styles.composerAttachBtn}
-                  onPress={pickConfessionImage}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons 
-                    name={confessionImage ? "image" : "image-outline"} 
-                    size={22} 
-                    color={confessionImage ? "#C2FF3D" : "rgba(255,255,255,0.6)"} 
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.composerSendBtn, !text.trim() && !confessionImage && styles.composerSendBtnDisabled]}
+                  style={[styles.composerSendBtn, (!text.trim() && !confessionImage) && styles.composerSendBtnDisabled]}
                   onPress={post}
                   disabled={(!text.trim() && !confessionImage) || posting}
                   activeOpacity={0.7}
@@ -930,59 +910,67 @@ export default function CampusLive() {
               </BlurView>
             </View>
 
-            {/* Confessions Grid */}
+            {/* Confessions List (Twitter style) */}
             <View style={styles.gridContainer}>
               {filteredConfessions.map((c: any) => {
-                const bgImage = c.image || getCardBg(c.confession_id);
                 return (
                   <TouchableOpacity
                     key={c.confession_id}
-                    style={styles.newConfGridCard}
+                    style={styles.twitterCard}
                     onPress={() => openComments(c)}
-                    activeOpacity={0.9}
+                    activeOpacity={0.95}
                   >
-                    <Image source={{ uri: bgImage }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                    <LinearGradient
-                      colors={['rgba(7, 8, 15, 0.4)', 'rgba(7, 8, 15, 0.88)']}
-                      style={StyleSheet.absoluteFillObject}
-                    />
-
-                    {/* Card Header Overlay */}
-                    <View style={styles.cardHeader}>
-                      <View style={{ flex: 1, marginLeft: 6 }}>
-                        <Text style={styles.cardHeaderName} numberOfLines={1}>Anon</Text>
-                        <Text style={styles.cardHeaderSub} numberOfLines={1}>
-                          {c.college_name || 'Campus'}
+                    {/* Left: Megaphone Gradient Icon Placeholder */}
+                    <View style={styles.twitterAvatarContainer}>
+                      <LinearGradient
+                        colors={['#FF1B6B', '#8B5CF6']}
+                        style={styles.twitterAvatarGradient}
+                      >
+                        <Ionicons name="eye-off" size={16} color="#FFF" />
+                      </LinearGradient>
+                    </View>
+ 
+                    {/* Right: Content & Actions */}
+                    <View style={styles.twitterContentContainer}>
+                      {/* Header metadata row */}
+                      <View style={styles.twitterHeaderRow}>
+                        <Text style={styles.twitterAuthorName}>Anon Student</Text>
+                        <Text style={styles.twitterHandle}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
+                        <Text style={styles.twitterDot}>·</Text>
+                        <Text style={styles.twitterTime}>
+                          {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.cardFollowBtn}
-                        onPress={(e) => { e.stopPropagation(); openComments(c); }}
-                        activeOpacity={0.8}
-                      >
-                        <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFillObject} />
-                        <Text style={styles.cardFollowBtnText}>Reply</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Card Confession Text Body */}
-                    <View style={styles.cardTextContainer}>
-                      <Text style={styles.cardTxt} numberOfLines={4}>
+ 
+                      {/* Text content */}
+                      <Text style={styles.twitterText}>
                         {c.content}
                       </Text>
-                    </View>
-
-                    {/* Bottom overlay badges */}
-                    <View style={styles.cardBottomRow}>
-                      <View style={styles.cardStatsGroup}>
-                        <TouchableOpacity style={styles.cardStatIconBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                          <Ionicons name="heart" size={11} color="#FF2D55" />
-                          <Text style={styles.cardStatText}>{c.likes || 0}</Text>
+ 
+                      {/* Image attachment */}
+                      {c.image && (
+                        <Image
+                          source={{ uri: c.image }}
+                          style={styles.twitterAttachedImage}
+                          resizeMode="cover"
+                        />
+                      )}
+ 
+                      {/* Actions row */}
+                      <View style={styles.twitterActionBar}>
+                        <TouchableOpacity style={styles.twitterActionBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
+                          <Ionicons name="heart-outline" size={16} color="#A1A1AA" />
+                          <Text style={styles.twitterActionCount}>{c.likes || 0}</Text>
                         </TouchableOpacity>
-                        <View style={styles.cardStatIconBtn}>
-                          <Ionicons name="chatbubble" size={10} color="#FFF" />
-                          <Text style={styles.cardStatText}>{c.comments || 0}</Text>
-                        </View>
+ 
+                        <TouchableOpacity style={styles.twitterActionBtn} onPress={() => openComments(c)}>
+                          <Ionicons name="chatbubble-outline" size={15} color="#A1A1AA" />
+                          <Text style={styles.twitterActionCount}>{c.comments || 0}</Text>
+                        </TouchableOpacity>
+ 
+                        <TouchableOpacity style={styles.twitterActionBtn} onPress={(e) => { e.stopPropagation(); }}>
+                          <Ionicons name="share-social-outline" size={15} color="#A1A1AA" />
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -1029,9 +1017,6 @@ export default function CampusLive() {
                     <View style={styles.modalMessageBubble}>
                       <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
                     </View>
-                    {selectedConfession.image && (
-                      <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
-                    )}
                     <View style={styles.modalConfActions}>
                       <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
                         <Ionicons name="heart" size={16} color="#FF2D55" />
@@ -1619,115 +1604,105 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Confessions Grid Styles
+  // Confessions List (Twitter Styles)
   gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     paddingHorizontal: 16,
     paddingTop: 10,
   },
-  newConfGridCard: {
-    width: (width - 44) / 2,
-    height: width * 0.62,
-    borderRadius: 24,
-    overflow: 'hidden',
+  twitterCard: {
+    flexDirection: 'row',
+    backgroundColor: '#121214',
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    position: 'relative',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    justifyContent: 'space-between',
-    padding: 12,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 5,
+  twitterAvatarContainer: {
+    marginRight: 12,
   },
-  cardHeaderAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  twitterAvatarGradient: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardHeaderName: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  cardHeaderSub: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 9,
-    fontWeight: '500',
-    marginTop: -1,
-  },
-  cardFollowBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(194, 255, 61, 0.4)',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardFollowBtnText: {
-    color: '#C2FF3D',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  cardTextContainer: {
+  twitterContentContainer: {
     flex: 1,
+  },
+  twitterHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  twitterAuthorName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  twitterHandle: {
+    color: '#71717A',
+    fontSize: 12,
+  },
+  twitterDot: {
+    color: '#52525B',
+    marginHorizontal: 4,
+    fontSize: 12,
+  },
+  twitterTime: {
+    color: '#71717A',
+    fontSize: 12,
+  },
+  twitterText: {
+    color: '#E4E4E7',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  twitterAttachedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  twitterActionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingRight: 60,
+    marginTop: 8,
+  },
+  twitterActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  twitterActionCount: {
+    color: '#71717A',
+    fontSize: 12,
+  },
+  imageSelectBtn: {
+    marginRight: 10,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    zIndex: 5,
   },
-  cardTxt: {
-    color: '#FFF',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  cardBottomRow: {
+  composerImagePreviewContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 5,
-  },
-  liveBadgeMini: {
-    backgroundColor: '#FF2D55',
+    marginBottom: 10,
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
-  liveBadgeMiniText: {
-    color: '#FFF',
-    fontSize: 8,
-    fontWeight: '900',
+  composerImagePreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
   },
-  cardTimeText: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 9,
-    marginLeft: 5,
-    fontWeight: '600',
-  },
-  cardStatsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 'auto',
-    gap: 8,
-  },
-  cardStatIconBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  cardStatText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 9,
-    fontWeight: '700',
+  composerImageCloseBtn: {
+    marginLeft: -10,
+    marginTop: -50,
   },
 
   // Comments modal & threads styles
@@ -1884,40 +1859,5 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '700',
     fontSize: 12,
-  },
-  composerAttachBtn: {
-    padding: 8,
-    marginRight: 4,
-  },
-  previewImageContainer: {
-    position: 'relative',
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
-  },
-  previewImage: {
-    width: 60,
-    height: 60,
-  },
-  previewImageCloseBtn: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 8,
-    width: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalConfImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: 16,
-    marginTop: 12,
-    resizeMode: 'cover',
   },
 });

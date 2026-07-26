@@ -2,29 +2,21 @@ const { sequelize } = require('../config/db');
 const Sequelize = require('sequelize');
 const cloudinary = require('cloudinary').v2;
 
-if (process.env.CLOUDINARY_URL) {
-  console.log('[Cloudinary] Configured automatically via CLOUDINARY_URL in confessions');
-} else {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
-    api_key: process.env.CLOUDINARY_API_KEY || '12345',
-    api_secret: process.env.CLOUDINARY_API_SECRET || 'abcde',
-  });
-}
-
+// Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
   try {
     let formattedStr = base64Str;
-    if (!base64Str.startsWith('data:image')) {
-      formattedStr = `data:image/jpeg;base64,${base64Str}`;
+    if (!formattedStr.startsWith('data:')) {
+      formattedStr = `data:image/jpeg;base64,${formattedStr}`;
     }
     const uploadResponse = await cloudinary.uploader.upload(formattedStr, {
-      folder: 'confessions',
+      folder: 'off_campus_confessions',
+      resource_type: 'image'
     });
     return uploadResponse.secure_url;
   } catch (error) {
-    console.error('[Cloudinary Confession Upload Error]:', error);
-    throw new Error('Failed to upload image to Cloudinary');
+    console.error('[Confession Cloudinary Upload Error]:', error);
+    throw error;
   }
 };
 
@@ -128,18 +120,22 @@ exports.createConfession = async (req, res) => {
       }
     }
 
-    const confessionId = 'conf_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-
-    let imageUrl = null;
+    let uploadedImageUrl = null;
     if (image) {
-      console.log('[Confessions Cloudinary] Uploading confession image...');
-      imageUrl = await uploadToCloudinary(image);
+      try {
+        console.log('[Confession Cloudinary] Uploading image...');
+        uploadedImageUrl = await uploadToCloudinary(image);
+      } catch (uploadErr) {
+        console.error('Confession image upload failed:', uploadErr);
+      }
     }
+
+    const confessionId = 'conf_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
     await sequelize.query(
       'INSERT INTO confessions (confession_id, user_id, college_id, content, image, likes, comments, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, 0, NOW(), NOW())',
       {
-        replacements: [confessionId, userId, userCollegeId || null, content.trim(), imageUrl],
+        replacements: [confessionId, userId, userCollegeId || null, content.trim(), uploadedImageUrl],
         type: sequelize.QueryTypes.INSERT
       }
     );
