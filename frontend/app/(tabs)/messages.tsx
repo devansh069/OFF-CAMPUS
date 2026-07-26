@@ -239,16 +239,14 @@ export default function Messages() {
     <View style={styles.container}>
       {/* Ambient background linear gradient */}
       <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        colors={['#4C006A', '#02060E']}
+        locations={[0.0, 0.5]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      {/* Dark veil overlay for premium depth and text contrast */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.title}>Inbox 💬</Text>
@@ -452,7 +450,6 @@ export default function Messages() {
         </View>
       </Modal>
         </SafeAreaView>
-      </BlurView>
     </View>
   );
 }
