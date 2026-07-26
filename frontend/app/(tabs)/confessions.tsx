@@ -874,7 +874,10 @@ export default function CampusLive() {
                     </LinearGradient>
                   )}
                 </TouchableOpacity>
-              </BlurView>            {/* Confessions List (Premium Slate Glass style) */}
+              </BlurView>
+            </View>
+            
+            {/* Confessions List (Premium Slate Glass style) */}
             <View style={styles.gridContainer}>
               {filteredConfessions.map((c: any) => {
                 return (
