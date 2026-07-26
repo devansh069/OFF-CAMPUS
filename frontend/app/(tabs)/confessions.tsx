@@ -891,11 +891,15 @@ export default function CampusLive() {
                     key={c.confession_id}
                     style={styles.twitterCard}
                   >
-                    {/* Left: Minimal Slate Avatar */}
+                    {/* Left: Slate Avatar or User Profile Picture */}
                     <View style={styles.twitterAvatarContainer}>
-                      <View style={styles.twitterAvatarBg}>
-                        <Ionicons name="eye-off" size={16} color="#A1A1AA" />
-                      </View>
+                      {c.user_picture ? (
+                        <Image source={{ uri: c.user_picture }} style={styles.twitterAvatarImage} />
+                      ) : (
+                        <View style={styles.twitterAvatarBg}>
+                          <Ionicons name="eye-off" size={16} color="#A1A1AA" />
+                        </View>
+                      )}
                     </View>
  
                     {/* Right: Content & Action buttons */}
@@ -903,7 +907,7 @@ export default function CampusLive() {
                       {/* Premium Header row with subtle Badge */}
                       <View style={styles.twitterHeaderRow}>
                         <View style={styles.authorBadgeRow}>
-                          <Text style={styles.twitterAuthorName}>Campus Voice</Text>
+                          <Text style={styles.twitterAuthorName}>{c.user_name || 'Campus Voice'}</Text>
                           <View style={styles.collegeBadge}>
                             <Text style={styles.collegeBadgeText}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
                           </View>
@@ -1610,6 +1614,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  twitterAvatarImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
