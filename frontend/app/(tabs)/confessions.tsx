@@ -874,7 +874,7 @@ export default function CampusLive() {
                     </LinearGradient>
                   )}
                 </TouchableOpacity>
-              </BlurView>            {/* Confessions List (Premium Glass Twitter style) */}
+              </BlurView>            {/* Confessions List (Premium Slate Glass style) */}
             <View style={styles.gridContainer}>
               {filteredConfessions.map((c: any) => {
                 return (
@@ -884,24 +884,18 @@ export default function CampusLive() {
                     onPress={() => openComments(c)}
                     activeOpacity={0.9}
                   >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
-
-                    {/* Left: Premium Gradient Megaphone Avatar */}
+                    <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject} />
+ 
+                    {/* Left: Minimal Slate Avatar */}
                     <View style={styles.twitterAvatarContainer}>
-                      <LinearGradient
-                        colors={['#FF1B6B', '#D1C4E9', '#8B5CF6']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.twitterAvatarGradient}
-                      >
-                        <Ionicons name="megaphone" size={16} color="#FFF" />
-                      </LinearGradient>
-                      <View style={styles.avatarGlowCircle} />
+                      <View style={styles.twitterAvatarBg}>
+                        <Ionicons name="eye-off" size={16} color="#A1A1AA" />
+                      </View>
                     </View>
  
                     {/* Right: Content & Action buttons */}
                     <View style={styles.twitterContentContainer}>
-                      {/* Premium Header row with Badge */}
+                      {/* Premium Header row with subtle Badge */}
                       <View style={styles.twitterHeaderRow}>
                         <View style={styles.authorBadgeRow}>
                           <Text style={styles.twitterAuthorName}>Campus Voice</Text>
@@ -934,26 +928,20 @@ export default function CampusLive() {
                         </View>
                       )}
  
-                      {/* Modern actions footer */}
+                      {/* Minimal actions footer */}
                       <View style={styles.twitterActionBar}>
                         <TouchableOpacity style={styles.twitterActionBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(255, 45, 85, 0.08)' }]}>
-                            <Ionicons name="heart" size={15} color="#FF2D55" />
-                          </View>
-                          <Text style={[styles.twitterActionCount, { color: '#FF2D55' }]}>{c.likes || 0}</Text>
+                          <Ionicons name="heart" size={16} color={c.likes > 0 ? "#FF3366" : "#71717A"} />
+                          <Text style={[styles.twitterActionCount, { color: c.likes > 0 ? '#FF3366' : '#71717A' }]}>{c.likes || 0}</Text>
                         </TouchableOpacity>
  
                         <TouchableOpacity style={styles.twitterActionBtn} onPress={() => openComments(c)}>
-                          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(0, 229, 255, 0.08)' }]}>
-                            <Ionicons name="chatbubble" size={13} color="#00E5FF" />
-                          </View>
-                          <Text style={[styles.twitterActionCount, { color: '#00E5FF' }]}>{c.comments || 0}</Text>
+                          <Ionicons name="chatbubble" size={14} color="#71717A" />
+                          <Text style={[styles.twitterActionCount, { color: '#71717A' }]}>{c.comments || 0}</Text>
                         </TouchableOpacity>
  
                         <TouchableOpacity style={styles.twitterActionBtn} onPress={(e) => { e.stopPropagation(); }}>
-                          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(139, 92, 246, 0.08)' }]}>
-                            <Ionicons name="share-social" size={13} color="#8B5CF6" />
-                          </View>
+                          <Ionicons name="share-social" size={14} color="#71717A" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1598,35 +1586,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
     padding: 16,
-    borderRadius: 24,
-    marginBottom: 14,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     overflow: 'hidden',
   },
   twitterAvatarContainer: {
-    marginRight: 14,
-    position: 'relative',
+    marginRight: 12,
   },
-  twitterAvatarGradient: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  twitterAvatarBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
-  },
-  avatarGlowCircle: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FF1B6B',
-    opacity: 0.15,
-    blur: 10,
-    zIndex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   twitterContentContainer: {
     flex: 1,
@@ -1634,7 +1611,7 @@ const styles = StyleSheet.create({
   twitterHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     width: '100%',
   },
   authorBadgeRow: {
@@ -1645,74 +1622,64 @@ const styles = StyleSheet.create({
   twitterAuthorName: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontWeight: '700',
   },
   collegeBadge: {
-    backgroundColor: 'rgba(194, 255, 61, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(194, 255, 61, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   collegeBadgeText: {
-    color: '#C2FF3D',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '600',
   },
   twitterDot: {
-    color: '#52525B',
+    color: '#3F3F46',
     marginHorizontal: 6,
     fontSize: 12,
   },
   twitterTime: {
     color: '#71717A',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
   twitterText: {
-    color: '#F4F4F5',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 10,
-    fontWeight: '500',
-    letterSpacing: -0.1,
+    color: '#E4E4E7',
+    fontSize: 14.5,
+    lineHeight: 21,
+    marginBottom: 8,
+    fontWeight: '400',
   },
   imageAttachmentWrapper: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     overflow: 'hidden',
-    marginTop: 6,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
   twitterAttachedImage: {
     width: '100%',
-    height: 220,
+    height: 180,
   },
   twitterActionBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingRight: 40,
+    paddingRight: 80,
     marginTop: 6,
   },
   twitterActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  actionIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
   },
   twitterActionCount: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   imageSelectBtn: {
     marginRight: 10,
