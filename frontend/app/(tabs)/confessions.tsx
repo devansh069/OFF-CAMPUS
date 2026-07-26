@@ -121,6 +121,7 @@ export default function CampusLive() {
   const [text, setText] = useState('');
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [confessionImage, setConfessionImage] = useState<string | null>(null);
 
   const [college, setCollege] = useState<any>(null);
   const [feedType, setFeedType] = useState<'global' | 'college'>('global');
@@ -273,6 +274,25 @@ export default function CampusLive() {
       setLoading(false);
       setRefreshing(false);
     }
+  const pickConfessionImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Gallery storage permission is required to attach photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0].base64) {
+        setConfessionImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (error) {
+      console.warn("Confession image picker error:", error);
+    }
   };
 
   const post = async () => {
@@ -283,6 +303,7 @@ export default function CampusLive() {
       const newConf = {
         confession_id: `conf_mock_${Date.now()}`,
         content: text.trim(),
+        image: confessionImage,
         likes: 0,
         comments: 0,
         created_at: new Date().toISOString(),
@@ -290,6 +311,7 @@ export default function CampusLive() {
       };
       setConfessions(prev => [newConf, ...prev]);
       setText('');
+      setConfessionImage(null);
       setPosting(false);
       return;
     }
@@ -303,7 +325,8 @@ export default function CampusLive() {
         },
         body: JSON.stringify({
           content: text,
-          college_id: feedType === 'college' ? user?.college_id : null
+          college_id: feedType === 'college' ? user?.college_id : null,
+          image: confessionImage
         }),
       });
       if (!response.ok) {
@@ -312,6 +335,7 @@ export default function CampusLive() {
         return;
       }
       setText('');
+      setConfessionImage(null);
       await fetchAll();
     } catch (e: any) {
       console.error(e);
@@ -854,6 +878,14 @@ export default function CampusLive() {
 
             {/* Premium Frosted Composer */}
             <View style={styles.premiumComposerWrapper}>
+              {confessionImage && (
+                <View style={styles.previewImageContainer}>
+                  <Image source={{ uri: confessionImage }} style={styles.previewImage} />
+                  <TouchableOpacity style={styles.previewImageCloseBtn} onPress={() => setConfessionImage(null)}>
+                    <Ionicons name="close" size={12} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
               <BlurView intensity={35} tint="light" style={styles.composerGlass}>
                 <TextInput
                   style={styles.composerInput}
@@ -866,9 +898,20 @@ export default function CampusLive() {
                   onSubmitEditing={post}
                 />
                 <TouchableOpacity
-                  style={[styles.composerSendBtn, !text.trim() && styles.composerSendBtnDisabled]}
+                  style={styles.composerAttachBtn}
+                  onPress={pickConfessionImage}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={confessionImage ? "image" : "image-outline"} 
+                    size={22} 
+                    color={confessionImage ? "#C2FF3D" : "rgba(255,255,255,0.6)"} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.composerSendBtn, !text.trim() && !confessionImage && styles.composerSendBtnDisabled]}
                   onPress={post}
-                  disabled={!text.trim() || posting}
+                  disabled={(!text.trim() && !confessionImage) || posting}
                   activeOpacity={0.7}
                 >
                   {posting ? (
@@ -890,7 +933,7 @@ export default function CampusLive() {
             {/* Confessions Grid */}
             <View style={styles.gridContainer}>
               {filteredConfessions.map((c: any) => {
-                const bgImage = getCardBg(c.confession_id);
+                const bgImage = c.image || getCardBg(c.confession_id);
                 return (
                   <TouchableOpacity
                     key={c.confession_id}
@@ -986,6 +1029,9 @@ export default function CampusLive() {
                     <View style={styles.modalMessageBubble}>
                       <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
                     </View>
+                    {selectedConfession.image && (
+                      <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
+                    )}
                     <View style={styles.modalConfActions}>
                       <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
                         <Ionicons name="heart" size={16} color="#FF2D55" />
@@ -1838,5 +1884,40 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '700',
     fontSize: 12,
+  },
+  composerAttachBtn: {
+    padding: 8,
+    marginRight: 4,
+  },
+  previewImageContainer: {
+    position: 'relative',
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: 60,
+    height: 60,
+  },
+  previewImageCloseBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    marginTop: 12,
+    resizeMode: 'cover',
   },
 });

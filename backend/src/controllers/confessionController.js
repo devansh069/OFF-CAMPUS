@@ -1,5 +1,32 @@
 const { sequelize } = require('../config/db');
 const Sequelize = require('sequelize');
+const cloudinary = require('cloudinary').v2;
+
+if (process.env.CLOUDINARY_URL) {
+  console.log('[Cloudinary] Configured automatically via CLOUDINARY_URL in confessions');
+} else {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+    api_key: process.env.CLOUDINARY_API_KEY || '12345',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'abcde',
+  });
+}
+
+const uploadToCloudinary = async (base64Str) => {
+  try {
+    let formattedStr = base64Str;
+    if (!base64Str.startsWith('data:image')) {
+      formattedStr = `data:image/jpeg;base64,${base64Str}`;
+    }
+    const uploadResponse = await cloudinary.uploader.upload(formattedStr, {
+      folder: 'confessions',
+    });
+    return uploadResponse.secure_url;
+  } catch (error) {
+    console.error('[Cloudinary Confession Upload Error]:', error);
+    throw new Error('Failed to upload image to Cloudinary');
+  }
+};
 
 // Helper to fetch college name
 const getCollegeShortName = async (collegeId) => {
@@ -36,7 +63,7 @@ exports.getConfessionsFeed = async (req, res) => {
 
     // Fetch confessions sorted by created_at DESC
     const confessions = await sequelize.query(
-      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.likes, c.comments, c.created_at, col.short_name as college_name 
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.image, c.likes, c.comments, c.created_at, col.short_name as college_name 
        FROM confessions c
        LEFT JOIN colleges col ON c.college_id = col.college_id
        ORDER BY c.created_at DESC LIMIT 100`,
@@ -80,7 +107,7 @@ exports.getConfessionsFeed = async (req, res) => {
 exports.createConfession = async (req, res) => {
   try {
     const userId = req.user.user_id;
-    const { content, college_id } = req.body;
+    const { content, college_id, image } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ detail: 'Confession content is required' });
@@ -103,17 +130,23 @@ exports.createConfession = async (req, res) => {
 
     const confessionId = 'conf_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
+    let imageUrl = null;
+    if (image) {
+      console.log('[Confessions Cloudinary] Uploading confession image...');
+      imageUrl = await uploadToCloudinary(image);
+    }
+
     await sequelize.query(
-      'INSERT INTO confessions (confession_id, user_id, college_id, content, likes, comments, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 0, NOW(), NOW())',
+      'INSERT INTO confessions (confession_id, user_id, college_id, content, image, likes, comments, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, 0, NOW(), NOW())',
       {
-        replacements: [confessionId, userId, userCollegeId || null, content.trim()],
+        replacements: [confessionId, userId, userCollegeId || null, content.trim(), imageUrl],
         type: sequelize.QueryTypes.INSERT
       }
     );
 
     // Return created confession object
     const [newConf] = await sequelize.query(
-      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.likes, c.comments, c.created_at, col.short_name as college_name 
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.image, c.likes, c.comments, c.created_at, col.short_name as college_name 
        FROM confessions c
        LEFT JOIN colleges col ON c.college_id = col.college_id
        WHERE c.confession_id = ? LIMIT 1`,
@@ -243,7 +276,7 @@ exports.createComment = async (req, res) => {
 exports.getAllConfessions = async (req, res) => {
   try {
     const confessions = await sequelize.query(
-      'SELECT confession_id, user_id, college_id, content, likes, comments, created_at, updated_at FROM confessions ORDER BY created_at DESC',
+      'SELECT confession_id, user_id, college_id, content, image, likes, comments, created_at, updated_at FROM confessions ORDER BY created_at DESC',
       { type: sequelize.QueryTypes.SELECT }
     );
     return res.status(200).json({ confessions });
@@ -257,7 +290,7 @@ exports.getAllConfessions = async (req, res) => {
 exports.getAllConfessionLikes = async (req, res) => {
   try {
     const likes = await sequelize.query(
-      'SELECT confession_id, content, likes as likes_count, user_id, college_id, created_at FROM confessions ORDER BY likes DESC',
+      'SELECT confession_id, content, image, likes as likes_count, user_id, college_id, created_at FROM confessions ORDER BY likes DESC',
       { type: sequelize.QueryTypes.SELECT }
     );
     return res.status(200).json({ likes });
