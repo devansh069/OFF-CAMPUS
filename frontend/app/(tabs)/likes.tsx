@@ -255,17 +255,16 @@ export default function Likes() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient */}
+      {/* Simple bright pink gradient */}
       <LinearGradient
-        colors={['#190924', '#94869eff']}
+        colors={['#FF3366', '#C2185B']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      {/* Dark veil overlay for premium depth and text contrast */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
+
+      <BlurView intensity={Platform.OS === 'ios' ? 30 : 60} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.bg}>
             {/* Header */}
@@ -596,7 +595,7 @@ const cellWidth = (screenWidth - 64) / 3;
 const cellHeight = (screenHeight - 250) / 3;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#190924' },
+  container: { flex: 1, backgroundColor: '#FF3366' },
   bg: { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

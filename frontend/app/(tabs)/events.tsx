@@ -1444,7 +1444,7 @@ export default function Events() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#FF3366',
   },
   glowBallContainer: {
     position: 'absolute',
