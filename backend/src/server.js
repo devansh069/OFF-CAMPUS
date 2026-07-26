@@ -80,6 +80,13 @@ const startServer = async () => {
       console.log('[Patch] Manually added has_event_pass column');
     } catch (e) {}
 
+    try {
+      await sequelize.query("ALTER TABLE confessions ADD COLUMN image TEXT NULL;");
+      console.log('[Patch] Manually added image column to confessions');
+    } catch (e) {}
+
+
+
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
 

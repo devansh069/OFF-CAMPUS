@@ -31,40 +31,7 @@ const getCardBg = (id: string) => {
   return CARD_BG_IMAGES[idx];
 };
 
-const MOCK_CONFESSIONS = [
-  {
-    confession_id: 'conf_1',
-    content: 'Crushing on the girl who sits next to me in English literature. She has the most beautiful laugh! 📖💖',
-    likes: 24,
-    comments: 2,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    college_id: 'col_stephens'
-  },
-  {
-    confession_id: 'conf_2',
-    content: 'Anyone else dynamic-routing their life into chaos, or is it just me? Semester projects are killing me. 💻😭',
-    likes: 12,
-    comments: 0,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    college_id: 'col_stephens'
-  },
-  {
-    confession_id: 'conf_3',
-    content: 'Spotted someone super cute at the Hauz Khas Social yesterday wearing a green varsity jacket. Find me! ✨👀',
-    likes: 45,
-    comments: 0,
-    created_at: new Date(Date.now() - 14400000).toISOString(),
-    college_id: 'col_lsr'
-  },
-  {
-    confession_id: 'conf_4',
-    content: 'Can we agree that the canteen food this year is actually better? Best samosas ever. 😋',
-    likes: 8,
-    comments: 0,
-    created_at: new Date(Date.now() - 28800000).toISOString(),
-    college_id: 'col_stephens'
-  }
-];
+const MOCK_CONFESSIONS: any[] = [];
 
 const MOCK_STORIES = [
   {
@@ -920,6 +887,8 @@ export default function CampusLive() {
                     onPress={() => openComments(c)}
                     activeOpacity={0.95}
                   >
+                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+
                     {/* Left: Megaphone Gradient Icon Placeholder */}
                     <View style={styles.twitterAvatarContainer}>
                       <LinearGradient
@@ -1612,12 +1581,13 @@ const styles = StyleSheet.create({
   },
   twitterCard: {
     flexDirection: 'row',
-    backgroundColor: '#121214',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
   },
   twitterAvatarContainer: {
     marginRight: 12,
