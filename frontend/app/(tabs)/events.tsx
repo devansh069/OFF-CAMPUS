@@ -602,18 +602,16 @@ export default function Events() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient matching Live page */}
-      <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      {/* Dark veil overlay for premium depth and text contrast */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
-
-      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
+      {/* Top-Right Purple-Reddish Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#8E24AA', '#E91E63', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+      <SafeAreaView style={{ flex: 1 }}>
           {/* Header Bar */}
           <View style={styles.header}>
             <View style={styles.headerTitleContainer}>
@@ -865,7 +863,6 @@ export default function Events() {
             </ScrollView>
           )}
         </SafeAreaView>
-      </BlurView>
 
         {/* Full-Screen Detailed Glassmorphic Overlay Modal */}
         <Modal
@@ -1448,6 +1445,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -150,
+    right: -150,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    overflow: 'hidden',
   },
   orbTopLeft: {
     position: 'absolute',
