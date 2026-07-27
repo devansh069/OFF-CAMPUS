@@ -542,6 +542,8 @@ export default function Discover() {
 
   // Animation Refs
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [cardHeight, setCardHeight] = useState(Dimensions.get('window').height - 180);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -662,7 +664,8 @@ export default function Discover() {
       handlePass(targetUserId);
       // 3. Move to next user
       setCurrentIndex(prev => prev + 1);
-      // 4. Scroll to top of the next card
+      // 4. Scroll to top of the next card and reset scroll tracking
+      scrollY.setValue(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       // 5. Instantly place the new card on the right
       slideAnim.setValue(Dimensions.get('window').width);
@@ -687,7 +690,8 @@ export default function Discover() {
       handleLike(targetUserId);
       // 3. Move to next user
       setCurrentIndex(prev => prev + 1);
-      // 4. Scroll to top of the next card
+      // 4. Scroll to top of the next card and reset scroll tracking
+      scrollY.setValue(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       // 5. Instantly place the new card on the right
       slideAnim.setValue(Dimensions.get('window').width);
@@ -767,6 +771,54 @@ export default function Discover() {
   const hasProfile = activeProfiles.length > 0 && currentIndex < activeProfiles.length;
   const profilePhotos = hasProfile ? getProfilePhotos(currentProfile) : [];
 
+  const getCards = () => {
+    if (!hasProfile || !currentProfile) return [];
+    const list = [];
+    
+    // 1. Main card (index 0)
+    list.push({
+      type: 'main',
+      photo: profilePhotos[0]
+    });
+
+    // 2. Spotify card
+    let topTracks = [];
+    try {
+      if (currentProfile.spotify_data) {
+        const sData = typeof currentProfile.spotify_data === 'string' 
+          ? JSON.parse(currentProfile.spotify_data) 
+          : currentProfile.spotify_data;
+        if (sData && sData.top_tracks) {
+          topTracks = sData.top_tracks;
+        }
+      }
+    } catch (e) {
+      console.warn('Error parsing spotify_data', e);
+    }
+    if (topTracks.length > 0) {
+      list.push({
+        type: 'spotify',
+        tracks: topTracks
+      });
+    }
+
+    // 3. Secondary photos
+    profilePhotos.slice(1).forEach((photoUri, index) => {
+      const photoIndex = index + 1;
+      const prompt = MOCK_PROMPTS.find(p => p.index === photoIndex);
+      list.push({
+        type: 'secondary',
+        photo: photoUri,
+        prompt: prompt,
+        index: photoIndex
+      });
+    });
+
+    return list;
+  };
+
+  const cards = getCards();
+
   return (
     <View style={styles.container}>
       {/* Top-Left Dark Purple Glow Ball */}
@@ -783,125 +835,177 @@ export default function Discover() {
         {hasProfile ? (
           <View style={styles.cardWrapper}>
             <Animated.View style={[styles.cardContainer, { transform: [{ translateX: slideAnim }] }]}>
-              <View style={styles.profileCard}>
-                <ScrollView
+              <View 
+                style={styles.profileCard}
+                onLayout={(e) => {
+                  const { height } = e.nativeEvent.layout;
+                  if (height > 0) {
+                    setCardHeight(height);
+                  }
+                }}
+              >
+                <Animated.ScrollView
                   ref={scrollViewRef}
                   style={styles.profileScrollView}
-                  contentContainerStyle={styles.profileScrollContent}
+                  contentContainerStyle={{ height: cards.length * cardHeight }}
                   showsVerticalScrollIndicator={false}
+                  pagingEnabled={true}
+                  decelerationRate="fast"
+                  scrollEventThrottle={16}
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: true }
+                  )}
                 >
-                  {/* 1. Standalone Fullscreen Photo Card */}
-                  <View style={styles.mainPhotoCard}>
-                    <Image
-                      source={{ uri: getBWPhotoUrl(profilePhotos[0]) }}
-                      style={StyleSheet.absoluteFillObject}
-                      resizeMode="cover"
-                    />
+                  {cards.map((card, i) => {
+                    const translateY = scrollY.interpolate({
+                      inputRange: [
+                        (i - 1) * cardHeight,
+                        i * cardHeight,
+                        i * cardHeight + 1
+                      ],
+                      outputRange: [0, 0, 1],
+                      extrapolateLeft: 'clamp'
+                    });
 
-                    {/* Glass Details Card Overlay */}
-                    <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.glassDetailsCard}>
-                      <View style={styles.profileDetails}>
-                        {/* Name & Age */}
-                        <View style={styles.cardNameRow}>
-                          <Text style={styles.cardName}>{currentProfile.name}, {currentProfile.age}</Text>
-                          {currentProfile.verification_status === 'verified' && (
-                            <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
-                          )}
-                          <View style={{ flex: 1 }} />
-                          <View style={styles.innovativeVibeBadge}>
-                            <Ionicons name="sparkles" size={13} color="#FFD700" />
-                            <Text style={styles.innovativeVibeText}>{currentProfile.vibe_score?.toFixed(1)}</Text>
-                          </View>
-                        </View>
+                    const scale = scrollY.interpolate({
+                      inputRange: [
+                        i * cardHeight,
+                        (i + 1) * cardHeight
+                      ],
+                      outputRange: [1, 0.94],
+                      extrapolate: 'clamp'
+                    });
 
-                        {/* College / Course / Year */}
-                        <View style={styles.cardCollegeRow}>
-                          <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
-                          <Text style={styles.cardCollegeText}>
-                            {[
-                              getCollegeName(currentProfile),
-                              currentProfile.course,
-                              currentProfile.year
-                            ].filter(Boolean).join(' • ')}
-                          </Text>
-                        </View>
+                    const opacity = scrollY.interpolate({
+                      inputRange: [
+                        i * cardHeight,
+                        (i + 1) * cardHeight
+                      ],
+                      outputRange: [1, 0.45],
+                      extrapolate: 'clamp'
+                    });
 
-                        {/* Bio */}
-                        {currentProfile.bio && <Text style={styles.cardBio}>{currentProfile.bio}</Text>}
-
-                        {/* Characteristics Scrollable Row */}
-                        <View style={styles.scrollWrapper}>
-                          <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.scrollContentContainer}
-                          >
-                            {getScrollableItems(currentProfile).map((item, idx) => (
-                              <React.Fragment key={idx}>
-                                <View style={styles.scrollItem}>
-                                  <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
-                                  <Text style={styles.scrollItemText}>{item.text}</Text>
+                    return (
+                      <Animated.View
+                        key={i}
+                        style={[
+                          styles.animatedCardItem,
+                          {
+                            height: cardHeight,
+                            zIndex: i,
+                            transform: [{ translateY }, { scale }],
+                            opacity: opacity,
+                          }
+                        ]}
+                      >
+                        {card.type === 'main' && (
+                          <View style={styles.mainCardInner}>
+                            <Image
+                              source={{ uri: getBWPhotoUrl(card.photo) }}
+                              style={StyleSheet.absoluteFillObject}
+                              resizeMode="cover"
+                            />
+                            
+                            {/* Glass Details Card Overlay */}
+                            <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.glassDetailsCard}>
+                              <View style={styles.profileDetails}>
+                                {/* Name & Age */}
+                                <View style={styles.cardNameRow}>
+                                  <Text style={styles.cardName}>{currentProfile.name}, {currentProfile.age}</Text>
+                                  {currentProfile.verification_status === 'verified' && (
+                                    <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
+                                  )}
+                                  <View style={{ flex: 1 }} />
+                                  <View style={styles.innovativeVibeBadge}>
+                                    <Ionicons name="sparkles" size={13} color="#FFD700" />
+                                    <Text style={styles.innovativeVibeText}>{currentProfile.vibe_score?.toFixed(1)}</Text>
+                                  </View>
                                 </View>
-                                {idx < getScrollableItems(currentProfile).length - 1 && (
-                                  <View style={styles.scrollSeparator} />
-                                )}
-                              </React.Fragment>
-                            ))}
-                          </ScrollView>
-                        </View>
 
-                        {/* Interests / Tags */}
-                        {currentProfile.interests?.length > 0 && (
-                          <View style={styles.cardTagsRow}>
-                            {currentProfile.interests.map((i: string) => (
-                              <View key={i} style={styles.cardTag}>
-                                <Text style={styles.cardTagText}>{i}</Text>
+                                {/* College / Course / Year */}
+                                <View style={styles.cardCollegeRow}>
+                                  <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
+                                  <Text style={styles.cardCollegeText}>
+                                    {[
+                                      getCollegeName(currentProfile),
+                                      currentProfile.course,
+                                      currentProfile.year
+                                    ].filter(Boolean).join(' • ')}
+                                  </Text>
+                                </View>
+
+                                {/* Bio */}
+                                {currentProfile.bio && <Text style={styles.cardBio}>{currentProfile.bio}</Text>}
+
+                                {/* Characteristics Scrollable Row */}
+                                <View style={styles.scrollWrapper}>
+                                  <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.scrollContentContainer}
+                                  >
+                                    {getScrollableItems(currentProfile).map((item, idx) => (
+                                      <React.Fragment key={idx}>
+                                        <View style={styles.scrollItem}>
+                                          <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
+                                          <Text style={styles.scrollItemText}>{item.text}</Text>
+                                        </View>
+                                        {idx < getScrollableItems(currentProfile).length - 1 && (
+                                          <View style={styles.scrollSeparator} />
+                                        )}
+                                      </React.Fragment>
+                                    ))}
+                                  </ScrollView>
+                                </View>
+
+                                {/* Interests / Tags */}
+                                {currentProfile.interests?.length > 0 && (
+                                  <View style={styles.cardTagsRow}>
+                                    {currentProfile.interests.map((interest: string) => (
+                                      <View key={interest} style={styles.cardTag}>
+                                        <Text style={styles.cardTagText}>{interest}</Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                )}
+                              </View>
+                            </BlurView>
+                          </View>
+                        )}
+
+                        {card.type === 'spotify' && (
+                          <View style={styles.spotifyCard}>
+                            <Text style={styles.sectionTitle}>Top Spotify Tracks 🎵</Text>
+                            {card.tracks.slice(0, 3).map((track: any, idx: number) => (
+                              <View key={idx} style={styles.spotifyTrackRow}>
+                                <Ionicons name="play" size={16} color="#1DB954" />
+                                <View style={styles.spotifyTrackInfo}>
+                                  <Text style={styles.spotifyTrackName}>{track.name}</Text>
+                                  <Text style={styles.spotifyArtistName}>{track.artist}</Text>
+                                </View>
                               </View>
                             ))}
                           </View>
                         )}
-                      </View>
-                    </BlurView>
-                  </View>
 
-                  {/* 2. Standalone Spotify Card */}
-                  {currentProfile.spotify_data?.top_tracks?.length > 0 && (
-                    <View style={styles.spotifyCard}>
-                      <Text style={styles.sectionTitle}>Top Spotify Tracks 🎵</Text>
-                      {currentProfile.spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => (
-                        <View key={idx} style={styles.spotifyTrackRow}>
-                          <Ionicons name="play" size={16} color="#1DB954" />
-                          <View style={styles.spotifyTrackInfo}>
-                            <Text style={styles.spotifyTrackName}>{track.name}</Text>
-                            <Text style={styles.spotifyArtistName}>{track.artist}</Text>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* 3. Secondary Photos (without individual likes) */}
-                  <View style={styles.secondaryPhotosSection}>
-                    {profilePhotos.slice(1).map((photoUri, index) => {
-                      const photoIndex = index + 1; // 1 to 5
-                      const prompt = MOCK_PROMPTS.find(p => p.index === photoIndex);
-
-                      return (
-                        <BlurView intensity={35} tint="dark" key={photoIndex} style={styles.secondaryPhotoCard}>
-                          {prompt && (
-                            <View style={styles.promptHeader}>
-                              <Text style={styles.promptQuestion}>MY PROMPT</Text>
-                              <Text style={styles.promptTitle}>{prompt.title}</Text>
+                        {card.type === 'secondary' && (
+                          <BlurView intensity={35} tint="dark" style={styles.secondaryPhotoCard}>
+                            {card.prompt && (
+                              <View style={styles.promptHeader}>
+                                <Text style={styles.promptQuestion}>MY PROMPT</Text>
+                                <Text style={styles.promptTitle}>{card.prompt.title}</Text>
+                              </View>
+                            )}
+                            <View style={styles.secondaryPhotoContainer}>
+                              <Image source={{ uri: card.photo }} style={styles.profilePhoto} />
                             </View>
-                          )}
-                          <View style={styles.secondaryPhotoContainer}>
-                            <Image source={{ uri: photoUri }} style={styles.profilePhoto} />
-                          </View>
-                        </BlurView>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
+                          </BlurView>
+                        )}
+                      </Animated.View>
+                    );
+                  })}
+                </Animated.ScrollView>
               </View>
             </Animated.View>
 
@@ -1529,6 +1633,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   profileScrollView: {
     flex: 1,
@@ -1538,9 +1645,19 @@ const styles = StyleSheet.create({
     paddingBottom: 140, // Space for floating button overlay & tab navigation
   },
   mainPhotoCard: {
-    width: screenWidth,
-    height: screenHeight,
+    width: '100%',
+    height: '100%',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  animatedCardItem: {
+    width: '100%',
+    position: 'relative',
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  mainCardInner: {
+    flex: 1,
     position: 'relative',
   },
   photoContainer: {
