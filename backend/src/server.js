@@ -41,6 +41,12 @@ const startServer = async () => {
     // 1. Connect to MySQL Database
     await connectDB();
 
+    // Patch: Manually add parent_id column to comments table if missing
+    try {
+      await sequelize.query("ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) NULL AFTER user_id;");
+      console.log('[Patch] Manually check/added parent_id column to comments');
+    } catch (e) {}
+
     // Register all models explicitly before syncing so Sequelize knows about them
     require('./models/CollegeMaster');
     require('./models/Confession');
