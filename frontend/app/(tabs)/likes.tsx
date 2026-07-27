@@ -264,7 +264,7 @@ export default function Likes() {
       />
 
 
-      <BlurView intensity={Platform.OS === 'ios' ? 30 : 60} tint="dark" style={StyleSheet.absoluteFillObject}>
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.bg}>
             {/* Header */}
