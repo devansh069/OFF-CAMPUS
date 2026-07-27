@@ -739,7 +739,16 @@ export default function CampusLive() {
     return (
       <View key={node.comment_id} style={styles.commentNodeContainer}>
         <View style={styles.commentTop}>
-          <Text style={styles.commentAnon}>{node.user_name || 'Campus Voice'} • {node.college_name || 'Campus'}</Text>
+          <View style={styles.commentAuthorRow}>
+            <View style={styles.commentAvatarCircle}>
+              {node.user_picture ? (
+                <Image source={{ uri: node.user_picture }} style={styles.commentAvatarImage} />
+              ) : (
+                <Ionicons name="person-circle" size={18} color="rgba(255,255,255,0.4)" />
+              )}
+            </View>
+            <Text style={styles.commentAnon}>{node.user_name || 'Campus Voice'} • {node.college_name || 'Campus'}</Text>
+          </View>
           <Text style={styles.commentTime}>
             {node.created_at && formatDistanceToNow(new Date(node.created_at), { addSuffix: true })}
           </Text>
@@ -986,7 +995,11 @@ export default function CampusLive() {
                           <View style={styles.cardHeaderRow}>
                             <View style={styles.cardHeaderLeft}>
                               <View style={styles.anonAvatarBadge}>
-                                <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                                {c.user_picture ? (
+                                  <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
+                                ) : (
+                                  <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                                )}
                               </View>
                               <View>
                                 <Text style={styles.authorName}>{c.user_name || 'Campus Voice'}</Text>
@@ -1029,7 +1042,11 @@ export default function CampusLive() {
                           <View style={styles.cardHeaderRow}>
                             <View style={styles.cardHeaderLeft}>
                               <View style={styles.anonAvatarBadge}>
-                                <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                                {c.user_picture ? (
+                                  <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
+                                ) : (
+                                  <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                                )}
                               </View>
                               <View>
                                 <Text style={styles.authorNameTextOnly}>{c.user_name || 'Campus Voice'}</Text>
@@ -1111,7 +1128,11 @@ export default function CampusLive() {
                       <View style={styles.modalConfTop}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={styles.anonAvatarBadge}>
-                            <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                            {selectedConfession.user_picture ? (
+                              <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
+                            ) : (
+                              <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                            )}
                           </View>
                           <View>
                             <Text style={styles.authorNameTextOnly}>
@@ -2058,12 +2079,51 @@ const styles = StyleSheet.create({
   commentTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   commentAnon: { color: '#A899B8', fontSize: 12, fontWeight: '700' },
   commentTime: { color: 'rgba(255,255,255,0.35)', fontSize: 10 },
-  commentBodyRow: { paddingLeft: 2 },
+  commentBodyRow: {
+    paddingLeft: 26,
+    marginTop: 4,
+  },
   commentText: { color: '#FFF', fontSize: 13, lineHeight: 17 },
-  commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 4 },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+    paddingLeft: 26,
+  },
   commentReplyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 },
   commentReplyText: { color: '#C2FF3D', fontSize: 11, fontWeight: '600' },
-  nestedRepliesContainer: { borderLeftWidth: 1.5, borderLeftColor: 'rgba(255, 255, 255, 0.1)', marginLeft: 6, paddingLeft: 10, marginTop: 4 },
+  nestedRepliesContainer: {
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(194, 255, 61, 0.35)', // glowing lime green line
+    marginLeft: 9,
+    paddingLeft: 16,
+    marginTop: 4,
+  },
+  commentAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  commentAvatarCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  anonAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
   commentInputWrapper: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', padding: 12, backgroundColor: 'rgba(15, 15, 20, 0.95)' },
   commentInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   commentTextInput: { flex: 1, color: '#FFF', fontSize: 13, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', maxHeight: 100 },

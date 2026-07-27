@@ -195,7 +195,7 @@ exports.getComments = async (req, res) => {
     const { id } = req.params;
 
     const comments = await sequelize.query(
-      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.created_at, u.college_id, col.short_name as college_name, u.name as user_name 
+      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.parent_id, c.created_at, u.college_id, col.short_name as college_name, u.name as user_name, u.picture as user_picture 
        FROM comments c 
        LEFT JOIN users u ON c.user_id = u.user_id 
        LEFT JOIN colleges col ON u.college_id = col.college_id 
@@ -220,7 +220,7 @@ exports.createComment = async (req, res) => {
   try {
     const userId = req.user.user_id;
     const confessionId = req.params.id;
-    const { content } = req.body;
+    const { content, parent_id } = req.body;
 
     if (!content || !content.trim()) {
       await transaction.rollback();
@@ -231,9 +231,9 @@ exports.createComment = async (req, res) => {
 
     // Insert comment
     await sequelize.query(
-      'INSERT INTO comments (comment_id, confession_id, user_id, content, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
+      'INSERT INTO comments (comment_id, confession_id, user_id, content, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
       {
-        replacements: [commentId, confessionId, userId, content.trim()],
+        replacements: [commentId, confessionId, userId, content.trim(), parent_id || null],
         type: sequelize.QueryTypes.INSERT,
         transaction
       }
@@ -259,7 +259,9 @@ exports.createComment = async (req, res) => {
         confession_id: confessionId,
         user_id: userId,
         user_name: req.user.name,
+        user_picture: req.user.picture || (req.user.photos && req.user.photos[0]) || null,
         content: content.trim(),
+        parent_id: parent_id || null,
         created_at: new Date().toISOString(),
         college_name: collegeName
       }
