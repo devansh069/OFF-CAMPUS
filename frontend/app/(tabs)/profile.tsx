@@ -291,18 +291,16 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient */}
-      <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      {/* Dark veil overlay for premium depth and text contrast */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
-
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+      <SafeAreaView style={{ flex: 1 }}>
           <ScrollView showsVerticalScrollIndicator={false}>
             
             {/* Brand Header */}
@@ -588,13 +586,21 @@ export default function Profile() {
           </Modal>
 
         </SafeAreaView>
-      </BlurView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
+  },
   bg: { flex: 1, backgroundColor: '#000000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   
@@ -946,11 +952,6 @@ const styles = StyleSheet.create({
     color: '#C2FF3D',
     fontSize: 12,
     fontWeight: '700',
-  },
-  vibeScoreExplanation: {
-    color: '#999',
-    fontSize: 12,
-    lineHeight: 18,
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#1E1E1E', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, maxHeight: '85%' },

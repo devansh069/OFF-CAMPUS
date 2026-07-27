@@ -237,15 +237,15 @@ export default function Messages() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient */}
-      <LinearGradient
-        colors={['#4C006A', '#02060E']}
-        locations={[0.0, 0.5]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
       <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
@@ -456,6 +456,15 @@ export default function Messages() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
+  },
   centerContainer: {
     flex: 1,
     backgroundColor: '#000000',

@@ -769,14 +769,15 @@ export default function Discover() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
 
         {/* Profiles Container / Card stack */}
         {hasProfile ? (
@@ -1198,13 +1199,21 @@ export default function Discover() {
             </LinearGradient>
           </View>
         )}
-      </BlurView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
+  },
   bg: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   topBar: {
