@@ -380,74 +380,58 @@ export default function Profile() {
               </TouchableOpacity>
             </View>
 
-            {/* Spotify Vibe Card Section */}
-            <View style={styles.integrationsCard}>
+            {/* Spotify Vibe Card Section (Redesigned as a unified Glass Player) */}
+            <TouchableOpacity 
+              style={styles.spotifyCard} 
+              onPress={user.spotify_data?.top_tracks ? () => router.push('/spotify-vibe') : addSpotifyData}
+              activeOpacity={0.9}
+            >
+              <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
+
               <View style={styles.spotifyHeaderRow}>
                 <View style={styles.spotifyHeaderLeft}>
-                  <MaterialCommunityIcons name="spotify" size={22} color="#1DB954" style={{ marginRight: 8 }} />
+                  <MaterialCommunityIcons name="spotify" size={24} color="#1DB954" style={{ marginRight: 8 }} />
                   <Text style={styles.spotifyHeaderTitle}>connect spotify to flex your vibe</Text>
                 </View>
-                {user.spotify_data?.top_tracks && (
+                {user.spotify_data?.top_tracks ? (
                   <Text style={styles.spotifyHeaderUsername}>
                     @{user.name.toLowerCase().replace(/ /g, '_')}
                   </Text>
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
                 )}
               </View>
 
-              <TouchableOpacity 
-                style={styles.spotifyCard} 
-                onPress={user.spotify_data?.top_tracks ? () => router.push('/spotify-vibe') : addSpotifyData}
-              >
-                <View style={styles.spotifyCardHeader}>
-                  <Text style={styles.spotifyCardTitle}>MY CURRENT VIBE</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#C2FF3D" />
-                </View>
-
-                <View style={styles.spotifyTracks}>
-                  {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
-                    user.spotify_data.top_tracks.slice(0, 6).map((track: string, idx: number) => {
-                      const parts = track.split(' - ');
-                      const title = parts[0] || track;
-                      const artist = parts[1] || 'Connected Spotify Vibe';
-                      return (
-                        <View key={idx} style={styles.trackRow}>
-                          <Text style={styles.trackIndex}>{idx + 1}</Text>
-                          <View style={styles.trackArt}>
-                            <Ionicons name="musical-note" size={14} color="#C2FF3D" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.trackTitle}>{title}</Text>
-                            <Text style={styles.trackArtist}>{artist}</Text>
-                          </View>
+              <View style={styles.spotifyTracks}>
+                {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
+                  user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
+                    const parts = track.split(' - ');
+                    const title = parts[0] || track;
+                    const artist = parts[1] || 'Connected Spotify Vibe';
+                    return (
+                      <View key={idx} style={styles.trackRow}>
+                        <Text style={styles.trackIndex}>{idx + 1}</Text>
+                        <View style={styles.trackArt}>
+                          <Ionicons name="musical-note" size={14} color="#1DB954" />
                         </View>
-                      );
-                    })
-                  ) : (
-                    <>
-                      {[
-                        { title: 'Starboy', artist: 'The Weeknd' },
-                        { title: 'Levitating', artist: 'Dua Lipa' },
-                        { title: 'Peaches', artist: 'Justin Bieber' },
-                        { title: 'Blinding Lights', artist: 'The Weeknd' },
-                        { title: 'Stay', artist: 'Kid LAROI & Justin Bieber' },
-                        { title: 'Bad Habits', artist: 'Ed Sheeran' },
-                      ].map((item, idx) => (
-                        <View key={idx} style={styles.trackRow}>
-                          <Text style={styles.trackIndex}>{idx + 1}</Text>
-                          <View style={[styles.trackArt, { backgroundColor: 'rgba(194, 255, 61, 0.1)' }]}>
-                            <Ionicons name="musical-note" size={14} color="#C2FF3D" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.trackTitle}>{item.title}</Text>
-                            <Text style={styles.trackArtist}>{item.artist}</Text>
-                          </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
+                          <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
                         </View>
-                      ))}
-                    </>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
+                        <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={styles.connectPlaceholder}>
+                    <Text style={styles.placeholderText}>No Spotify vibe connected yet.</Text>
+                    <View style={styles.spotifyConnectBadge}>
+                      <Text style={styles.spotifyConnectText}>Connect Now</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
 
 
 
@@ -847,21 +831,15 @@ const styles = StyleSheet.create({
   },
 
   // Spotify Card
-  integrationsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  spotifyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     marginHorizontal: 16,
     marginVertical: 12,
-    padding: 18,
+    padding: 20,
     borderRadius: 24,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  spotifyCard: {
-    backgroundColor: '#000000',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#C2FF3D',
-    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 185, 84, 0.25)',
+    overflow: 'hidden',
   },
   spotifyTracks: {
     gap: 12,
@@ -1107,33 +1085,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 16,
+    width: '100%',
   },
   spotifyHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   spotifyHeaderTitle: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    letterSpacing: 0.1,
   },
   spotifyHeaderUsername: {
-    color: '#C2FF3D',
+    color: '#1DB954',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  spotifyCardHeader: {
-    flexDirection: 'row',
+  connectPlaceholder: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 14,
   },
-  spotifyCardTitle: {
+  placeholderText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  spotifyConnectBadge: {
+    backgroundColor: '#1DB954',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    elevation: 3,
+    shadowColor: '#1DB954',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  spotifyConnectText: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   footerContainer: {
     alignItems: 'center',
