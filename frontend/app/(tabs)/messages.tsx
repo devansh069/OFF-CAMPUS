@@ -259,11 +259,7 @@ export default function Messages() {
 
 
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
+      <View style={{ flex: 1 }}>
         {/* Horizontal Matches List */}
         {!searchQuery && newMatches.length > 0 && (
           <View style={styles.matchesSection}>
@@ -300,80 +296,107 @@ export default function Messages() {
           <Text style={styles.sectionTitle}>Messages</Text>
         </View>
 
-        {filteredConversations.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={70} color="rgba(255, 255, 255, 0.15)" />
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No chats found' : 'No active chats yet'}
-            </Text>
-            <Text style={styles.emptySubText}>
-              {searchQuery
-                ? 'Try searching for another match'
-                : 'Start swiping and connect with other college students!'}
-            </Text>
-          </View>
-        ) : (
-          filteredConversations.map((conv: any) => {
-            const hasUnread = conv.unread_count > 0;
-            return (
-              <Swipeable
-                key={conv.user.user_id}
-                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, conv.user)}
-                containerStyle={styles.swipeContainer}
-              >
-                <TouchableOpacity
-                  style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
-                  onPress={() => router.push(`/chat/${conv.user.user_id}`)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.avatarWrapper}>
-                    <Image
-                      source={{
-                        uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
-                      }}
-                      style={styles.avatar}
-                    />
-                    {conv.user.is_on_campus && (
-                      <View style={styles.onlineBadge} />
+        <BlurView intensity={20} tint="dark" style={styles.glassContainer}>
+          {filteredConversations.length === 0 ? (
+            <ScrollView
+              contentContainerStyle={styles.emptyStateScroll}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
+            >
+              <View style={styles.emptyState}>
+                <Text style={styles.sadEmoji}>😢</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 'No chats found' : 'No active chats yet'}
+                </Text>
+                <Text style={styles.emptySubText}>
+                  {searchQuery
+                    ? 'Try searching for another match'
+                    : 'Start swiping and connect with other college students!'}
+                </Text>
+                {!searchQuery && (
+                  <TouchableOpacity
+                    style={styles.exploreBtn}
+                    onPress={() => router.push('/(tabs)/discover')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.exploreBtnText}>Go to Vibe Page</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              contentContainerStyle={styles.glassListScrollContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
+            >
+              {filteredConversations.map((conv: any, index: number) => {
+                const hasUnread = conv.unread_count > 0;
+                return (
+                  <View key={conv.user.user_id}>
+                    <Swipeable
+                      renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, conv.user)}
+                      containerStyle={styles.swipeContainer}
+                    >
+                      <TouchableOpacity
+                        style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
+                        onPress={() => router.push(`/chat/${conv.user.user_id}`)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.avatarWrapper}>
+                          <Image
+                            source={{
+                              uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
+                            }}
+                            style={styles.avatar}
+                          />
+                          {conv.user.is_on_campus && (
+                            <View style={styles.onlineBadge} />
+                          )}
+                        </View>
+                        <View style={styles.convInfo}>
+                          <View style={styles.convHeader}>
+                            <Text style={styles.convName}>{conv.user.name}</Text>
+                            {conv.last_message?.created_at && (
+                              <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
+                                {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={styles.convPreview}>
+                            <Text
+                              style={[
+                                styles.convMessage,
+                                hasUnread && styles.convMessageUnread
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {conv.last_message?.content || 'Say hi! 👋'}
+                            </Text>
+                            {hasUnread && (
+                              <LinearGradient
+                                colors={['#C2FF3D', '#C2FF3D']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.unreadBadge}
+                              >
+                                <Text style={styles.unreadCount}>{conv.unread_count}</Text>
+                              </LinearGradient>
+                            )}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </Swipeable>
+                    {index < filteredConversations.length - 1 && (
+                      <View style={styles.rowDivider} />
                     )}
                   </View>
-                  <View style={styles.convInfo}>
-                    <View style={styles.convHeader}>
-                      <Text style={styles.convName}>{conv.user.name}</Text>
-                      {conv.last_message?.created_at && (
-                        <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
-                          {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={styles.convPreview}>
-                      <Text
-                        style={[
-                          styles.convMessage,
-                          hasUnread && styles.convMessageUnread
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {conv.last_message?.content || 'Say hi! 👋'}
-                      </Text>
-                      {hasUnread && (
-                        <LinearGradient
-                          colors={['#C2FF3D', '#C2FF3D']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.unreadBadge}
-                        >
-                          <Text style={styles.unreadCount}>{conv.unread_count}</Text>
-                        </LinearGradient>
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </Swipeable>
-            );
-          })
-        )}
-      </ScrollView>
+                );
+              })}
+            </ScrollView>
+          )}
+        </BlurView>
+      </View>
 
       {/* Report Modal */}
       <Modal
@@ -499,22 +522,43 @@ const styles = StyleSheet.create({
 
   // Conversations Feed
   conversationsHeaderRow: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
+  glassContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    overflow: 'hidden',
+    height: 550,
+  },
+  glassListScrollContent: {
+    paddingVertical: 8,
+  },
+  emptyStateScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sadEmoji: {
+    fontSize: 54,
+    marginBottom: 8,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 16,
+  },
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
-    marginVertical: 6,
+    backgroundColor: 'transparent',
   },
   conversationItemUnread: {
-    backgroundColor: 'rgba(194, 255, 61, 0.05)',
-    borderColor: 'rgba(194, 255, 61, 0.2)',
+    backgroundColor: 'rgba(194, 255, 61, 0.03)',
   },
   avatarWrapper: { position: 'relative' },
   avatar: { width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
@@ -529,11 +573,11 @@ const styles = StyleSheet.create({
   convMessageUnread: { color: '#FFF', fontWeight: '700' },
   unreadBadge: { paddingHorizontal: 6, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   unreadCount: { color: '#000', fontSize: 10, fontWeight: '900' },
-  emptyState: { flex: 1, alignItems: 'center', gap: 12, justifyContent: 'center', paddingBottom: 100, paddingHorizontal: 32 },
+  emptyState: { flex: 1, alignItems: 'center', gap: 12, justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 32 },
   emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12, textAlign: 'center' },
   emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18, paddingHorizontal: 10 },
-  exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16 },
-  exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14 },
+  exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16, shadowColor: '#C2FF3D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   // Swipeable right actions
   swipeContainer: {

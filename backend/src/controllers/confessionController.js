@@ -195,7 +195,7 @@ exports.getComments = async (req, res) => {
     const { id } = req.params;
 
     const comments = await sequelize.query(
-      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.created_at, u.college_id, col.short_name as college_name 
+      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.created_at, u.college_id, col.short_name as college_name, u.name as user_name 
        FROM comments c 
        LEFT JOIN users u ON c.user_id = u.user_id 
        LEFT JOIN colleges col ON u.college_id = col.college_id 
@@ -258,6 +258,7 @@ exports.createComment = async (req, res) => {
         comment_id: commentId,
         confession_id: confessionId,
         user_id: userId,
+        user_name: req.user.name,
         content: content.trim(),
         created_at: new Date().toISOString(),
         college_name: collegeName
