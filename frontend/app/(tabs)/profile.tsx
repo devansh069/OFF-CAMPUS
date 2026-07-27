@@ -160,25 +160,27 @@ export default function Profile() {
   const deletePhoto = (index: number) => {
     Alert.alert('Delete Photo', 'Remove this photo?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        if ((sessionToken === 'dummy_token' || !sessionToken) && updateUser) {
-          if (!user) return;
-          const updated = [...(user.photos || [])];
-          updated.splice(index, 1);
-          updateUser({ photos: updated });
-          return;
-        }
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          if ((sessionToken === 'dummy_token' || !sessionToken) && updateUser) {
+            if (!user) return;
+            const updated = [...(user.photos || [])];
+            updated.splice(index, 1);
+            updateUser({ photos: updated });
+            return;
+          }
 
-        try {
-          await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos/${index}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${sessionToken}` },
-          });
-          await refreshUser();
-        } catch (error) {
-          console.error('Error:', error);
+          try {
+            await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/photos/${index}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${sessionToken}` },
+            });
+            await refreshUser();
+          } catch (error) {
+            console.error('Error:', error);
+          }
         }
-      }},
+      },
     ]);
   };
 
@@ -301,275 +303,274 @@ export default function Profile() {
         />
       </View>
       <SafeAreaView style={{ flex: 1 }}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            
-            {/* Brand Header */}
-            <View style={styles.headerBar}>
-              <View style={styles.logoRow}>
-                <Text style={styles.brandText}>off campus</Text>
-              </View>
-              <View style={styles.headerRight}>
-                <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
-                  <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
-                  <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
-                </TouchableOpacity>
-              </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+
+          {/* Brand Header */}
+          <View style={styles.headerBar}>
+            <View style={styles.logoRow}>
+              <Text style={styles.brandText}>off campus</Text>
+            </View>
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
+                <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Profile Avatar Card */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarContainer}>
+              <Image
+                source={{
+                  uri: user.photos?.[0] || user.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
+                }}
+                style={styles.avatarImageCircle}
+              />
             </View>
 
-            {/* Profile Avatar Card */}
-            <View style={styles.avatarSection}>
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={{
-                    uri: user.photos?.[0] || user.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
-                  }}
-                  style={styles.avatarImageCircle}
-                />
-              </View>
-
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
-                <TouchableOpacity 
-                  onPress={() => router.push('/onboarding/verification')}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons 
-                    name="checkmark-circle" 
-                    size={18} 
-                    color={
-                      user.verification_status === 'verified' 
-                        ? (user.verification_method === 'manual' ? '#F87171' : '#3B82F6') 
-                        : 'rgba(255, 255, 255, 0.4)'
-                    } 
-                    style={{ marginLeft: 6 }} 
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.collegePill}>
-                <Text style={styles.collegePillText}>
-                  {college?.name || user?.college?.name || 'Vivekananda Institute of Professional Studies'}
-                </Text>
-              </View>
-
-              <TouchableOpacity 
-                style={styles.editProfilePencilBtn}
-                onPress={() => router.push('/profile-edit')}
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/onboarding/verification')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="pencil" size={12} color="#000" style={{ marginRight: 6 }} />
-                <Text style={styles.editProfilePencilText}>Edit Profile</Text>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={18}
+                  color={
+                    user.verification_status === 'verified'
+                      ? (user.verification_method === 'manual' ? '#F87171' : '#3B82F6')
+                      : 'rgba(255, 255, 255, 0.4)'
+                  }
+                  style={{ marginLeft: 6 }}
+                />
               </TouchableOpacity>
             </View>
 
-            {/* Stats Dashboard */}
-            <View style={styles.statsRow}>
-              <TouchableOpacity style={[styles.statCard, styles.vibeStatCard, { flex: 1 }]} onPress={() => setVibeModalVisible(true)} activeOpacity={0.8}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <View style={styles.statIconRow}>
-                    <Ionicons name="sparkles" size={24} color="#C2FF3D" />
-                  </View>
-                  <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)} / 10</Text>
-                </View>
-                <Text style={styles.statLabel}>YOUR VIBE SCORE</Text>
-                <Text style={styles.vibeScoreExplanation}>
-                  Based on matches, profile completeness, and positive community interactions.
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.collegePill}>
+              <Text style={styles.collegePillText}>
+                {college?.name || user?.college?.name || 'Vivekananda Institute of Professional Studies'}
+              </Text>
             </View>
 
-            {/* Spotify Vibe Card Section (Redesigned as a unified Glass Player) */}
-            <TouchableOpacity 
-              style={styles.spotifyCard} 
-              onPress={user.spotify_data?.top_tracks ? () => router.push('/spotify-vibe') : addSpotifyData}
-              activeOpacity={0.9}
+            <TouchableOpacity
+              style={styles.editProfilePencilBtn}
+              onPress={() => router.push('/profile-edit')}
+              activeOpacity={0.7}
             >
-              <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <Ionicons name="pencil" size={12} color="#000" style={{ marginRight: 6 }} />
+              <Text style={styles.editProfilePencilText}>Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
 
-              <View style={styles.spotifyHeaderRow}>
-                <View style={styles.spotifyHeaderLeft}>
-                  <MaterialCommunityIcons name="spotify" size={24} color="#1DB954" style={{ marginRight: 8 }} />
-                  <Text style={styles.spotifyHeaderTitle}>connect spotify to flex your vibe</Text>
+          <View style={styles.statsRow}>
+            <TouchableOpacity style={[styles.statCard, styles.vibeStatCard, { flex: 1 }]} onPress={() => setVibeModalVisible(true)} activeOpacity={0.8}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={styles.statIconRow}>
+                  <Ionicons name="sparkles" size={24} color="#C2FF3D" />
                 </View>
-                {user.spotify_data?.top_tracks ? (
-                  <Text style={styles.spotifyHeaderUsername}>
-                    @{user.name.toLowerCase().replace(/ /g, '_')}
-                  </Text>
-                ) : (
-                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-                )}
+                <Text style={styles.statValue}>{(user.vibe_score || 8.5).toFixed(1)} / 10</Text>
               </View>
+              <Text style={styles.statLabel}>YOUR VIBE SCORE</Text>
+              <Text style={styles.vibeScoreExplanation}>
+                Based on matches, profile completeness, and positive community interactions.
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-              <View style={styles.spotifyTracks}>
-                {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
-                  user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
-                    const parts = track.split(' - ');
-                    const title = parts[0] || track;
-                    const artist = parts[1] || 'Connected Spotify Vibe';
-                    return (
-                      <View key={idx} style={styles.trackRow}>
-                        <Text style={styles.trackIndex}>{idx + 1}</Text>
-                        <View style={styles.trackArt}>
-                          <Ionicons name="musical-note" size={14} color="#1DB954" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
-                          <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
-                        </View>
-                        <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
+          {/* Spotify Vibe Card Section (Redesigned as a unified Glass Player) */}
+          <TouchableOpacity
+            style={styles.spotifyCard}
+            onPress={user.spotify_data?.top_tracks ? () => router.push('/spotify-vibe') : addSpotifyData}
+            activeOpacity={0.9}
+          >
+            <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
+
+            <View style={styles.spotifyHeaderRow}>
+              <View style={styles.spotifyHeaderLeft}>
+                <MaterialCommunityIcons name="spotify" size={24} color="#1DB954" style={{ marginRight: 8 }} />
+                <Text style={styles.spotifyHeaderTitle}>connect spotify to flex your vibe</Text>
+              </View>
+              {user.spotify_data?.top_tracks ? (
+                <Text style={styles.spotifyHeaderUsername}>
+                  @{user.name.toLowerCase().replace(/ /g, '_')}
+                </Text>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+              )}
+            </View>
+
+            <View style={styles.spotifyTracks}>
+              {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
+                user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
+                  const parts = track.split(' - ');
+                  const title = parts[0] || track;
+                  const artist = parts[1] || 'Connected Spotify Vibe';
+                  return (
+                    <View key={idx} style={styles.trackRow}>
+                      <Text style={styles.trackIndex}>{idx + 1}</Text>
+                      <View style={styles.trackArt}>
+                        <Ionicons name="musical-note" size={14} color="#1DB954" />
                       </View>
-                    );
-                  })
-                ) : (
-                  <View style={styles.connectPlaceholder}>
-                    <Text style={styles.placeholderText}>No Spotify vibe connected yet.</Text>
-                    <View style={styles.spotifyConnectBadge}>
-                      <Text style={styles.spotifyConnectText}>Connect Now</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
+                        <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
+                      </View>
+                      <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
                     </View>
+                  );
+                })
+              ) : (
+                <View style={styles.connectPlaceholder}>
+                  <Text style={styles.placeholderText}>No Spotify vibe connected yet.</Text>
+                  <View style={styles.spotifyConnectBadge}>
+                    <Text style={styles.spotifyConnectText}>Connect Now</Text>
                   </View>
-                )}
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
+
+
+          {/* Quick Actions List (Redesigned) */}
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/referrals')}>
+              <View style={styles.glassButtonContent}>
+                <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
+                  <Ionicons name="gift-outline" size={20} color="#C2FF3D" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.cardTitle}>Refer Friends</Text>
+                  <Text style={styles.cardSubtitle}>Spread the word & invite classmates!</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
               </View>
             </TouchableOpacity>
 
-
-
-            {/* Quick Actions List (Redesigned) */}
-            <View style={styles.actionsContainer}>
-              <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/referrals')}>
-                <View style={styles.glassButtonContent}>
-                  <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
-                    <Ionicons name="gift-outline" size={20} color="#C2FF3D" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.cardTitle}>Refer Friends</Text>
-                    <Text style={styles.cardSubtitle}>Spread the word & invite classmates!</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+            <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/admin')}>
+              <View style={styles.glassButtonContent}>
+                <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#C2FF3D" />
                 </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/admin')}>
-                <View style={styles.glassButtonContent}>
-                  <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
-                    <Ionicons name="shield-checkmark-outline" size={20} color="#C2FF3D" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.cardTitle}>Admin Portal</Text>
-                    <Text style={styles.cardSubtitle}>Moderate campus events & verifications</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.cardTitle}>Admin Portal</Text>
+                  <Text style={styles.cardSubtitle}>Moderate campus events & verifications</Text>
                 </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.glassCardButton, styles.logoutCardButton]} onPress={handleLogout}>
-                <View style={styles.glassButtonContent}>
-                  <View style={[styles.cardIconBox, styles.logoutIconBox]}>
-                    <Ionicons name="log-out-outline" size={20} color="#FF5252" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={[styles.cardTitle, { color: '#FF5252' }]}>Log Out</Text>
-                    <Text style={styles.cardSubtitle}>Sign out of your account</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* App Footer */}
-            <View style={styles.footerContainer}>
-              <Text style={styles.footerBrand}>OFF CAMPUS v1.0.4</Text>
-              <Text style={styles.footerCopyright}>Designed with ❤️ for Delhi College Students</Text>
-            </View>
-
-            <View style={{ height: 40 }} />
-          </ScrollView>
-
-          {/* VIBE SCORE AUDIT MODAL */}
-          <Modal visible={vibeModalVisible} transparent={true} animationType="slide">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Vibe Score Audit</Text>
-                  <TouchableOpacity onPress={() => setVibeModalVisible(false)} style={styles.modalCloseBtn}>
-                    <Ionicons name="close" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-                
-                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-                  <Text style={styles.modalIntro}>
-                    Your Vibe Score measures your reputation in the Off Campus community. It strictly updates based on your referrals and community reports.
-                  </Text>
-                  
-                  <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
-                  
-                  <View style={styles.auditItem}>
-                    <View style={styles.auditIconWrap}>
-                      <Ionicons name="people" size={20} color="#0A0A0A" />
-                    </View>
-                    <View style={styles.auditTextWrap}>
-                      <Text style={styles.auditItemTitle}>Refer Friends</Text>
-                      <Text style={styles.auditItemDesc}>
-                        • 1 Referral: +2 Vibe Score{'\n'}
-                        • 3 Referrals: 1.5x Profile Visibility{'\n'}
-                        • 5 Referrals: Instant 10/10 Vibe Score{'\n'}
-                        • 7 Referrals: 2.0x Ultimate Visibility{'\n'}
-                        • 10 Referrals: Free Off-Campus Event Pass{'\n'}
-                        Maximum score is capped at 10.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={[styles.auditSectionTitle, { color: '#FF3366', marginTop: 16 }]}>How it Decreases</Text>
-                  
-                  <View style={styles.auditItem}>
-                    <View style={[styles.auditIconWrap, { backgroundColor: '#FF3366' }]}>
-                      <Ionicons name="warning" size={20} color="#FFF" />
-                    </View>
-                    <View style={styles.auditTextWrap}>
-                      <Text style={styles.auditItemTitle}>Community Reports</Text>
-                      <Text style={styles.auditItemDesc}>
-                        When users report you, your score drops progressively:{'\n'}
-                        • 1st Report: -1 point{'\n'}
-                        • 2nd Report: -2 points{'\n'}
-                        • 3rd Report: -3 points{'\n'}
-                        • 4th Report: -4 points{'\n'}
-                        Minimum score is clamped at 0.
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 24 }} />
-                  
-                  <Text style={styles.auditSectionTitle}>Score History Log</Text>
-                  
-                  {vibeHistory.length === 0 ? (
-                    <Text style={styles.noHistoryText}>No vibe score changes yet.</Text>
-                  ) : (
-                    vibeHistory.map((log: any, idx: number) => (
-                      <View key={log.id || idx} style={styles.historyLogCard}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.historyReason}>{log.reason}</Text>
-                          <Text style={styles.historyDate}>{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={[styles.historyChange, { color: log.change_amount > 0 ? '#C2FF3D' : '#FF3366' }]}>
-                            {log.change_amount > 0 ? '+' : ''}{log.change_amount}
-                          </Text>
-                          <Text style={styles.historyResult}>Score: {log.new_score}</Text>
-                        </View>
-                      </View>
-                    ))
-                  )}
-                  
-                  <View style={{height: 20}}/>
-                </ScrollView>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
               </View>
-            </View>
-          </Modal>
+            </TouchableOpacity>
 
-        </SafeAreaView>
+            <TouchableOpacity style={[styles.glassCardButton, styles.logoutCardButton]} onPress={handleLogout}>
+              <View style={styles.glassButtonContent}>
+                <View style={[styles.cardIconBox, styles.logoutIconBox]}>
+                  <Ionicons name="log-out-outline" size={20} color="#FF5252" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={[styles.cardTitle, { color: '#FF5252' }]}>Log Out</Text>
+                  <Text style={styles.cardSubtitle}>Sign out of your account</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* App Footer */}
+          <View style={styles.footerContainer}>
+            <Text style={styles.footerBrand}>OFF CAMPUS v1.0.4</Text>
+            <Text style={styles.footerCopyright}>Designed with ❤️ for Delhi College Students</Text>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+
+        {/* VIBE SCORE AUDIT MODAL */}
+        <Modal visible={vibeModalVisible} transparent={true} animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Vibe Score Audit</Text>
+                <TouchableOpacity onPress={() => setVibeModalVisible(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                <Text style={styles.modalIntro}>
+                  Your Vibe Score measures your reputation in the Off Campus community. It strictly updates based on your referrals and community reports.
+                </Text>
+
+                <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
+
+                <View style={styles.auditItem}>
+                  <View style={styles.auditIconWrap}>
+                    <Ionicons name="people" size={20} color="#0A0A0A" />
+                  </View>
+                  <View style={styles.auditTextWrap}>
+                    <Text style={styles.auditItemTitle}>Refer Friends</Text>
+                    <Text style={styles.auditItemDesc}>
+                      • 1 Referral: +2 Vibe Score{'\n'}
+                      • 3 Referrals: 1.5x Profile Visibility{'\n'}
+                      • 5 Referrals: Instant 10/10 Vibe Score{'\n'}
+                      • 7 Referrals: 2.0x Ultimate Visibility{'\n'}
+                      • 10 Referrals: Free Off-Campus Event Pass{'\n'}
+                      Maximum score is capped at 10.
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.auditSectionTitle, { color: '#FF3366', marginTop: 16 }]}>How it Decreases</Text>
+
+                <View style={styles.auditItem}>
+                  <View style={[styles.auditIconWrap, { backgroundColor: '#FF3366' }]}>
+                    <Ionicons name="warning" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.auditTextWrap}>
+                    <Text style={styles.auditItemTitle}>Community Reports</Text>
+                    <Text style={styles.auditItemDesc}>
+                      When users report you, your score drops progressively:{'\n'}
+                      • 1st Report: -1 point{'\n'}
+                      • 2nd Report: -2 points{'\n'}
+                      • 3rd Report: -3 points{'\n'}
+                      • 4th Report: -4 points{'\n'}
+                      Minimum score is clamped at 0.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 24 }} />
+
+                <Text style={styles.auditSectionTitle}>Score History Log</Text>
+
+                {vibeHistory.length === 0 ? (
+                  <Text style={styles.noHistoryText}>No vibe score changes yet.</Text>
+                ) : (
+                  vibeHistory.map((log: any, idx: number) => (
+                    <View key={log.id || idx} style={styles.historyLogCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.historyReason}>{log.reason}</Text>
+                        <Text style={styles.historyDate}>{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.historyChange, { color: log.change_amount > 0 ? '#C2FF3D' : '#FF3366' }]}>
+                          {log.change_amount > 0 ? '+' : ''}{log.change_amount}
+                        </Text>
+                        <Text style={styles.historyResult}>Score: {log.new_score}</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+      </SafeAreaView>
     </View>
   );
 }
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
   },
   bg: { flex: 1, backgroundColor: '#000000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
-  
+
   headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -893,7 +894,7 @@ const styles = StyleSheet.create({
   },
   photoItem: {
     width: '31.2%',
-    aspectRatio: 3/4,
+    aspectRatio: 3 / 4,
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
@@ -916,7 +917,7 @@ const styles = StyleSheet.create({
   },
   addPhotoBtn: {
     width: '31.2%',
-    aspectRatio: 3/4,
+    aspectRatio: 3 / 4,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(194, 255, 61, 0.3)',
