@@ -975,31 +975,50 @@ export default function Discover() {
                         )}
 
                         {card.type === 'spotify' && (
-                          <View style={styles.spotifyCard}>
-                            <Text style={styles.sectionTitle}>Top Spotify Tracks 🎵</Text>
-                            {card.tracks.slice(0, 3).map((track: any, idx: number) => (
-                              <View key={idx} style={styles.spotifyTrackRow}>
-                                <Ionicons name="play" size={16} color="#1DB954" />
-                                <View style={styles.spotifyTrackInfo}>
-                                  <Text style={styles.spotifyTrackName}>{track.name}</Text>
-                                  <Text style={styles.spotifyArtistName}>{track.artist}</Text>
+                          <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight, padding: 24 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                              <MaterialCommunityIcons name="spotify" size={26} color="#1DB954" style={{ marginRight: 8 }} />
+                              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>My Spotify Vibe</Text>
+                            </View>
+                            
+                            <View style={{ gap: 16, flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
+                              {card.tracks.slice(0, 3).map((track: any, idx: number) => (
+                                <View key={idx} style={styles.spotifyTrackRow}>
+                                  <Text style={styles.trackIndex}>{idx + 1}</Text>
+                                  <View style={styles.trackArt}>
+                                    <Ionicons name="musical-note" size={14} color="#1DB954" />
+                                  </View>
+                                  <View style={styles.spotifyTrackInfo}>
+                                    <Text style={styles.spotifyTrackName} numberOfLines={1}>{track.name}</Text>
+                                    <Text style={styles.spotifyArtistName} numberOfLines={1}>{track.artist}</Text>
+                                  </View>
+                                  <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
                                 </View>
-                              </View>
-                            ))}
-                          </View>
+                              ))}
+                            </View>
+                          </BlurView>
                         )}
 
                         {card.type === 'secondary' && (
-                          <BlurView intensity={35} tint="dark" style={styles.secondaryPhotoCard}>
-                            {card.prompt && (
-                              <View style={styles.promptHeader}>
-                                <Text style={styles.promptQuestion}>MY PROMPT</Text>
-                                <Text style={styles.promptTitle}>{card.prompt.title}</Text>
+                          <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight }]}>
+                            {card.prompt ? (
+                              <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
+                                {/* Prompt text at the top (Hinge style) */}
+                                <View style={{ marginTop: 10 }}>
+                                  <Text style={styles.promptQuestion}>My Answer to</Text>
+                                  <Text style={styles.promptTitle}>{card.prompt.title}</Text>
+                                </View>
+
+                                {/* Photo with rounded frame below the prompt text */}
+                                <View style={styles.hingePhotoContainer}>
+                                  <Image source={{ uri: card.photo }} style={styles.hingePhoto} />
+                                </View>
+                              </View>
+                            ) : (
+                              <View style={{ flex: 1 }}>
+                                <Image source={{ uri: card.photo }} style={styles.profilePhoto} />
                               </View>
                             )}
-                            <View style={styles.secondaryPhotoContainer}>
-                              <Image source={{ uri: card.photo }} style={styles.profilePhoto} />
-                            </View>
                           </BlurView>
                         )}
                       </Animated.View>
@@ -1839,13 +1858,40 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  hingePhotoContainer: {
+    flex: 1,
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  hingePhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  trackIndex: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 14,
+    fontWeight: '900',
+    width: 12,
+  },
+  trackArt: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryPhotoContainer: {
     width: '100%',
-    aspectRatio: 0.85,
+    height: '100%',
     position: 'relative',
   },
   promptHeader: {
@@ -1877,17 +1923,18 @@ const styles = StyleSheet.create({
   },
   promptQuestion: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   promptTitle: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    lineHeight: 28,
   },
 
   // Floating Actions Row Overlay
