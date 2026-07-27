@@ -851,7 +851,7 @@ export default function Discover() {
                   showsVerticalScrollIndicator={false}
                   pagingEnabled={true}
                   decelerationRate="fast"
-                  scrollEventThrottle={16}
+                  scrollEventThrottle={8}
                   onScroll={Animated.event(
                     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                     { useNativeDriver: true }
@@ -873,7 +873,7 @@ export default function Discover() {
                         i * cardHeight,
                         (i + 1) * cardHeight
                       ],
-                      outputRange: [1, 0.94],
+                      outputRange: [1, 0.98],
                       extrapolate: 'clamp'
                     });
 
@@ -882,7 +882,7 @@ export default function Discover() {
                         i * cardHeight,
                         (i + 1) * cardHeight
                       ],
-                      outputRange: [1, 0.45],
+                      outputRange: [1, 0.85],
                       extrapolate: 'clamp'
                     });
 
