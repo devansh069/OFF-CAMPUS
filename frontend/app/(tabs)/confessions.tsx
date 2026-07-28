@@ -779,6 +779,27 @@ export default function CampusLive() {
     }
   };
 
+  const handleUserProfileClick = (targetUserId?: string, targetIsMatch?: boolean) => {
+    if (!targetUserId) return;
+    if (targetUserId === user?.user_id) {
+      router.push('/(tabs)/profile');
+      return;
+    }
+
+    setShowCommentsModal(false);
+    setShowViewersSheet(false);
+    setShowStoryModal(false);
+
+    if (targetIsMatch) {
+      router.push(`/chat/${targetUserId}`);
+    } else {
+      router.push({
+        pathname: '/(tabs)/discover',
+        params: { targetUserId }
+      });
+    }
+  };
+
   const handleViewerClick = (viewer: any) => {
     if (!viewer || !viewer.user_id) return;
 
@@ -1023,7 +1044,11 @@ export default function CampusLive() {
     return (
       <View key={node.comment_id} style={styles.commentNodeContainer}>
         <View style={styles.commentTop}>
-          <View style={styles.commentAuthorRow}>
+          <TouchableOpacity
+            style={styles.commentAuthorRow}
+            onPress={() => handleUserProfileClick(node.user_id, node.is_match)}
+            activeOpacity={0.7}
+          >
             <View style={styles.commentAvatarCircle}>
               {node.user_picture ? (
                 <Image source={{ uri: node.user_picture }} style={styles.commentAvatarImage} />
@@ -1032,7 +1057,7 @@ export default function CampusLive() {
               )}
             </View>
             <Text style={styles.commentAnon}>{node.user_name || 'Campus Voice'} • {node.college_name || 'Campus'}</Text>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.commentTime}>
             {node.created_at && formatDistanceToNow(new Date(node.created_at), { addSuffix: true })}
           </Text>
@@ -1293,7 +1318,11 @@ export default function CampusLive() {
                         <View style={[styles.accentRibbon, { backgroundColor: c.college_id ? '#C2FF3D' : '#FF1B6B' }]} />
                         <View style={styles.imageCardContent}>
                           <View style={styles.cardHeaderRow}>
-                            <View style={styles.cardHeaderLeft}>
+                            <TouchableOpacity
+                              style={styles.cardHeaderLeft}
+                              onPress={(e) => { e.stopPropagation(); handleUserProfileClick(c.user_id, c.is_match); }}
+                              activeOpacity={0.7}
+                            >
                               <View style={styles.anonAvatarBadge}>
                                 {c.user_picture ? (
                                   <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
@@ -1305,7 +1334,7 @@ export default function CampusLive() {
                                 <Text style={styles.authorName}>{c.user_name || 'Campus Voice'}</Text>
                                 <Text style={styles.collegeName}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
                               </View>
-                            </View>
+                            </TouchableOpacity>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                               <Text style={styles.cardTime}>
                                 {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
@@ -1345,7 +1374,11 @@ export default function CampusLive() {
                         
                         <View style={styles.textCardContent}>
                           <View style={styles.cardHeaderRow}>
-                            <View style={styles.cardHeaderLeft}>
+                            <TouchableOpacity
+                              style={styles.cardHeaderLeft}
+                              onPress={(e) => { e.stopPropagation(); handleUserProfileClick(c.user_id, c.is_match); }}
+                              activeOpacity={0.7}
+                            >
                               <View style={styles.anonAvatarBadge}>
                                 {c.user_picture ? (
                                   <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
@@ -1357,7 +1390,7 @@ export default function CampusLive() {
                                 <Text style={styles.authorNameTextOnly}>{c.user_name || 'Campus Voice'}</Text>
                                 <Text style={styles.collegeNameTextOnly}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
                               </View>
-                            </View>
+                            </TouchableOpacity>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                               <Text style={styles.cardTimeTextOnly}>
                                 {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
@@ -1449,7 +1482,11 @@ export default function CampusLive() {
                     <TouchableOpacity activeOpacity={1} onPress={() => handleDetailCardPress(selectedConfession)}>
                       <View style={styles.modalConfCard}>
                         <View style={styles.modalConfTop}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                            onPress={() => handleUserProfileClick(selectedConfession.user_id, selectedConfession.is_match)}
+                            activeOpacity={0.7}
+                          >
                             <View style={styles.anonAvatarBadge}>
                               {selectedConfession.user_picture ? (
                                 <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
@@ -1465,7 +1502,7 @@ export default function CampusLive() {
                                 @{selectedConfession.college_name?.toLowerCase() || 'campus'}
                               </Text>
                             </View>
-                          </View>
+                          </TouchableOpacity>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <Text style={styles.modalConfTime}>
                               {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago

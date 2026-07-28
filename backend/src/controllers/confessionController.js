@@ -68,7 +68,14 @@ exports.getConfessionsFeed = async (req, res) => {
       }
     );
 
-    // Map confessions to parse user profile photo from u.photos if c.user_picture is not set
+    // Fetch user's matches to compute is_match
+    const matchesList = await sequelize.query(
+      'SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true',
+      { replacements: [userId], type: sequelize.QueryTypes.SELECT }
+    );
+    const matchUserSet = new Set(matchesList.map(m => m.to_user_id));
+
+    // Map confessions to parse user profile photo and is_match
     const formattedConfessions = confessions.map(c => {
       let resolvedPicture = c.user_picture;
       if (c.user_photos) {
@@ -81,7 +88,8 @@ exports.getConfessionsFeed = async (req, res) => {
       }
       return {
         ...c,
-        user_picture: resolvedPicture
+        user_picture: resolvedPicture,
+        is_match: matchUserSet.has(c.user_id)
       };
     });
 
@@ -277,7 +285,14 @@ exports.getComments = async (req, res) => {
       }
     );
 
-    // Map comments to parse user profile photo from u.photos if c.user_picture is not set
+    const userId = req.user.user_id;
+    const matchesList = await sequelize.query(
+      'SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true',
+      { replacements: [userId], type: sequelize.QueryTypes.SELECT }
+    );
+    const matchUserSet = new Set(matchesList.map(m => m.to_user_id));
+
+    // Map comments to parse user profile photo and is_match
     const formattedComments = comments.map(c => {
       let resolvedPicture = c.user_picture;
       if (c.user_photos) {
@@ -290,7 +305,8 @@ exports.getComments = async (req, res) => {
       }
       return {
         ...c,
-        user_picture: resolvedPicture
+        user_picture: resolvedPicture,
+        is_match: matchUserSet.has(c.user_id)
       };
     });
 
