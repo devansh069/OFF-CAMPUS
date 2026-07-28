@@ -182,7 +182,7 @@ exports.createStory = async (req, res) => {
 
     // Get user details
     const [user] = await sequelize.query(
-      'SELECT name, picture, photos, college_id FROM users WHERE user_id = ? LIMIT 1',
+      'SELECT name, picture, photos, college_id, is_premium FROM users WHERE user_id = ? LIMIT 1',
       {
         replacements: [userId],
         type: sequelize.QueryTypes.SELECT
@@ -191,6 +191,13 @@ exports.createStory = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    if (audience === 'global' && !user.is_premium) {
+      return res.status(403).json({
+        error: 'premium_required',
+        detail: 'Uploading stories to Global feed requires a Premium membership. Upgrade to Premium!'
+      });
     }
 
     // Determine picture url

@@ -7,6 +7,8 @@ const Message = require('../models/Message');
 const Referral = require('../models/Referral');
 const VibeScoreLog = require('../models/VibeScoreLog');
 const Report = require('../models/Report');
+const DailyLikeCount = require('../models/DailyLikeCount');
+const PassedProfile = require('../models/PassedProfile');
 const Op = {
   in: '$in',
   notIn: '$notIn',
@@ -705,7 +707,7 @@ exports.getDiscoveryProfiles = async (req, res) => {
   }
 };
 
-// 7. Like a user profile
+// 7. Like a user profile (with Free tier 6 likes/day limit, reset at 5:30 AM IST)
 exports.likeUser = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
@@ -713,6 +715,34 @@ exports.likeUser = async (req, res) => {
 
     if (!target_user_id) {
       return res.status(400).json({ detail: 'target_user_id is required' });
+    }
+
+    // Check if user is premium
+    const currentUser = await User.findByPk(currentUserId);
+    const isPremium = currentUser ? currentUser.is_premium : false;
+
+    const todayDate = new Date().toISOString().split('T')[0]; // Resets at 00:00 UTC = 5:30 AM IST
+
+    let likesRemaining = null;
+
+    if (!isPremium) {
+      let [dailyRecord] = await DailyLikeCount.findOrCreate({
+        where: { user_id: currentUserId, reset_date: todayDate },
+        defaults: { count: 0 }
+      });
+
+      if (dailyRecord.count >= 6) {
+        return res.status(403).json({
+          error: 'daily_limit_reached',
+          detail: 'Free daily limit of 6 likes reached! Upgrade to Premium for unlimited likes.',
+          likes_remaining: 0,
+          is_premium: false
+        });
+      }
+
+      dailyRecord.count += 1;
+      await dailyRecord.save();
+      likesRemaining = Math.max(0, 6 - dailyRecord.count);
     }
 
     // Check if target user has liked current user
@@ -743,21 +773,103 @@ exports.likeUser = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ is_match: isMatch });
+    return res.status(200).json({
+      is_match: isMatch,
+      likes_remaining: likesRemaining,
+      is_premium: isPremium
+    });
   } catch (error) {
     console.error('[likeUser Error]:', error);
     return res.status(500).json({ detail: 'Failed to like user: ' + error.message });
   }
 };
 
-// 8. Pass a user profile
+// 8. Pass a user profile (and record for rewind)
 exports.passUser = async (req, res) => {
   try {
-    // Nothing is saved in the database when a user is passed/rejected
+    const currentUserId = req.user.user_id;
+    const { target_user_id } = req.body;
+
+    if (target_user_id) {
+      await PassedProfile.create({
+        from_user_id: currentUserId,
+        to_user_id: target_user_id
+      });
+    }
+
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('[passUser Error]:', error);
     return res.status(500).json({ detail: 'Failed to pass user: ' + error.message });
+  }
+};
+
+// 8b. Get Daily Likes Status
+exports.getDailyLikesStatus = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const currentUser = await User.findByPk(currentUserId);
+    const isPremium = currentUser ? currentUser.is_premium : false;
+
+    if (isPremium) {
+      return res.status(200).json({
+        is_premium: true,
+        likes_remaining: 999,
+        likes_used: 0
+      });
+    }
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    const record = await DailyLikeCount.findOne({
+      where: { user_id: currentUserId, reset_date: todayDate }
+    });
+
+    const likesUsed = record ? record.count : 0;
+    const likesRemaining = Math.max(0, 6 - likesUsed);
+
+    return res.status(200).json({
+      is_premium: false,
+      likes_used: likesUsed,
+      likes_remaining: likesRemaining
+    });
+  } catch (error) {
+    console.error('[getDailyLikesStatus Error]:', error);
+    return res.status(500).json({ detail: 'Failed to get daily likes status: ' + error.message });
+  }
+};
+
+// 8c. Get Skipped/Passed Profiles for Revisit (Premium Feature)
+exports.getSkippedProfiles = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const currentUser = await User.findByPk(currentUserId);
+
+    if (!currentUser || !currentUser.is_premium) {
+      return res.status(403).json({
+        error: 'premium_required',
+        detail: 'Revisiting skipped profiles is a Premium feature. Upgrade to Premium!'
+      });
+    }
+
+    const passedRecords = await PassedProfile.findAll({
+      where: { from_user_id: currentUserId },
+      order: [['created_at', 'DESC']],
+      limit: 20
+    });
+
+    const passedUserIds = passedRecords.map(p => p.to_user_id);
+
+    const profiles = await User.findAll({
+      where: {
+        user_id: { [Op.in]: passedUserIds }
+      },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({ profiles });
+  } catch (error) {
+    console.error('[getSkippedProfiles Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch skipped profiles: ' + error.message });
   }
 };
 

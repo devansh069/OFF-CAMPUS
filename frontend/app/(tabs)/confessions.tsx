@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 import io from 'socket.io-client';
 
 const { width, height: screenHeight } = Dimensions.get('window');
@@ -87,6 +88,9 @@ export default function CampusLive() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [posting, setPosting] = useState(false);
+  const [upsellVisible, setUpsellVisible] = useState(false);
+  const [upsellTitle, setUpsellTitle] = useState("Unlock Premium Access 👑");
+  const [upsellFeature, setUpsellFeature] = useState("Global Story Upload");
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
   const [expandedConfessions, setExpandedConfessions] = useState<{[key: string]: boolean}>({});
@@ -683,6 +687,18 @@ export default function CampusLive() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
         body: JSON.stringify({ image: storyImage, audience }),
       });
+
+      if (response.status === 403) {
+        const errData = await response.json();
+        if (errData.error === 'premium_required') {
+          closeAudienceModal();
+          setUpsellTitle('Post Global Stories 🌐');
+          setUpsellFeature('Global Story Upload');
+          setUpsellVisible(true);
+          return;
+        }
+      }
+
       if (!response.ok) throw new Error('Failed to post story');
       Alert.alert('Story posted!', 'Your story will be live for 24 hours');
       closeAudienceModal(async () => {
@@ -2242,6 +2258,14 @@ export default function CampusLive() {
               </BlurView>
             </TouchableOpacity>
           </Modal>
+
+          {/* Premium Upsell Bottom Sheet */}
+          <PremiumUpsellSheet
+            visible={upsellVisible}
+            onClose={() => setUpsellVisible(false)}
+            title={upsellTitle}
+            featureName={upsellFeature}
+          />
         </SafeAreaView>
     </View>
   );

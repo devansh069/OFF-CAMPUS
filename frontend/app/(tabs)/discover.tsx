@@ -20,6 +20,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -542,14 +543,15 @@ export default function Discover() {
   );
   const [filterVerifiedOnly, setFilterVerifiedOnly] = useState(false);
 
-  // Animation Refs
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [cardHeight, setCardHeight] = useState(Dimensions.get('window').height - 180);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Premium & Daily Limits State
+  const [likesRemaining, setLikesRemaining] = useState<number>(6);
+  const [upsellVisible, setUpsellVisible] = useState(false);
+  const [upsellTitle, setUpsellTitle] = useState("Unlock Premium Access 👑");
+  const [upsellFeature, setUpsellFeature] = useState("6 Likes Daily Limit");
 
   useEffect(() => {
     fetchProfiles();
+    fetchDailyLikesStatus();
     setCurrentIndex(0);
     scrollY.setValue(0);
     if (scrollViewRef.current) {
@@ -569,6 +571,25 @@ export default function Discover() {
       setFilterLookingFor(user.looking_for);
     }
   }, [user, targetUserId]);
+
+  const fetchDailyLikesStatus = async () => {
+    if (sessionToken === 'dummy_token' || !sessionToken) return;
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/daily-likes`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.is_premium) {
+          setLikesRemaining(999);
+        } else {
+          setLikesRemaining(d.likes_remaining !== undefined ? d.likes_remaining : 6);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchDailyLikesStatus failed:', e);
+    }
+  };
 
   const fetchProfiles = async () => {
     if (sessionToken === 'dummy_token') {
@@ -626,7 +647,6 @@ export default function Discover() {
   const handleLike = async (targetUserId: string) => {
     const targetProfile = profiles.find(p => p.user_id === targetUserId);
     if (sessionToken === 'dummy_token') {
-      // 40% chance of triggering match locally for offline demo/testing
       if (Math.random() < 0.4 && targetProfile) {
         setShowMatch(targetProfile);
       }
@@ -639,7 +659,22 @@ export default function Discover() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
         body: JSON.stringify({ target_user_id: targetUserId }),
       });
+
+      if (r.status === 403) {
+        const errData = await r.json();
+        if (errData.error === 'daily_limit_reached') {
+          setLikesRemaining(0);
+          setUpsellTitle('Daily Free Likes Limit Reached! ⚡');
+          setUpsellFeature('6 Likes Daily Limit');
+          setUpsellVisible(true);
+          return;
+        }
+      }
+
       const d = await r.json();
+      if (d.likes_remaining !== undefined && d.likes_remaining !== null) {
+        setLikesRemaining(d.likes_remaining);
+      }
       if (d.is_match && targetProfile) {
         setShowMatch(targetProfile);
       }
@@ -691,6 +726,13 @@ export default function Discover() {
   };
 
   const handleLikeAndNext = (targetUserId: string) => {
+    if (!user?.is_premium && likesRemaining <= 0) {
+      setUpsellTitle('Daily Free Likes Limit Reached! ⚡');
+      setUpsellFeature('6 Likes Daily Limit');
+      setUpsellVisible(true);
+      return;
+    }
+
     // 1. Slide out to the right
     Animated.timing(slideAnim, {
       toValue: Dimensions.get('window').width,
@@ -714,6 +756,35 @@ export default function Discover() {
         useNativeDriver: true,
       }).start();
     });
+  };
+
+  const handleRewindSkipped = async () => {
+    if (!user?.is_premium) {
+      setUpsellTitle('Revisit Skipped Profiles ⏪');
+      setUpsellFeature('Revisit Skipped Profiles');
+      setUpsellVisible(true);
+      return;
+    }
+
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/skipped`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.profiles && d.profiles.length > 0) {
+          setProfiles(prev => [...d.profiles, ...prev]);
+          if (currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+          }
+          Alert.alert('Rewind! ⏪', 'Skipped profiles restored to your deck!');
+        } else {
+          Alert.alert('Rewind', 'No skipped profiles to restore.');
+        }
+      }
+    } catch (e) {
+      console.error('Rewind failed:', e);
+    }
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -1053,8 +1124,34 @@ export default function Discover() {
               </View>
             </Animated.View>
 
+            {/* Floating Daily Likes Counter Pill */}
+            {!user?.is_premium && (
+              <TouchableOpacity
+                style={styles.dailyLikesPill}
+                onPress={() => {
+                  setUpsellTitle('Daily Free Likes Limit ⚡');
+                  setUpsellFeature('6 Likes Daily Limit');
+                  setUpsellVisible(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="sparkles" size={12} color="#C2FF3D" />
+                <Text style={styles.dailyLikesPillText}>
+                  {likesRemaining > 0 ? `${likesRemaining}/6 Free Likes Left` : '0 Free Likes Left — Get Premium'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Floating Action Overlay Buttons */}
             <View style={styles.floatingActionsContainer}>
+              <TouchableOpacity
+                style={[styles.floatingBtn, styles.floatingRewind]}
+                onPress={handleRewindSkipped}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={22} color="#FFD700" />
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.floatingBtn, styles.floatingNope]}
                 onPress={() => handlePassAndNext(currentProfile.user_id)}
@@ -1347,6 +1444,14 @@ export default function Discover() {
             </LinearGradient>
           </View>
         )}
+
+        {/* Premium Upsell Bottom Sheet */}
+        <PremiumUpsellSheet
+          visible={upsellVisible}
+          onClose={() => setUpsellVisible(false)}
+          title={upsellTitle}
+          featureName={upsellFeature}
+        />
     </View>
   );
 }
@@ -1992,6 +2097,31 @@ const styles = StyleSheet.create({
   },
   floatingLike: {
     borderColor: '#C2FF3D',
+  },
+  floatingRewind: {
+    borderColor: '#FFD700',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+  },
+  dailyLikesPill: {
+    position: 'absolute',
+    bottom: 165,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(20, 20, 25, 0.88)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.35)',
+    zIndex: 999,
+    elevation: 10,
+  },
+  dailyLikesPillText: {
+    color: '#C2FF3D',
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   // Empty State

@@ -5,6 +5,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -122,13 +123,14 @@ const getScrollableItems = (profile: any) => {
 };
 
 export default function Likes() {
-  const { sessionToken } = useAuth();
+  const { user, sessionToken } = useAuth();
   const router = useRouter();
   const [likes, setLikes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any | null>(null);
   const [showFullProfile, setShowFullProfile] = useState(false);
   const [activeProfileIndex, setActiveProfileIndex] = useState<number>(0);
+  const [upsellVisible, setUpsellVisible] = useState(false);
 
   useEffect(() => {
     fetchLikes();
@@ -297,6 +299,33 @@ export default function Likes() {
                 <View style={styles.gridContainer}>
                   {gridData.map((profile, index) => {
                     if (profile) {
+                      const isLockedForFree = !user?.is_premium && index >= 3;
+
+                      if (isLockedForFree) {
+                        return (
+                          <TouchableOpacity
+                            key={profile.user_id || index}
+                            style={styles.gridCellActive}
+                            onPress={() => setUpsellVisible(true)}
+                            activeOpacity={0.85}
+                          >
+                            <Image
+                              source={{ uri: getProfilePhotos(profile)[0] }}
+                              style={[styles.gridPhoto, { opacity: 0.15 }]}
+                              blurRadius={Platform.OS === 'ios' ? 30 : 20}
+                            />
+                            <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
+                              <View style={styles.lockedCellOverlay}>
+                                <View style={styles.lockIconCircle}>
+                                  <Ionicons name="lock-closed" size={16} color="#C2FF3D" />
+                                </View>
+                                <Text style={styles.lockedCellText}>Unlock Likes</Text>
+                              </View>
+                            </BlurView>
+                          </TouchableOpacity>
+                        );
+                      }
+
                       // Active Profile, color, clickable, overlay cross/handshake buttons
                       return (
                         <TouchableOpacity
@@ -585,6 +614,14 @@ export default function Likes() {
           </BlurView>
         </View>
       </Modal>
+
+      {/* Premium Upsell Bottom Sheet */}
+      <PremiumUpsellSheet
+        visible={upsellVisible}
+        onClose={() => setUpsellVisible(false)}
+        title="See Everyone Who Liked You 💖"
+        featureName="Unlock All Incoming Likes"
+      />
     </View>
   );
 }
@@ -594,6 +631,29 @@ const cellHeight = (screenHeight - 250) / 3;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  lockedCellOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+    gap: 6,
+  },
+  lockIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(194, 255, 61, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+  },
+  lockedCellText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   glowBallContainer: {
     position: 'absolute',
     top: -450,

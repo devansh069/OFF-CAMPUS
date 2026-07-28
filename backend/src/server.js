@@ -61,6 +61,8 @@ const startServer = async () => {
     require('./models/CampusAmbassador');
     require('./models/Report');
     require('./models/VibeScoreLog');
+    require('./models/DailyLikeCount');
+    require('./models/PassedProfile');
 
     // 2. Synchronize Sequelize database tables (create tables dynamically if they don't exist)
     // Using alter: true updates any column schema changes automatically in local MySQL

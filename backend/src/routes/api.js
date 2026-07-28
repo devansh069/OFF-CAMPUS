@@ -11,6 +11,8 @@ const ambassadorController = require('../controllers/ambassadorController');
 const referralController = require('../controllers/referralController');
 const queryController = require('../controllers/queryController');
 
+const paymentController = require('../controllers/paymentController');
+
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
 
@@ -32,10 +34,17 @@ router.post('/verification/send-email-otp', authMiddleware, authController.sendE
 router.post('/verification/verify-email-otp', authMiddleware, authController.verifyEmailOTP);
 router.post('/profile/spotify', authMiddleware, spotifyController.exchangeCode);
 
+// Payment & Subscription routes (Protected)
+router.post('/payment/create-order', authMiddleware, paymentController.createOrder);
+router.post('/payment/verify', authMiddleware, paymentController.verifyPayment);
+router.get('/payment/status', authMiddleware, paymentController.getPremiumStatus);
+
 // Discovery and matching routes (Protected)
 router.get('/discovery/profiles', authMiddleware, authController.getDiscoveryProfiles);
 router.post('/discovery/like', authMiddleware, authController.likeUser);
 router.post('/discovery/pass', authMiddleware, authController.passUser);
+router.get('/discovery/daily-likes', authMiddleware, authController.getDailyLikesStatus);
+router.get('/discovery/skipped', authMiddleware, authController.getSkippedProfiles);
 router.get('/discovery/likes-received', authMiddleware, authController.getLikesReceived);
 router.get('/discovery/matches', authMiddleware, authController.getMatches);
 router.post('/discovery/unmatch', authMiddleware, authController.unmatchUser);

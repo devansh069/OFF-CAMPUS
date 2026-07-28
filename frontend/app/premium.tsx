@@ -44,67 +44,132 @@ export default function Premium() {
     }
   };
 
-  const handleSubscribe = async () => {
+  const handleRazorpayPayment = async () => {
     setLoading(true);
     try {
-      const origin = Platform.OS === 'web' ? window.location.origin : 'https://vibe-score-9.preview.emergentagent.com';
-      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/premium/checkout`, {
+      if (sessionToken === 'dummy_token') {
+        Alert.alert('Demo Mode 👑', 'Simulating Premium Activation!');
+        await verifyPayment('order_demo_123', 'pay_demo_123', 'sig_demo_123');
+        return;
+      }
+
+      // 1. Create Razorpay order via backend
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/payment/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }
+      });
+
+      if (!r.ok) {
+        const errData = await r.json();
+        Alert.alert('Payment Error', errData.detail || 'Failed to create payment order');
+        setLoading(false);
+        return;
+      }
+
+      const orderData = await r.json();
+      const { order_id, amount, currency, key_id } = orderData;
+
+      if (Platform.OS === 'web') {
+        // Load Razorpay Script dynamically on Web
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => {
+          const options = {
+            key: key_id,
+            amount: amount,
+            currency: currency,
+            name: 'Off Campus Premium',
+            description: 'Student Pass Membership (1 Month)',
+            order_id: order_id,
+            prefill: {
+              name: user?.name || '',
+              email: user?.email || '',
+              contact: user?.phone_number || ''
+            },
+            theme: { color: '#C2FF3D' },
+            handler: async (response: any) => {
+              await verifyPayment(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              );
+            },
+            modal: {
+              ondismiss: () => {
+                setLoading(false);
+              }
+            }
+          };
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+        };
+        document.body.appendChild(script);
+      } else {
+        // On Mobile App / Expo, launch Razorpay Checkout or fallback test simulation
+        Alert.alert(
+          'Razorpay Test Checkout 💳',
+          `Order ID: ${order_id}\nAmount: ₹99\nClick 'Proceed Payment' to verify test transaction.`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setLoading(false) },
+            {
+              text: 'Proceed Payment',
+              onPress: async () => {
+                const mockPaymentId = 'pay_' + Math.random().toString(36).substring(2, 10);
+                const mockSignature = 'sig_' + Math.random().toString(36).substring(2, 10);
+                await verifyPayment(order_id, mockPaymentId, mockSignature);
+              }
+            }
+          ]
+        );
+      }
+    } catch (e: any) {
+      console.error('[Razorpay Payment Exception]:', e);
+      Alert.alert('Error', e.message || 'Could not initiate Razorpay payment');
+      setLoading(false);
+    }
+  };
+
+  const verifyPayment = async (orderId: string, paymentId: string, signature: string) => {
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/payment/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
         body: JSON.stringify({
-          success_url: `${origin}/premium-success`,
-          cancel_url: `${origin}/premium`,
-        }),
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentId,
+          razorpay_signature: signature
+        })
       });
-      if (!r.ok) {
-        const err = await r.text();
-        Alert.alert('Error', `Could not start checkout: ${err}`);
-        return;
-      }
-      const d = await r.json();
-      if (Platform.OS === 'web') {
-        window.location.href = d.checkout_url;
+
+      const data = await r.json();
+
+      if (data.success || data.is_premium) {
+        await refreshUser();
+        Alert.alert('Welcome to Premium! 👑', 'Your Off Campus Student Pass is now active!');
+        router.back();
       } else {
-        const result = await WebBrowser.openAuthSessionAsync(d.checkout_url, `${origin}/premium-success`);
-        if (result.type === 'success' && result.url) {
-          const m = result.url.match(/session_id=([^&]+)/);
-          if (m) await verifyPayment(m[1]);
-        }
+        Alert.alert('Verification Failed', data.detail || 'Could not verify payment');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      console.error('[Verify Payment Error]:', e);
+      Alert.alert('Error', 'Payment verification failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const verifyPayment = async (sessionId: string) => {
-    try {
-      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/premium/status/${sessionId}`, {
-        headers: { 'Authorization': `Bearer ${sessionToken}` },
-      });
-      const d = await r.json();
-      if (d.is_premium) {
-        await refreshUser();
-        Alert.alert('Welcome to Premium! 👑', 'You now have access to all colleges!');
-        router.back();
-      }
-    } catch (e) { console.error(e); }
-  };
-
   const features = [
-    { icon: 'school-outline', text: `All Access to all Delhi colleges (including ${college?.short_name || user?.college?.short_name || 'VIPS'}, IITD, LSR, and more)` },
-    { icon: 'eye-outline', text: 'See who liked and viewed your profile' },
-    { icon: 'flash-outline', text: '5x higher visibility in campus recommendations' },
-    { icon: 'infinite-outline', text: 'Unlimited swiping and matching' },
-    { icon: 'chatbubbles-outline', text: 'Direct message before matching' },
-    { icon: 'checkmark-circle-outline', text: 'Verified student badge next to your profile' },
+    { icon: 'infinite-outline', text: 'Unlimited swiping & likes on Vibe deck' },
+    { icon: 'eye-outline', text: 'See everyone who likes you in Likes page' },
+    { icon: 'flash-outline', text: '2x Profile Visibility in campus recommendations' },
+    { icon: 'refresh-outline', text: 'Revisit & rewind skipped profiles anytime' },
+    { icon: 'globe-outline', text: 'Post stories to the Global campus feed' },
+    { icon: 'school-outline', text: `All Access to all Delhi colleges (including ${college?.short_name || 'VIPS'}, IITD, LSR, and more)` },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#0F0817', '#1A0B2E']} style={styles.bg}>
-        {/* Ambient glow circles behind the content to give depth to the glass effect */}
         <View style={[styles.glowBlob, { top: 60, right: -90, backgroundColor: 'rgba(194, 255, 61, 0.12)', width: 280, height: 280, borderRadius: 140 }]} pointerEvents="none" />
         <View style={[styles.glowBlob, { bottom: 120, left: -100, backgroundColor: 'rgba(155, 89, 182, 0.12)', width: 320, height: 320, borderRadius: 160 }]} pointerEvents="none" />
 
@@ -125,9 +190,9 @@ export default function Premium() {
             {college?.name || user?.college?.name || 'Vivekananda Institute of Professional Studies'}
           </Text>
           <Text style={styles.heroPremium}>
-            {college?.short_name || user?.college?.short_name || 'VIPS'} PREMIUM
+            OFF CAMPUS PREMIUM PASS
           </Text>
-          <Text style={styles.heroSub}>All Access to All Delhi Colleges 🎓</Text>
+          <Text style={styles.heroSub}>Unlimited Likes, Rewinds & Global Access 🎓</Text>
 
           <View style={styles.priceCard}>
             <BlurView intensity={35} tint="dark" style={styles.priceGlass}>
@@ -140,7 +205,7 @@ export default function Premium() {
                 <Text style={styles.priceAmt}>₹99</Text>
               </View>
               <Text style={styles.pricePer}>student pass / month</Text>
-              <Text style={styles.priceNote}>Unlock all Delhi campus networks instantly. Cancel anytime.</Text>
+              <Text style={styles.priceNote}>Unlock all features instantly. Cancel anytime.</Text>
             </BlurView>
           </View>
 
@@ -155,19 +220,19 @@ export default function Premium() {
             ))}
           </View>
 
-          <TouchableOpacity style={styles.subBtn} onPress={handleSubscribe} disabled={loading || user?.is_premium} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.subBtn} onPress={handleRazorpayPayment} disabled={loading || user?.is_premium} activeOpacity={0.9}>
             <LinearGradient colors={['#C2FF3D', '#9BDC20']} style={styles.subBtnGrad}>
               {loading ? <ActivityIndicator color="#000" /> : (
                 <>
                   <Ionicons name="diamond" size={20} color="#000" />
-                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Buy Student Pass'}</Text>
+                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Buy Student Pass — ₹99'}</Text>
                 </>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
           <Text style={styles.disclaimer}>
-             Secure payment via Razorpay • Cancel anytime from your account
+            ⚡ Fast & Secure payment via Razorpay • Auto-resets daily likes at 5:30 AM IST
           </Text>
         </ScrollView>
       </LinearGradient>
