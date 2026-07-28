@@ -308,7 +308,11 @@ export default function Profile() {
           {/* Brand Header */}
           <View style={styles.headerBar}>
             <View style={styles.logoRow}>
-              <Text style={styles.brandText}>off campus</Text>
+              <Image
+                source={require('../../assets/images/logo_off.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
@@ -451,18 +455,7 @@ export default function Profile() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.glassCardButton} onPress={() => router.push('/admin')}>
-              <View style={styles.glassButtonContent}>
-                <View style={[styles.cardIconBox, { borderColor: 'rgba(194, 255, 61, 0.3)' }]}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color="#C2FF3D" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={styles.cardTitle}>Admin Portal</Text>
-                  <Text style={styles.cardSubtitle}>Moderate campus events & verifications</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-              </View>
-            </TouchableOpacity>
+
 
             <TouchableOpacity style={[styles.glassCardButton, styles.logoutCardButton]} onPress={handleLogout}>
               <View style={styles.glassButtonContent}>
@@ -487,82 +480,134 @@ export default function Profile() {
           <View style={{ height: 40 }} />
         </ScrollView>
 
-        {/* VIBE SCORE AUDIT MODAL */}
+        {/* VIBE SCORE AUDIT MODAL (Glassmorphic Redesign) */}
         <Modal visible={vibeModalVisible} transparent={true} animationType="slide">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <View style={styles.modalContentGlass}>
+              <View style={styles.modalDragHandle} />
+
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Vibe Score Audit</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={styles.modalHeaderIconBadge}>
+                    <Ionicons name="sparkles" size={18} color="#C2FF3D" />
+                  </View>
+                  <Text style={styles.modalTitle}>Vibe Score Audit</Text>
+                </View>
                 <TouchableOpacity onPress={() => setVibeModalVisible(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color="#FFF" />
+                  <Ionicons name="close" size={20} color="#FFF" />
                 </TouchableOpacity>
               </View>
 
               <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalIntro}>
-                  Your Vibe Score measures your reputation in the Off Campus community. It strictly updates based on your referrals and community reports.
+                  Your Vibe Score reflects your reputation in the Off Campus community. It automatically updates based on verified referrals and community feedback.
                 </Text>
 
-                <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
-
-                <View style={styles.auditItem}>
-                  <View style={styles.auditIconWrap}>
-                    <Ionicons name="people" size={20} color="#0A0A0A" />
+                <View style={styles.auditCardGlass}>
+                  <View style={styles.auditCardHeader}>
+                    <View style={[styles.auditIconWrap, { backgroundColor: 'rgba(194, 255, 61, 0.15)', borderColor: '#C2FF3D' }]}>
+                      <Ionicons name="trending-up" size={18} color="#C2FF3D" />
+                    </View>
+                    <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
                   </View>
+
                   <View style={styles.auditTextWrap}>
-                    <Text style={styles.auditItemTitle}>Refer Friends</Text>
                     <Text style={styles.auditItemDesc}>
-                      • 1 Referral: +2 Vibe Score{'\n'}
-                      • 3 Referrals: 1.5x Profile Visibility{'\n'}
-                      • 5 Referrals: Instant 10/10 Vibe Score{'\n'}
+                      • 1 Referral: <Text style={{ color: '#C2FF3D', fontWeight: '800' }}>+2 Vibe Score</Text>{'\n'}
+                      • 3 Referrals: 1.5x Profile Boost{'\n'}
+                      • 5 Referrals: Instant 10/10 Max Score{'\n'}
                       • 7 Referrals: 2.0x Ultimate Visibility{'\n'}
                       • 10 Referrals: Free Off-Campus Event Pass{'\n'}
-                      Maximum score is capped at 10.
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>*Maximum score is capped at 10.</Text>
                     </Text>
                   </View>
                 </View>
 
-                <Text style={[styles.auditSectionTitle, { color: '#FF3366', marginTop: 16 }]}>How it Decreases</Text>
-
-                <View style={styles.auditItem}>
-                  <View style={[styles.auditIconWrap, { backgroundColor: '#FF3366' }]}>
-                    <Ionicons name="warning" size={20} color="#FFF" />
-                  </View>
-                  <View style={styles.auditTextWrap}>
-                    <Text style={styles.auditItemTitle}>Community Reports</Text>
-                    <Text style={styles.auditItemDesc}>
-                      When users report you, your score drops progressively:{'\n'}
-                      • 1st Report: -1 point{'\n'}
-                      • 2nd Report: -2 points{'\n'}
-                      • 3rd Report: -3 points{'\n'}
-                      • 4th Report: -4 points{'\n'}
-                      Minimum score is clamped at 0.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 24 }} />
-
-                <Text style={styles.auditSectionTitle}>Score History Log</Text>
-
-                {vibeHistory.length === 0 ? (
-                  <Text style={styles.noHistoryText}>No vibe score changes yet.</Text>
-                ) : (
-                  vibeHistory.map((log: any, idx: number) => (
-                    <View key={log.id || idx} style={styles.historyLogCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.historyReason}>{log.reason}</Text>
-                        <Text style={styles.historyDate}>{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.historyChange, { color: log.change_amount > 0 ? '#C2FF3D' : '#FF3366' }]}>
-                          {log.change_amount > 0 ? '+' : ''}{log.change_amount}
-                        </Text>
-                        <Text style={styles.historyResult}>Score: {log.new_score}</Text>
-                      </View>
+                <View style={[styles.auditCardGlass, { borderColor: 'rgba(255, 27, 107, 0.3)' }]}>
+                  <View style={styles.auditCardHeader}>
+                    <View style={[styles.auditIconWrap, { backgroundColor: 'rgba(255, 27, 107, 0.15)', borderColor: '#FF1B6B' }]}>
+                      <Ionicons name="warning" size={18} color="#FF1B6B" />
                     </View>
-                  ))
-                )}
+                    <Text style={[styles.auditSectionTitle, { color: '#FF1B6B' }]}>How it Decreases</Text>
+                  </View>
+
+                  <View style={styles.auditTextWrap}>
+                    <Text style={styles.auditItemDesc}>
+                      When users report suspicious behavior, your score drops progressively:{'\n'}
+                      • 1st Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-1 point</Text>{'\n'}
+                      • 2nd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-2 points</Text>{'\n'}
+                      • 3rd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-3 points</Text>{'\n'}
+                      • 4th Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-4 points</Text>{'\n'}
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>*Minimum score is clamped at 0.</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 20 }} />
+
+                <Text style={[styles.auditSectionTitle, { marginBottom: 14, color: '#FFF' }]}>Score History Log</Text>
+
+                {(() => {
+                  const displayLogs = vibeHistory.length > 0 ? vibeHistory : (sessionToken === 'dummy_token' ? [
+                    { reason: 'Referral Bonus (+2 Score)', change: 2, new_score: 10, createdAt: new Date().toISOString() },
+                    { reason: 'Community Report (-1 Penalty)', change: -1, new_score: 8, createdAt: new Date(Date.now() - 86400000).toISOString() }
+                  ] : []);
+
+                  if (displayLogs.length === 0) {
+                    return (
+                      <View style={styles.emptyHistoryGlass}>
+                        <Ionicons name="document-text-outline" size={28} color="rgba(255,255,255,0.2)" />
+                        <Text style={styles.noHistoryText}>No vibe score changes logged yet.</Text>
+                      </View>
+                    );
+                  }
+
+                  return displayLogs.map((item: any, idx: number) => {
+                    const changeVal = item.change !== undefined ? item.change : (item.change_amount !== undefined ? item.change_amount : 0);
+                    const isPositive = changeVal >= 0;
+
+                    return (
+                      <View key={idx} style={styles.historyLogCard}>
+                        <View style={styles.historyLogLeft}>
+                          <View style={[
+                            styles.historyBadgeIcon,
+                            {
+                              backgroundColor: isPositive ? 'rgba(194, 255, 61, 0.12)' : 'rgba(255, 27, 107, 0.12)',
+                              borderColor: isPositive ? 'rgba(194, 255, 61, 0.4)' : 'rgba(255, 27, 107, 0.4)'
+                            }
+                          ]}>
+                            <Ionicons
+                              name={isPositive ? "add" : "remove"}
+                              size={16}
+                              color={isPositive ? "#C2FF3D" : "#FF1B6B"}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.historyReason}>{item.reason || (isPositive ? 'Referral Bonus' : 'Community Report')}</Text>
+                            <Text style={styles.historyDate}>
+                              {item.createdAt || item.created_at ? new Date(item.createdAt || item.created_at).toLocaleDateString() : 'Recent'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <View style={[
+                            styles.changePill,
+                            {
+                              backgroundColor: isPositive ? 'rgba(194, 255, 61, 0.12)' : 'rgba(255, 27, 107, 0.12)',
+                              borderColor: isPositive ? 'rgba(194, 255, 61, 0.3)' : 'rgba(255, 27, 107, 0.3)'
+                            }
+                          ]}>
+                            <Text style={[styles.historyChange, { color: isPositive ? '#C2FF3D' : '#FF1B6B' }]}>
+                              {isPositive ? `+${changeVal}` : `${changeVal}`}
+                            </Text>
+                          </View>
+                          <Text style={styles.historyResult}>Total: {item.new_score ?? user?.vibe_score ?? 10}</Text>
+                        </View>
+                      </View>
+                    );
+                  });
+                })()}
 
                 <View style={{ height: 20 }} />
               </ScrollView>
@@ -593,14 +638,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingLeft: 4,
+    paddingRight: 16,
+    paddingTop: 14,
     paddingBottom: 8,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginLeft: -18,
   },
   logoCircle: {
     width: 28,
@@ -932,35 +978,112 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1E1E1E', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, maxHeight: '85%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  modalCloseBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
-  modalScroll: { marginTop: 8 },
-  modalIntro: { color: '#CCC', fontSize: 15, lineHeight: 22, marginBottom: 32 },
-  auditSectionTitle: { color: '#C2FF3D', fontSize: 18, fontWeight: '800', marginBottom: 20 },
-  auditItem: { flexDirection: 'row', marginBottom: 24, alignItems: 'flex-start', paddingRight: 10 },
-  auditIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#C2FF3D', alignItems: 'center', justifyContent: 'center' },
-  auditTextWrap: { marginLeft: 16, flex: 1 },
-  auditItemTitle: { color: '#FFF', fontSize: 16, fontWeight: '700', marginBottom: 6 },
-  auditItemDesc: { color: '#999', fontSize: 14, lineHeight: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalContentGlass: {
+    backgroundColor: 'rgba(20, 20, 25, 0.72)',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  modalDragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalHeaderIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(194, 255, 61, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+  },
+  modalTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  modalCloseBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20 },
+  modalScroll: { marginTop: 4 },
+  modalIntro: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, lineHeight: 20, marginBottom: 20 },
+  auditCardGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.2)',
+  },
+  auditCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  auditSectionTitle: { color: '#C2FF3D', fontSize: 16, fontWeight: '800' },
+  auditIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  auditTextWrap: { flex: 1 },
+  auditItemDesc: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, lineHeight: 21 },
+  emptyHistoryGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
   historyLogCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 14,
     borderRadius: 16,
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)'
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  historyReason: { color: '#FFF', fontSize: 15, fontWeight: '600', marginBottom: 4 },
-  historyDate: { color: '#999', fontSize: 12 },
-  historyChange: { fontSize: 18, fontWeight: '900', marginBottom: 2 },
-  historyResult: { color: '#999', fontSize: 12, fontWeight: '600' },
-  noHistoryText: { color: '#999', fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 12 },
+  historyReason: { color: '#FFF', fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  historyDate: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 11 },
+  historyChange: { fontSize: 16, fontWeight: '900', marginBottom: 2 },
+  historyResult: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, fontWeight: '600' },
+  noHistoryText: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 },
+  headerLogo: {
+    width: 155,
+    height: 44,
+  },
+  historyLogLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  historyBadgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  changePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   bioText: {
     color: '#FFF',
     fontSize: 15,

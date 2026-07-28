@@ -786,17 +786,14 @@ export default function CampusLive() {
       return;
     }
 
-    setShowCommentsModal(false);
+    setSelectedConfession(null);
     setShowViewersSheet(false);
     setShowStoryModal(false);
 
     if (targetIsMatch) {
       router.push(`/chat/${targetUserId}`);
     } else {
-      router.push({
-        pathname: '/(tabs)/discover',
-        params: { targetUserId }
-      });
+      router.push(`/(tabs)/discover?targetUserId=${targetUserId}`);
     }
   };
 
@@ -809,10 +806,7 @@ export default function CampusLive() {
     if (viewer.is_match) {
       router.push(`/chat/${viewer.user_id}`);
     } else {
-      router.push({
-        pathname: '/(tabs)/discover',
-        params: { targetUserId: viewer.user_id }
-      });
+      router.push(`/(tabs)/discover?targetUserId=${viewer.user_id}`);
     }
   };
 
