@@ -25,7 +25,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Messages() {
-  const { sessionToken } = useAuth();
+  const { sessionToken, user } = useAuth();
   const router = useRouter();
   const [conversations, setConversations] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
@@ -39,6 +39,39 @@ export default function Messages() {
   const [selectedReason, setSelectedReason] = useState('Spam / Fake Profile');
   const [customReason, setCustomReason] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
+
+  // Custom Tags Config States
+  const [myChosenTags, setMyChosenTags] = useState<string[]>([]);
+  const [showTagsSetupModal, setShowTagsSetupModal] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([
+    'talking stage',
+    'serious',
+    'shadi material',
+    'situationship',
+    'relationship number 2',
+    'fwd'
+  ]);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [newCustomTagText, setNewCustomTagText] = useState('');
+
+  // Assign Tag Modal States
+  const [showAssignTagModal, setShowAssignTagModal] = useState(false);
+  const [selectedAssignPartnerId, setSelectedAssignPartnerId] = useState<string | null>(null);
+  const [selectedAssignPartnerName, setSelectedAssignPartnerName] = useState<string | null>(null);
+  const [selectedAssignPartnerCurrentTag, setSelectedAssignPartnerCurrentTag] = useState<string | null>(null);
+
+  // Filters State
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'colleges' | 'tags'>('all');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [showTagFilterDropdown, setShowTagFilterDropdown] = useState(false);
+
+  // Stories States
+  const [storiesFeed, setStoriesFeed] = useState<any[]>([]);
+  const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showViewersSheet, setShowViewersSheet] = useState(false);
+  const [activeStoryUserIndex, setActiveStoryUserIndex] = useState(0);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+  const [storyProgress, setStoryProgress] = useState(0);
 
   const reportReasons = [
     'Spam / Fake Profile',
@@ -162,12 +195,187 @@ export default function Messages() {
     );
   };
 
+  const fetchStories = async () => {
+    if (sessionToken === 'dummy_token' || !sessionToken) return;
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/matches-feed`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      const data = await response.json();
+      setStoriesFeed(data.feed || []);
+    } catch (e) {
+      console.error('Error fetching matches stories:', e);
+    }
+  };
+
+  const fetchMyChosenTags = async () => {
+    if (sessionToken === 'dummy_token' || !sessionToken) return;
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/tags/my`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      const data = await response.json();
+      const tags = data.tags || [];
+      setMyChosenTags(tags);
+    } catch (e) {
+      console.error('Error fetching chosen tags:', e);
+    }
+  };
+
+  const handleSaveChosenTags = async (tags: string[]) => {
+    if (sessionToken === 'dummy_token' || !sessionToken) return;
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/tags/my`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ tags })
+      });
+      if (response.ok) {
+        setMyChosenTags(tags);
+        setShowTagsSetupModal(false);
+        fetchConversations();
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.detail || 'Failed to save tags.');
+      }
+    } catch (e) {
+      console.error('Error saving tags:', e);
+      Alert.alert('Error', 'Network error.');
+    }
+  };
+
+  const handleAssignTag = async (partnerId: string, tag: string | null) => {
+    if (sessionToken === 'dummy_token' || !sessionToken) return;
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/tags/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ target_user_id: partnerId, tag })
+      });
+      if (response.ok) {
+        setShowAssignTagModal(false);
+        fetchConversations();
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.detail || 'Failed to assign tag.');
+      }
+    } catch (e) {
+      console.error('Error assigning tag:', e);
+      Alert.alert('Error', 'Network error.');
+    }
+  };
+
+  // Story viewer navigation helpers
+  const activeUserWithStories = storiesFeed[activeStoryUserIndex];
+  const activeStory = activeUserWithStories?.stories?.[activeStoryIndex];
+  const isOwnStory = activeUserWithStories?.user_id === user?.user_id;
+
+  const registerStoryView = async (storyId: string) => {
+    if (sessionToken === 'dummy_token') return;
+    try {
+      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/${storyId}/view`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+    } catch (e) {
+      console.warn('Failed to view story:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (showStoryModal && activeStory && !isOwnStory) {
+      registerStoryView(activeStory.story_id);
+    }
+  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex]);
+
+  useEffect(() => {
+    if (!showStoryModal || showViewersSheet) return;
+
+    const interval = setInterval(() => {
+      setStoryProgress(prev => {
+        if (prev >= 1) {
+          clearInterval(interval);
+          goNextStory();
+          return 0;
+        }
+        return prev + 0.02; // 5 seconds duration
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex, showViewersSheet]);
+
+  const goNextStory = () => {
+    setStoryProgress(0);
+    if (activeStoryIndex < activeUserWithStories.stories.length - 1) {
+      setActiveStoryIndex(prev => prev + 1);
+    } else if (activeStoryUserIndex < storiesFeed.length - 1) {
+      setActiveStoryUserIndex(prev => prev + 1);
+      setActiveStoryIndex(0);
+    } else {
+      setShowStoryModal(false);
+    }
+  };
+
+  const goPrevStory = () => {
+    setStoryProgress(0);
+    if (activeStoryIndex > 0) {
+      setActiveStoryIndex(prev => prev - 1);
+    } else if (activeStoryUserIndex > 0) {
+      setActiveStoryUserIndex(prev => prev - 1);
+      const prevUser = storiesFeed[activeStoryUserIndex - 1];
+      setActiveStoryIndex(prevUser.stories.length - 1);
+    } else {
+      setStoryProgress(0);
+    }
+  };
+
+  const openStoryViewer = (userIndex: number) => {
+    setActiveStoryUserIndex(userIndex);
+    setActiveStoryIndex(0);
+    setStoryProgress(0);
+    setShowViewersSheet(false);
+    setShowStoryModal(true);
+  };
+
+  const formatViewTime = (isoString: string) => {
+    try {
+      return formatDistanceToNow(new Date(isoString), { addSuffix: true });
+    } catch (e) {
+      return 'Just now';
+    }
+  };
+
+  useEffect(() => {
+    // Merge backend custom tags into available list
+    if (myChosenTags.length > 0) {
+      setAvailableTags(prev => {
+        const merged = [...prev];
+        myChosenTags.forEach(tag => {
+          if (!merged.includes(tag)) {
+            merged.push(tag);
+          }
+        });
+        return merged;
+      });
+    }
+  }, [myChosenTags]);
+
   useEffect(() => {
     fetchConversations();
     fetchMatches();
+    fetchStories();
+    fetchMyChosenTags();
     const interval = setInterval(() => {
       fetchConversations();
       fetchMatches();
+      fetchStories();
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -218,6 +426,8 @@ export default function Messages() {
     setRefreshing(true);
     fetchConversations();
     fetchMatches();
+    fetchStories();
+    fetchMyChosenTags();
   };
 
   const activeUserIds = conversations.map(c => c.user.user_id);
@@ -247,57 +457,146 @@ export default function Messages() {
         />
       </View>
       <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.title}>Inbox 💬</Text>
-              <View style={styles.pulseBadge}>
-                <View style={styles.activeDot} />
-                <Text style={styles.pulseText}>{matches.length} Matches</Text>
-              </View>
-            </View>
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.inboxHeading}>Inbox</Text>
+            <Image
+              source={require('../../assets/images/logo_off.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
           </View>
-
-
-
-      <View style={{ flex: 1 }}>
-        {/* Horizontal Matches List */}
-        {!searchQuery && newMatches.length > 0 && (
-          <View style={styles.matchesSection}>
-            <Text style={styles.sectionTitle}>New Matches ({newMatches.length})</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchesScrollContent}>
-              {newMatches.map((match: any) => (
-                <TouchableOpacity
-                  key={match.user_id}
-                  style={styles.matchItem}
-                  onPress={() => router.push(`/chat/${match.user_id}`)}
-                >
-                  <View style={styles.matchAvatarContainer}>
-                    <Image
-                      source={{ uri: match.photos?.[0] || match.picture }}
-                      style={styles.matchAvatar}
-                    />
-                    <LinearGradient
-                      colors={['#C2FF3D', '#C2FF3D']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.matchRing}
-                    />
-                  </View>
-                  <Text style={styles.matchName} numberOfLines={1}>
-                    {match.name.split(' ')[0]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <View style={styles.conversationsHeaderRow}>
-          <Text style={styles.sectionTitle}>Messages</Text>
         </View>
 
-        <BlurView intensity={20} tint="dark" style={styles.glassContainer}>
-          {filteredConversations.length === 0 ? (
+        {/* Horizontal Stories Carousel */}
+        <View style={styles.storiesContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScrollContent}>
+            {/* Own story bubble */}
+            {(() => {
+              const ownGroup = storiesFeed.find(g => g.user_id === user?.user_id);
+              const hasOwnStories = ownGroup && ownGroup.stories && ownGroup.stories.length > 0;
+              const userMainPhoto = user?.photos?.[0] || user?.picture;
+              return (
+                <TouchableOpacity
+                  style={styles.storyItem}
+                  onPress={() => {
+                    if (hasOwnStories) {
+                      const idx = storiesFeed.findIndex(g => g.user_id === user?.user_id);
+                      if (idx !== -1) openStoryViewer(idx);
+                    } else {
+                      Alert.alert(
+                        'Post Story 📸',
+                        'To share a story with your matches or college network, visit the Confessions screen!',
+                        [{ text: 'Go to Confessions', onPress: () => router.push('/(tabs)/confessions') }, { text: 'Cancel', style: 'cancel' }]
+                      );
+                    }
+                  }}
+                >
+                  <View style={styles.storyAvatarWrapper}>
+                    {userMainPhoto ? (
+                      <Image source={{ uri: userMainPhoto }} style={styles.storyAvatar} />
+                    ) : (
+                      <View style={[styles.storyAvatar, { backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={{ color: '#FFF', fontWeight: '800' }}>Y</Text>
+                      </View>
+                    )}
+                    {!hasOwnStories && (
+                      <View style={styles.storyPlusBadge}>
+                        <Ionicons name="add" size={12} color="#000" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.storyUsername} numberOfLines={1}>Your Story</Text>
+                </TouchableOpacity>
+              );
+            })()}
+
+            {/* Matches stories bubbles */}
+            {storiesFeed.filter(g => g.user_id !== user?.user_id).map((group) => {
+              const absIdx = storiesFeed.findIndex(g => g.user_id === group.user_id);
+              return (
+                <TouchableOpacity
+                  key={group.user_id}
+                  style={styles.storyItem}
+                  onPress={() => openStoryViewer(absIdx)}
+                >
+                  <View style={styles.storyAvatarWrapper}>
+                    <Image source={{ uri: group.user_picture }} style={styles.storyAvatar} />
+                    {group.has_unviewed && (
+                      <View style={styles.storyRingUnviewed} />
+                    )}
+                  </View>
+                  <Text style={styles.storyUsername} numberOfLines={1}>
+                    {group.user_name?.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Filters Row */}
+        <View style={styles.filtersContainer}>
+          <TouchableOpacity
+            style={[styles.filterTab, selectedFilter === 'all' && styles.filterTabActive]}
+            onPress={() => {
+              setSelectedFilter('all');
+              setSelectedTagFilter(null);
+            }}
+          >
+            <Text style={[styles.filterTabText, selectedFilter === 'all' && styles.filterTabTextActive]}>All</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, selectedFilter === 'colleges' && styles.filterTabActive]}
+            onPress={() => {
+              setSelectedFilter('colleges');
+              setSelectedTagFilter(null);
+            }}
+          >
+            <Text style={[styles.filterTabText, selectedFilter === 'colleges' && styles.filterTabTextActive]}>Colleges</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, selectedFilter === 'tags' && styles.filterTabActive]}
+            onPress={() => {
+              setSelectedFilter('tags');
+              setShowTagFilterDropdown(true);
+            }}
+          >
+            <Text style={[styles.filterTabText, selectedFilter === 'tags' && styles.filterTabTextActive]}>
+              {selectedTagFilter ? `Tag: ${selectedTagFilter}` : 'Tags'}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={selectedFilter === 'tags' ? '#C2FF3D' : 'rgba(255,255,255,0.4)'} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.manageTagsBtn}
+            onPress={() => setShowTagsSetupModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="settings-outline" size={14} color="#FFF" />
+            <Text style={styles.manageTagsBtnText}>Tags</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Chats feed list */}
+        {(() => {
+          const filteredConversations = conversations.filter(conv => {
+            const matchesSearch = conv.user.name.toLowerCase().includes(searchQuery.toLowerCase());
+            if (!matchesSearch) return false;
+
+            if (selectedFilter === 'colleges') {
+              return conv.user.college_id === user?.college_id;
+            }
+            if (selectedFilter === 'tags') {
+              if (!selectedTagFilter) return true;
+              return conv.assigned_tag === selectedTagFilter;
+            }
+            return true;
+          });
+
+          return filteredConversations.length === 0 ? (
             <ScrollView
               contentContainerStyle={styles.emptyStateScroll}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
@@ -330,7 +629,7 @@ export default function Messages() {
               contentContainerStyle={styles.glassListScrollContent}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
             >
-              {filteredConversations.map((conv: any, index: number) => {
+              {filteredConversations.map((conv: any) => {
                 const hasUnread = conv.unread_count > 0;
                 return (
                   <View key={conv.user.user_id}>
@@ -339,7 +638,7 @@ export default function Messages() {
                       containerStyle={styles.swipeContainer}
                     >
                       <TouchableOpacity
-                        style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
+                        style={styles.conversationItem}
                         onPress={() => router.push(`/chat/${conv.user.user_id}`)}
                         activeOpacity={0.7}
                       >
@@ -355,15 +654,15 @@ export default function Messages() {
                           )}
                         </View>
                         <View style={styles.convInfo}>
-                          <View style={styles.convHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Text style={styles.convName}>{conv.user.name}</Text>
-                            {conv.last_message?.created_at && (
-                              <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
-                                {formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })}
-                              </Text>
+                            {conv.assigned_tag && (
+                              <View style={styles.assignedTagBadge}>
+                                <Text style={styles.assignedTagBadgeText}>{conv.assigned_tag}</Text>
+                              </View>
                             )}
                           </View>
-                          <View style={styles.convPreview}>
+                          <View style={styles.convPreviewRow}>
                             <Text
                               style={[
                                 styles.convMessage,
@@ -373,30 +672,38 @@ export default function Messages() {
                             >
                               {conv.last_message?.content || 'Say hi! 👋'}
                             </Text>
-                            {hasUnread && (
-                              <LinearGradient
-                                colors={['#C2FF3D', '#C2FF3D']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.unreadBadge}
-                              >
-                                <Text style={styles.unreadCount}>{conv.unread_count}</Text>
-                              </LinearGradient>
-                            )}
+                            <Text style={styles.convDotSep}>•</Text>
+                            <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
+                              {conv.last_message?.created_at ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false }).replace('about', '').trim() : ''}
+                            </Text>
                           </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          {hasUnread && (
+                            <View style={styles.unreadBadgeDot} />
+                          )}
+                          <TouchableOpacity
+                            style={styles.assignTagTriggerBtn}
+                            onPress={() => {
+                              setSelectedAssignPartnerId(conv.user.user_id);
+                              setSelectedAssignPartnerName(conv.user.name);
+                              setSelectedAssignPartnerCurrentTag(conv.assigned_tag || null);
+                              setShowAssignTagModal(true);
+                            }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          >
+                            <Ionicons name="pricetag-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
+                          </TouchableOpacity>
                         </View>
                       </TouchableOpacity>
                     </Swipeable>
-                    {index < filteredConversations.length - 1 && (
-                      <View style={styles.rowDivider} />
-                    )}
                   </View>
                 );
               })}
             </ScrollView>
-          )}
-        </BlurView>
-      </View>
+          );
+        })()}
+      </SafeAreaView>
 
       {/* Report Modal */}
       <Modal
@@ -472,7 +779,348 @@ export default function Messages() {
           </BlurView>
         </View>
       </Modal>
-        </SafeAreaView>
+
+      {/* Tag Filter Dropdown Modal */}
+      <Modal
+        visible={showTagFilterDropdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTagFilterDropdown(false)}
+      >
+        <TouchableOpacity
+          style={styles.dropdownBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowTagFilterDropdown(false)}
+        >
+          <View style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>Filter by Tag</Text>
+            {myChosenTags.length === 0 ? (
+              <Text style={styles.dropdownEmptyText}>
+                You haven't set up any tags yet.{'\n'}Tap the ⚙️ Tags button to create tags first.
+              </Text>
+            ) : (
+              myChosenTags.map((tag) => {
+                const isActive = selectedTagFilter === tag;
+                return (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[styles.dropdownItem, isActive && styles.dropdownItemActive]}
+                    onPress={() => {
+                      setSelectedTagFilter(tag);
+                      setShowTagFilterDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.dropdownItemText, isActive && styles.dropdownItemTextActive]}>
+                      {tag}
+                    </Text>
+                    {isActive && <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <View style={styles.dropdownActions}>
+              <TouchableOpacity
+                style={styles.dropdownResetBtn}
+                onPress={() => {
+                  setSelectedTagFilter(null);
+                  setShowTagFilterDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dropdownCloseBtn}
+                onPress={() => setShowTagFilterDropdown(false)}
+              >
+                <Text style={styles.dropdownCloseBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Tags Setup Modal */}
+      <Modal
+        visible={showTagsSetupModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTagsSetupModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>My Tags ✏️</Text>
+              <TouchableOpacity onPress={() => setShowTagsSetupModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalDesc}>
+                Choose up to 5 tags to categorize your matches. You can assign one tag to each match later.
+              </Text>
+              <View style={styles.tagsCounterRow}>
+                <Text style={styles.tagsCounterText}>
+                  {myChosenTags.length}/5 selected
+                </Text>
+                <TouchableOpacity
+                  style={styles.addCustomTagIconBtn}
+                  onPress={() => setShowCustomInput(!showCustomInput)}
+                >
+                  <Ionicons name={showCustomInput ? 'close-circle' : 'add-circle'} size={24} color="#C2FF3D" />
+                </TouchableOpacity>
+              </View>
+              {showCustomInput && (
+                <View style={styles.customTagInputRow}>
+                  <TextInput
+                    style={styles.customTagTextInput}
+                    placeholder="Type custom tag..."
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={newCustomTagText}
+                    onChangeText={setNewCustomTagText}
+                    maxLength={20}
+                  />
+                  <TouchableOpacity
+                    style={[styles.addCustomTagBtn, !newCustomTagText.trim() && { opacity: 0.4 }]}
+                    disabled={!newCustomTagText.trim()}
+                    onPress={() => {
+                      const trimmed = newCustomTagText.trim().toLowerCase();
+                      if (trimmed && !availableTags.includes(trimmed)) {
+                        setAvailableTags(prev => [...prev, trimmed]);
+                      }
+                      if (trimmed && !myChosenTags.includes(trimmed) && myChosenTags.length < 5) {
+                        setMyChosenTags(prev => [...prev, trimmed]);
+                      }
+                      setNewCustomTagText('');
+                      setShowCustomInput(false);
+                    }}
+                  >
+                    <Text style={styles.addCustomTagBtnText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={styles.tagsSelectionGrid}>
+                {availableTags.map((tag) => {
+                  const isSelected = myChosenTags.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.tagSelectBubble, isSelected && styles.tagSelectBubbleActive]}
+                      onPress={() => {
+                        if (isSelected) {
+                          setMyChosenTags(prev => prev.filter(t => t !== tag));
+                        } else if (myChosenTags.length < 5) {
+                          setMyChosenTags(prev => [...prev, tag]);
+                        } else {
+                          Alert.alert('Limit Reached', 'You can select up to 5 tags.');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.tagSelectBubbleText, isSelected && styles.tagSelectBubbleTextActive]}>
+                        {tag}
+                      </Text>
+                      {isSelected && <Ionicons name="checkmark" size={14} color="#000" style={{ marginLeft: 4 }} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setShowTagsSetupModal(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitBtn, { backgroundColor: '#C2FF3D' }]}
+                  onPress={() => handleSaveChosenTags(myChosenTags)}
+                >
+                  <Text style={[styles.submitBtnText, { color: '#000' }]}>Save Tags</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </BlurView>
+        </View>
+      </Modal>
+
+      {/* Assign Tag to Match Modal */}
+      <Modal
+        visible={showAssignTagModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAssignTagModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.dropdownBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowAssignTagModal(false)}
+        >
+          <View style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>
+              Tag {selectedAssignPartnerName || 'Match'}
+            </Text>
+            {myChosenTags.length === 0 ? (
+              <Text style={styles.dropdownEmptyText}>
+                Set up your tags first using the ⚙️ Tags button above.
+              </Text>
+            ) : (
+              <View style={styles.assignTagsList}>
+                {myChosenTags.map((tag) => {
+                  const isActive = selectedAssignPartnerCurrentTag === tag;
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.assignTagRow, isActive && styles.assignTagRowActive]}
+                      onPress={() => {
+                        if (selectedAssignPartnerId) {
+                          handleAssignTag(selectedAssignPartnerId, isActive ? null : tag);
+                        }
+                      }}
+                    >
+                      <Ionicons
+                        name={isActive ? 'radio-button-on' : 'radio-button-off'}
+                        size={18}
+                        color={isActive ? '#C2FF3D' : 'rgba(255,255,255,0.3)'}
+                      />
+                      <Text style={[styles.assignTagText, isActive && styles.assignTagTextActive]}>
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            <View style={styles.dropdownActions}>
+              <TouchableOpacity
+                style={styles.dropdownResetBtn}
+                onPress={() => {
+                  if (selectedAssignPartnerId) {
+                    handleAssignTag(selectedAssignPartnerId, null);
+                  }
+                }}
+              >
+                <Text style={styles.dropdownResetBtnText}>Remove Tag</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dropdownCloseBtn}
+                onPress={() => setShowAssignTagModal(false)}
+              >
+                <Text style={styles.dropdownCloseBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Story Viewer Modal */}
+      <Modal
+        visible={showStoryModal}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setShowStoryModal(false)}
+      >
+        {activeUserWithStories && activeStory && (
+          <View style={styles.storyViewContainer}>
+            {/* Progress bars */}
+            <View style={styles.progBarRow}>
+              {activeUserWithStories.stories.map((_: any, idx: number) => (
+                <View key={idx} style={styles.progBarWrapper}>
+                  <View
+                    style={[
+                      styles.progBarFill,
+                      {
+                        width: idx < activeStoryIndex ? '100%' : idx === activeStoryIndex ? `${storyProgress * 100}%` : '0%',
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
+            </View>
+
+            {/* Story header */}
+            <View style={styles.storyHeader}>
+              <Image source={{ uri: activeUserWithStories.user_picture }} style={styles.storyHeadPic} />
+              <View style={{ marginLeft: 10 }}>
+                <Text style={styles.storyHeadName}>
+                  {activeUserWithStories.user_name}
+                </Text>
+                <Text style={styles.storyHeadTime}>
+                  {activeStory.created_at ? formatViewTime(activeStory.created_at) : ''}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.storyClose} onPress={() => setShowStoryModal(false)}>
+                <Ionicons name="close" size={28} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tap areas */}
+            <TouchableOpacity style={styles.storyLeftTap} onPress={goPrevStory} activeOpacity={1} />
+            <TouchableOpacity style={styles.storyRightTap} onPress={goNextStory} activeOpacity={1} />
+
+            {/* Story image */}
+            <Image source={{ uri: activeStory.image_url }} style={styles.storyMainImg} />
+
+            {/* Viewers indicator (own stories only) */}
+            {isOwnStory && (
+              <TouchableOpacity
+                style={styles.viewersIndicator}
+                onPress={() => setShowViewersSheet(true)}
+              >
+                <Ionicons name="chevron-up" size={20} color="#FFF" style={styles.bounceUpIcon} />
+                <View style={styles.viewsCountBadge}>
+                  <Ionicons name="eye-outline" size={14} color="#FFF" />
+                  <Text style={styles.viewsCountText}>
+                    {activeStory.views?.length || 0} views
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Viewers Sheet */}
+            {showViewersSheet && isOwnStory && (
+              <Modal
+                visible={showViewersSheet}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowViewersSheet(false)}
+              >
+                <TouchableOpacity
+                  style={styles.viewsDrawerBackdrop}
+                  activeOpacity={1}
+                  onPress={() => setShowViewersSheet(false)}
+                >
+                  <View style={styles.viewsDrawerSheet}>
+                    <View style={styles.dragHandle} />
+                    <View style={styles.viewsDrawerHeader}>
+                      <Text style={styles.viewsDrawerTitle}>
+                        Views ({activeStory.views?.length || 0})
+                      </Text>
+                      <TouchableOpacity style={styles.viewsDrawerClose} onPress={() => setShowViewersSheet(false)}>
+                        <Ionicons name="close" size={22} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView contentContainerStyle={styles.viewsDrawerContent}>
+                      {(!activeStory.views || activeStory.views.length === 0) ? (
+                        <View style={styles.emptyViewers}>
+                          <Ionicons name="eye-off-outline" size={32} color="rgba(255,255,255,0.2)" />
+                          <Text style={styles.emptyViewersText}>No views yet</Text>
+                        </View>
+                      ) : (
+                        activeStory.views.map((view: any) => (
+                          <View key={view.user_id} style={styles.viewerRow}>
+                            <Image source={{ uri: view.picture }} style={styles.viewerAvatar} />
+                            <Text style={styles.viewerName}>{view.name}</Text>
+                          </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                </TouchableOpacity>
+              </Modal>
+            )}
+          </View>
+        )}
+      </Modal>
+
     </View>
   );
 }
@@ -496,41 +1144,520 @@ const styles = StyleSheet.create({
   },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10 },
   headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  brandLogo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  brandText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
-  pulseBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(194, 255, 61, 0.08)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
-  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#C2FF3D' },
-  pulseText: { color: '#C2FF3D', fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
-  title: { fontSize: 32, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
-
-  // Search Bar
+  instaUsername: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerLogo: {
+    width: 46,
+    height: 46,
+  },
+  inboxHeading: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
   searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.04)', marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)', height: 44 },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '500' },
   clearSearchBtn: { padding: 4 },
-
-  // Matches Section
-  matchesSection: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
-  sectionTitle: { fontSize: 11, fontWeight: '800', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: 1, paddingHorizontal: 16, marginBottom: 12 },
-  matchesScrollContent: { paddingHorizontal: 16, gap: 16 },
-  matchItem: { alignItems: 'center', width: 68 },
-  matchAvatarContainer: { width: 58, height: 58, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  matchAvatar: { width: 50, height: 50, borderRadius: 25 },
-  matchRing: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, borderRadius: 29, borderWidth: 2, borderColor: 'transparent', zIndex: -1 },
-  matchName: { color: '#FFF', fontSize: 12, fontWeight: '600', marginTop: 6, width: '100%', textAlign: 'center' },
-
-  // Conversations Feed
-  conversationsHeaderRow: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
-  glassContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 24,
+  storiesContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'transparent',
+  },
+  storiesScrollContent: {
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  storyItem: {
+    alignItems: 'center',
+    width: 68,
+  },
+  storyAvatarWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 2,
+    backgroundColor: '#000',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyRingUnviewed: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2.5,
+    borderColor: '#C2FF3D',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -1,
+  },
+  storyAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  storyUsername: {
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'center',
+    width: '100%',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterTabActive: {
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+  },
+  filterTabText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterTabTextActive: {
+    color: '#C2FF3D',
+  },
+  manageTagsBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  manageTagsBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownCard: {
+    width: '80%',
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#0F0F14',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
+  },
+  dropdownTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  dropdownEmptyText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginVertical: 10,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  dropdownItemActive: {
+    borderBottomColor: 'rgba(194, 255, 61, 0.1)',
+  },
+  dropdownItemText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
+  dropdownItemTextActive: {
+    color: '#C2FF3D',
+    fontWeight: '800',
+  },
+  dropdownActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
+  },
+  dropdownResetBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  dropdownResetBtnText: {
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  dropdownCloseBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  dropdownCloseBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  tagsCounterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  tagsCounterText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+  },
+  addCustomTagIconBtn: {
+    padding: 2,
+  },
+  customTagInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  customTagTextInput: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 10,
+    color: '#FFF',
+    paddingHorizontal: 12,
+    height: 38,
+    fontSize: 13,
+  },
+  addCustomTagBtn: {
+    backgroundColor: '#C2FF3D',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCustomTagBtnText: {
+    color: '#000',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  tagsSelectionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginVertical: 12,
+  },
+  tagSelectBubble: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  tagSelectBubbleActive: {
+    backgroundColor: '#C2FF3D',
+    borderColor: '#C2FF3D',
+  },
+  tagSelectBubbleText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  tagSelectBubbleTextActive: {
+    color: '#000',
+    fontWeight: '800',
+  },
+  assignTagsList: {
+    marginVertical: 12,
+    gap: 8,
+  },
+  assignTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  assignTagRowActive: {
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.05)',
+  },
+  assignTagText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  assignTagTextActive: {
+    color: '#FFF',
+    fontWeight: '800',
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 12,
+    backgroundColor: 'transparent',
+  },
+  avatarWrapper: { position: 'relative' },
+  avatar: { width: 62, height: 62, borderRadius: 31, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
+  onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 13, height: 13, borderRadius: 6.5, backgroundColor: '#06D6A0', borderWidth: 2, borderColor: '#000000' },
+  convInfo: { flex: 1, gap: 4 },
+  convName: { fontSize: 15, fontWeight: '600', color: '#FFF' },
+  assignedTagBadge: {
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+  },
+  assignedTagBadgeText: {
+    color: '#C2FF3D',
+    fontSize: 9.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  convPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  convMessage: { fontSize: 13, color: 'rgba(255, 255, 255, 0.45)', flex: 1 },
+  convMessageUnread: { color: '#FFF', fontWeight: '700' },
+  convDotSep: { color: 'rgba(255, 255, 255, 0.25)', fontSize: 10 },
+  convTime: { fontSize: 12, color: 'rgba(255, 255, 255, 0.45)' },
+  convTimeUnread: { color: '#FFF', fontWeight: '700' },
+  unreadBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3b82f6',
+  },
+  assignTagTriggerBtn: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  storyViewContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyPlusBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  progBarRow: {
+    flexDirection: 'row',
+    position: 'absolute',
+    top: 50,
+    left: 10,
+    right: 10,
+    height: 2.5,
+    gap: 4,
+    zIndex: 100,
+  },
+  progBarWrapper: {
+    flex: 1,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 1,
     overflow: 'hidden',
-    height: 550,
+  },
+  progBarFill: {
+    height: '100%',
+    backgroundColor: '#FFF',
+    width: '0%',
+  },
+  storyHeader: {
+    position: 'absolute',
+    top: 62,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  storyHeadPic: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  storyHeadName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  storyHeadTime: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  storyClose: {
+    marginLeft: 'auto',
+    padding: 4,
+  },
+  storyLeftTap: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '35%',
+    zIndex: 50,
+  },
+  storyRightTap: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '65%',
+    zIndex: 50,
+  },
+  storyMainImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  viewersIndicator: {
+    position: 'absolute',
+    bottom: 40,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  bounceUpIcon: {
+    marginBottom: 4,
+  },
+  viewsCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  viewsCountText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  viewsDrawerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  viewsDrawerSheet: {
+    backgroundColor: '#0F0F14',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  viewsDrawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewsDrawerTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  viewsDrawerClose: {
+    padding: 2,
+  },
+  viewsDrawerContent: {
+    paddingBottom: 24,
+  },
+  emptyViewers: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 10,
+  },
+  emptyViewersText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+  },
+  viewerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  viewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  viewerName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 12,
   },
   glassListScrollContent: {
     paddingVertical: 8,
@@ -544,42 +1671,11 @@ const styles = StyleSheet.create({
     fontSize: 54,
     marginBottom: 8,
   },
-  rowDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
-  },
-  conversationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-    backgroundColor: 'transparent',
-  },
-  conversationItemUnread: {
-    backgroundColor: 'rgba(194, 255, 61, 0.03)',
-  },
-  avatarWrapper: { position: 'relative' },
-  avatar: { width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
-  onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#06D6A0', borderWidth: 2, borderColor: '#000000' },
-  convInfo: { flex: 1, gap: 3 },
-  convHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convName: { fontSize: 15, fontWeight: '700', color: '#FFF' },
-  convTime: { fontSize: 11, color: 'rgba(255, 255, 255, 0.35)' },
-  convTimeUnread: { color: '#C2FF3D', fontWeight: '700' },
-  convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  convMessage: { fontSize: 13, color: 'rgba(255, 255, 255, 0.5)', flex: 1 },
-  convMessageUnread: { color: '#FFF', fontWeight: '700' },
-  unreadBadge: { paddingHorizontal: 6, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  unreadCount: { color: '#000', fontSize: 10, fontWeight: '900' },
   emptyState: { flex: 1, alignItems: 'center', gap: 12, justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 32 },
   emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12, textAlign: 'center' },
   emptySubText: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 13, textAlign: 'center', lineHeight: 18, paddingHorizontal: 10 },
   exploreBtn: { backgroundColor: '#C2FF3D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 16, shadowColor: '#C2FF3D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   exploreBtnText: { color: '#000', fontWeight: '800', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
-
-  // Swipeable right actions
   swipeContainer: {
     backgroundColor: 'transparent',
   },
@@ -607,8 +1703,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-
-  // Modal styling
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',

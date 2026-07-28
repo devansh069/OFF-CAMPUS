@@ -45,10 +45,12 @@ exports.getStoriesFeed = async (req, res) => {
     const matchUserIds = matchesList.map(m => m.to_user_id);
 
     const filteredStories = activeStories.filter(story => {
+      // Confessions feed only shows global and college stories!
+      if (story.audience === 'matches') return false;
+
       if (story.user_id === userId) return true; // always see own stories
       if (story.audience === 'global') return true;
       if (story.audience === 'college' && story.college_id === userCollegeId) return true;
-      if (story.audience === 'matches' && matchUserIds.includes(story.user_id)) return true;
       return false; // hide otherwise
     });
 
@@ -350,5 +352,142 @@ exports.getAllStories = async (req, res) => {
   } catch (error) {
     console.error('[getAllStories Error]:', error);
     return res.status(500).json({ detail: 'Failed to retrieve all stories: ' + error.message });
+  }
+};
+
+exports.getMatchesStoriesFeed = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    // Fetch active stories (expires_at > NOW()) and join user metadata
+    const activeStories = await sequelize.query(
+      `SELECT s.story_id, s.user_id, s.user_name, s.user_picture, s.college_id, s.image, s.caption, s.audience, s.views, s.expires_at, s.created_at,
+              u.name as u_name, u.picture as u_picture, u.photos as u_photos
+       FROM stories s
+       LEFT JOIN users u ON s.user_id = u.user_id
+       WHERE s.expires_at > NOW() AND s.audience = 'matches'
+       ORDER BY s.created_at ASC`,
+      {
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const matchesList = await sequelize.query('SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true', { replacements: [userId], type: sequelize.QueryTypes.SELECT });
+    const matchUserIds = matchesList.map(m => m.to_user_id);
+
+    const filteredStories = activeStories.filter(story => {
+      // Must be own story, or from a match
+      return story.user_id === userId || matchUserIds.includes(story.user_id);
+    });
+
+    const userMap = {};
+
+    for (const story of filteredStories) {
+      if (!userMap[story.user_id]) {
+        let picture = story.user_picture || story.u_picture;
+        if (!picture && story.u_photos) {
+          try {
+            const photos = typeof story.u_photos === 'string' ? JSON.parse(story.u_photos) : story.u_photos;
+            if (Array.isArray(photos) && photos.length > 0) {
+              picture = photos[0];
+            }
+          } catch (e) {}
+        }
+
+        userMap[story.user_id] = {
+          user_id: story.user_id,
+          user_name: story.user_id === userId ? 'Your Story' : (story.user_name || story.u_name || 'Anonymous Match'),
+          user_picture: picture || null,
+          has_unviewed: false,
+          stories: []
+        };
+      }
+
+      let views = [];
+      if (story.views) {
+        try {
+          views = typeof story.views === 'string' ? JSON.parse(story.views) : story.views;
+        } catch (e) {
+          views = [];
+        }
+      }
+
+      if (!Array.isArray(views)) {
+        views = [];
+      }
+
+      const hasViewed = views.includes(userId);
+      if (!hasViewed && story.user_id !== userId) {
+        userMap[story.user_id].has_unviewed = true;
+      }
+
+      userMap[story.user_id].stories.push({
+        story_id: story.story_id,
+        image: story.image,
+        caption: story.caption,
+        audience: story.audience,
+        views: views,
+        createdAt: story.created_at
+      });
+    }
+
+    // Keep own story at the top if it exists
+    const users_with_stories = Object.values(userMap);
+    users_with_stories.sort((a, b) => {
+      if (a.user_id === userId) return -1;
+      if (b.user_id === userId) return 1;
+      return 0;
+    });
+
+    // Enrich views for own stories
+    for (const group of users_with_stories) {
+      if (group.user_id === userId) {
+        for (const story of group.stories) {
+          if (Array.isArray(story.views) && story.views.length > 0) {
+            const viewerIds = story.views
+              .map(v => (typeof v === 'string' ? v : (v && v.user_id ? v.user_id : null)))
+              .filter(Boolean);
+
+            if (viewerIds.length > 0) {
+              const viewerUsers = await sequelize.query(
+                `SELECT user_id, name, picture, photos FROM users WHERE user_id IN (?)`,
+                { replacements: [viewerIds], type: sequelize.QueryTypes.SELECT }
+              );
+
+              const userDetailsMap = {};
+              for (const u of viewerUsers) {
+                let pic = u.picture;
+                if (!pic && u.photos) {
+                  try {
+                    const parsed = typeof u.photos === 'string' ? JSON.parse(u.photos) : u.photos;
+                    if (Array.isArray(parsed) && parsed.length > 0) pic = parsed[0];
+                  } catch (e) {}
+                }
+                userDetailsMap[u.user_id] = {
+                  name: u.name || 'Student',
+                  picture: pic || null
+                };
+              }
+
+              story.views = story.views.map(v => {
+                const vId = typeof v === 'string' ? v : (v && v.user_id ? v.user_id : null);
+                const details = userDetailsMap[vId] || {};
+                return {
+                  user_id: vId,
+                  name: details.name || 'Student',
+                  picture: details.picture || null,
+                  isMatch: true
+                };
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return res.status(200).json({ feed: users_with_stories });
+  } catch (error) {
+    console.error('[getMatchesStoriesFeed Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve matches stories: ' + error.message });
   }
 };

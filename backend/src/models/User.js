@@ -211,6 +211,11 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'premium_until'
+  },
+  chosen_tags: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'chosen_tags'
   }
 }, {
   tableName: 'users',

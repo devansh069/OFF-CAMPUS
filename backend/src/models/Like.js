@@ -19,6 +19,10 @@ const Like = sequelize.define('Like', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false
+  },
+  tag: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   }
 }, {
   tableName: 'likes',

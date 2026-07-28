@@ -47,6 +47,9 @@ router.get('/messages/conversations', authMiddleware, authController.getConversa
 router.post('/messages/send', authMiddleware, authController.sendMessage);
 router.post('/messages/upload-image', authMiddleware, authController.uploadChatImage);
 router.post('/messages/upload-audio', authMiddleware, authController.uploadChatAudio);
+router.get('/messages/tags/my', authMiddleware, authController.getChosenTags);
+router.post('/messages/tags/my', authMiddleware, authController.saveChosenTags);
+router.post('/messages/tags/assign', authMiddleware, authController.assignTagToMatch);
 router.get('/messages/:id', authMiddleware, authController.getMessages);
 
 // Admin endpoints (Public Login, rest Protected)
@@ -82,6 +85,7 @@ router.get('/confessions/comments/all', confessionController.getAllComments);
 
 // Stories endpoints
 router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
+router.get('/stories/matches-feed', authMiddleware, storyController.getMatchesStoriesFeed);
 router.post('/stories/create', authMiddleware, storyController.createStory);
 router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
 router.get('/stories/all', storyController.getAllStories);

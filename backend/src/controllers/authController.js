@@ -800,10 +800,14 @@ exports.getMatches = async (req, res) => {
     // Matches are rows in likes where is_match = 1 and from_user_id = currentUserId
     const matchesList = await Like.findAll({
       where: { from_user_id: currentUserId, is_match: true },
-      attributes: ['to_user_id']
+      attributes: ['to_user_id', 'tag']
     });
 
     const matchUserIds = matchesList.map(m => m.to_user_id);
+    const tagMap = matchesList.reduce((acc, m) => {
+      acc[m.to_user_id] = m.tag;
+      return acc;
+    }, {});
 
     const matches = await User.findAll({
       where: {
@@ -812,7 +816,13 @@ exports.getMatches = async (req, res) => {
       include: [{ model: College, as: 'college' }]
     });
 
-    return res.status(200).json({ matches });
+    const formattedMatches = matches.map(user => {
+      const u = user.toJSON();
+      u.assigned_tag = tagMap[u.user_id] || null;
+      return u;
+    });
+
+    return res.status(200).json({ matches: formattedMatches });
   } catch (error) {
     console.error('[getMatches Error]:', error);
     return res.status(500).json({ detail: 'Failed to retrieve matches: ' + error.message });
@@ -881,10 +891,17 @@ exports.getConversations = async (req, res) => {
         }
       });
 
+      // Find the tag assigned to this partner
+      const likeRel = await Like.findOne({
+        where: { from_user_id: currentUserId, to_user_id: partnerId, is_match: true },
+        attributes: ['tag']
+      });
+
       conversations.push({
         user: partner,
         last_message: lastMessage,
-        unread_count: unreadCount
+        unread_count: unreadCount,
+        assigned_tag: likeRel ? likeRel.tag : null
       });
     }
 
@@ -1139,5 +1156,65 @@ exports.getLiveCounts = async (req, res) => {
   } catch (error) {
     console.error('[getLiveCounts Error]:', error);
     return res.status(500).json({ detail: 'Failed to fetch live counts' });
+  }
+};
+
+exports.getChosenTags = async (req, res) => {
+  try {
+    const user = await User.findOne({
+      where: { user_id: req.user.user_id },
+      attributes: ['chosen_tags']
+    });
+    let tags = [];
+    if (user && user.chosen_tags) {
+      tags = typeof user.chosen_tags === 'string' ? JSON.parse(user.chosen_tags) : user.chosen_tags;
+    }
+    return res.status(200).json({ tags });
+  } catch (error) {
+    console.error('[getChosenTags Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve chosen tags: ' + error.message });
+  }
+};
+
+exports.saveChosenTags = async (req, res) => {
+  try {
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ detail: 'Tags must be an array' });
+    }
+    if (tags.length > 5) {
+      return res.status(400).json({ detail: 'You can choose up to 5 tags only' });
+    }
+    const user = await User.findOne({ where: { user_id: req.user.user_id } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User not found' });
+    }
+    user.chosen_tags = tags;
+    await user.save();
+    return res.status(200).json({ success: true, tags });
+  } catch (error) {
+    console.error('[saveChosenTags Error]:', error);
+    return res.status(500).json({ detail: 'Failed to save chosen tags: ' + error.message });
+  }
+};
+
+exports.assignTagToMatch = async (req, res) => {
+  try {
+    const { target_user_id, tag } = req.body;
+    if (!target_user_id) {
+      return res.status(400).json({ detail: 'Target user ID is required' });
+    }
+    const like = await Like.findOne({
+      where: { from_user_id: req.user.user_id, to_user_id: target_user_id, is_match: true }
+    });
+    if (!like) {
+      return res.status(404).json({ detail: 'Match relationship not found' });
+    }
+    like.tag = tag || null;
+    await like.save();
+    return res.status(200).json({ success: true, tag: like.tag });
+  } catch (error) {
+    console.error('[assignTagToMatch Error]:', error);
+    return res.status(500).json({ detail: 'Failed to assign tag: ' + error.message });
   }
 };
