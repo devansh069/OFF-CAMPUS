@@ -111,6 +111,26 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      const [affected] = await User.update(
+        {
+          is_premium: true,
+          premium_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          profile_visibility: 2.0,
+          verification_status: 'verified'
+        },
+        {
+          where: {
+            [Op.or]: [
+              { phone_number: { [Op.like]: '%1111111111%' } },
+              { user_id: { [Op.like]: '%1111111111%' } }
+            ]
+          }
+        }
+      );
+      console.log(`[Patch] Activated Premium & Verified status for user 1111111111 (${affected} row updated)`);
+    } catch (e) {}
+
+    try {
       await sequelize.query("ALTER TABLE users ADD COLUMN chosen_tags JSON NULL;");
       console.log('[Patch] Manually added chosen_tags column to users');
     } catch (e) {}
