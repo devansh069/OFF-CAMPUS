@@ -184,6 +184,7 @@ exports.approveVerification = async (req, res) => {
 
     user.verification_status = 'verified';
     user.verification_method = 'manual';
+    user.rejection_reason = null;
     await user.save();
 
     // Send status notification email to user
@@ -213,7 +214,9 @@ exports.rejectVerification = async (req, res) => {
       return res.status(404).json({ detail: 'User not found' });
     }
 
+    const rejectionReason = reason || 'The uploaded ID card image was blurry or invalid.';
     user.verification_status = 'rejected';
+    user.rejection_reason = rejectionReason;
     await user.save();
 
     // Send status notification email to user

@@ -105,22 +105,13 @@ export default function Premium() {
         };
         document.body.appendChild(script);
       } else {
-        // On Mobile App / Expo, launch Razorpay Checkout or fallback test simulation
-        Alert.alert(
-          'Razorpay Test Checkout 💳',
-          `Order ID: ${order_id}\nAmount: ₹99\nClick 'Proceed Payment' to verify test transaction.`,
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => setLoading(false) },
-            {
-              text: 'Proceed Payment',
-              onPress: async () => {
-                const mockPaymentId = 'pay_' + Math.random().toString(36).substring(2, 10);
-                const mockSignature = 'sig_' + Math.random().toString(36).substring(2, 10);
-                await verifyPayment(order_id, mockPaymentId, mockSignature);
-              }
-            }
-          ]
-        );
+        // On Mobile App / Expo, launch Razorpay Gateway in native WebBrowser
+        const checkoutUrl = `${EXPO_PUBLIC_BACKEND_URL}/api/payment/checkout-page?order_id=${order_id}&key_id=${key_id}&amount=${amount}&token=${sessionToken}`;
+        await WebBrowser.openBrowserAsync(checkoutUrl);
+
+        // Sync status upon returning to app
+        await refreshUser();
+        setLoading(false);
       }
     } catch (e: any) {
       console.error('[Razorpay Payment Exception]:', e);

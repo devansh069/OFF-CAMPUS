@@ -89,7 +89,6 @@ export default function ProfileSetup() {
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [gender, setGender] = useState(user?.gender || '');
   const [genderPreference, setGenderPreference] = useState(user?.gender_preference || 'both');
-  const [lookingFor, setLookingFor] = useState(user?.looking_for || 'dating');
 
   // Height state (Feet & Inches)
   const getInitialFeetInches = (cmValue?: number) => {
@@ -458,7 +457,6 @@ export default function ProfileSetup() {
         name,
         age: parseInt(age),
         gender,
-        looking_for: lookingFor,
         gender_preference: genderPreference,
         height: Math.round((heightFeet * 12 + heightInches) * 2.54),
         location: locationText,

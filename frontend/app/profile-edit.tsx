@@ -61,7 +61,6 @@ export default function ProfileEdit() {
   const [course, setCourse] = useState(user?.course || '');
   const [year, setYear] = useState(user?.year || '');
   const [genderPreference, setGenderPreference] = useState(user?.gender_preference || 'both');
-  const [lookingFor, setLookingFor] = useState(user?.looking_for || '');
   const [interests, setInterests] = useState<string[]>(user?.interests || []);
   const [gender, setGender] = useState(user?.gender || '');
   const [religion, setReligion] = useState(user?.religion || '');
@@ -280,7 +279,6 @@ export default function ProfileEdit() {
           bio,
           course,
           year,
-          looking_for: lookingFor,
           gender_preference: genderPreference,
           interests,
           gender,

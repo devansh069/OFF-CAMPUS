@@ -333,6 +333,11 @@ export default function Profile() {
                 }}
                 style={styles.avatarImageCircle}
               />
+              {user?.is_premium && (
+                <View style={styles.premiumGoldenCrownBadge}>
+                  <Ionicons name="crown" size={16} color="#FFD700" />
+                </View>
+              )}
             </View>
 
             <View style={styles.nameRow}>
@@ -721,6 +726,24 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
+  },
+  premiumGoldenCrownBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -2,
+    backgroundColor: '#0F0817',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
   },
   crownBadge: {
     position: 'absolute',

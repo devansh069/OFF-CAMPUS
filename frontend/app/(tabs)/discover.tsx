@@ -348,7 +348,6 @@ const getScrollableItems = (profile: any) => {
     { icon: (profile.gender === 'female' ? 'female-outline' : profile.gender === 'male' ? 'male-outline' : 'person-outline'), text: genderLabel },
     { icon: 'resize-outline', text: heightVal },
     { icon: 'location-outline', text: locationLabel },
-    { icon: 'heart-outline', text: lookingLabel },
     { icon: 'sparkles-outline', text: religionLabel },
     { icon: 'wine-outline', text: drinkLabel },
     { icon: 'flame-outline', text: smokeLabel },
@@ -543,11 +542,18 @@ export default function Discover() {
   );
   const [filterVerifiedOnly, setFilterVerifiedOnly] = useState(false);
 
+  // Animation Refs
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [cardHeight, setCardHeight] = useState(Dimensions.get('window').height - 180);
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // Premium & Daily Limits State
   const [likesRemaining, setLikesRemaining] = useState<number>(6);
   const [upsellVisible, setUpsellVisible] = useState(false);
   const [upsellTitle, setUpsellTitle] = useState("Unlock Premium Access 👑");
   const [upsellFeature, setUpsellFeature] = useState("6 Likes Daily Limit");
+  const [canRewind, setCanRewind] = useState(false);
 
   useEffect(() => {
     fetchProfiles();
@@ -647,6 +653,9 @@ export default function Discover() {
   const handleLike = async (targetUserId: string) => {
     const targetProfile = profiles.find(p => p.user_id === targetUserId);
     if (sessionToken === 'dummy_token') {
+      if (!user?.is_premium) {
+        setLikesRemaining(prev => Math.max(0, prev - 1));
+      }
       if (Math.random() < 0.4 && targetProfile) {
         setShowMatch(targetProfile);
       }
@@ -708,8 +717,9 @@ export default function Discover() {
     }).start(async () => {
       // 2. Perform backend pass logic in background
       handlePass(targetUserId);
-      // 3. Move to next user
+      // 3. Move to next user & enable 1-step rewind
       setCurrentIndex(prev => prev + 1);
+      setCanRewind(true);
       // 4. Scroll to top of the next card and reset scroll tracking
       scrollY.setValue(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
@@ -726,11 +736,44 @@ export default function Discover() {
   };
 
   const handleLikeAndNext = (targetUserId: string) => {
+    if (user?.verification_status !== 'verified') {
+      if (user?.verification_status === 'rejected') {
+        Alert.alert(
+          'Verification Rejected ❌',
+          `Reason: "${user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}"\n\nPlease submit a valid photo of your ID card to unlock likes & profile visibility.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Verify ID', onPress: () => router.push('/profile-edit') }
+          ]
+        );
+      } else if (user?.verification_status === 'pending') {
+        Alert.alert(
+          'Verification Pending ⏳',
+          'Your student ID card is currently under review by admin. You will be able to send likes once approved!'
+        );
+      } else {
+        Alert.alert(
+          'Verification Required 🛡️',
+          'You must verify your student profile before sending likes to anyone!',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Verify Now', onPress: () => router.push('/profile-edit') }
+          ]
+        );
+      }
+      return;
+    }
+
     if (!user?.is_premium && likesRemaining <= 0) {
       setUpsellTitle('Daily Free Likes Limit Reached! ⚡');
       setUpsellFeature('6 Likes Daily Limit');
       setUpsellVisible(true);
       return;
+    }
+
+    // Optimistically decrement daily free likes counter
+    if (!user?.is_premium) {
+      setLikesRemaining(prev => Math.max(0, prev - 1));
     }
 
     // 1. Slide out to the right
@@ -741,8 +784,9 @@ export default function Discover() {
     }).start(async () => {
       // 2. Perform backend like logic in background
       handleLike(targetUserId);
-      // 3. Move to next user
+      // 3. Move to next user & enable 1-step rewind
       setCurrentIndex(prev => prev + 1);
+      setCanRewind(true);
       // 4. Scroll to top of the next card and reset scroll tracking
       scrollY.setValue(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
@@ -766,20 +810,39 @@ export default function Discover() {
       return;
     }
 
+    if (!canRewind) {
+      Alert.alert('Rewind Limit ⏪', 'You can only rewind 1 profile at a time! Perform a new swipe action to rewind again.');
+      return;
+    }
+
     try {
+      if (currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+        setCanRewind(false);
+        scrollY.setValue(0);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        slideAnim.setValue(-Dimensions.get('window').width);
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 6,
+          tension: 45,
+          useNativeDriver: true,
+        }).start();
+        return;
+      }
+
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/skipped`, {
         headers: { 'Authorization': `Bearer ${sessionToken}` }
       });
       if (r.ok) {
         const d = await r.json();
         if (d.profiles && d.profiles.length > 0) {
-          setProfiles(prev => [...d.profiles, ...prev]);
-          if (currentIndex > 0) {
-            setCurrentIndex(prev => prev - 1);
-          }
-          Alert.alert('Rewind! ⏪', 'Skipped profiles restored to your deck!');
+          setProfiles(prev => [d.profiles[0], ...prev]);
+          setCurrentIndex(0);
+          setCanRewind(false);
+          Alert.alert('Rewind! ⏪', 'Previous profile restored to your deck!');
         } else {
-          Alert.alert('Rewind', 'No skipped profiles to restore.');
+          Alert.alert('Rewind', 'No previous profile to restore.');
         }
       }
     } catch (e) {
@@ -1144,13 +1207,15 @@ export default function Discover() {
 
             {/* Floating Action Overlay Buttons */}
             <View style={styles.floatingActionsContainer}>
-              <TouchableOpacity
-                style={[styles.floatingBtn, styles.floatingRewind]}
-                onPress={handleRewindSkipped}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="refresh" size={22} color="#FFD700" />
-              </TouchableOpacity>
+              {user?.is_premium && (
+                <TouchableOpacity
+                  style={[styles.floatingBtn, styles.floatingRewind]}
+                  onPress={handleRewindSkipped}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh" size={22} color="#FFD700" />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.floatingBtn, styles.floatingNope]}
@@ -1197,6 +1262,44 @@ export default function Discover() {
               <Text style={styles.logoText}>off campus</Text>
             </View>
           </View>
+
+          {/* Verification Status Warning Banner */}
+          {user?.verification_status !== 'verified' && (
+            <TouchableOpacity
+              style={styles.unverifiedBanner}
+              onPress={() => {
+                if (user?.verification_status === 'rejected') {
+                  Alert.alert(
+                    'Verification Rejected ❌',
+                    `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Verify ID', onPress: () => router.push('/profile-edit') }
+                    ]
+                  );
+                } else {
+                  router.push('/profile-edit');
+                }
+              }}
+              activeOpacity={0.85}
+            >
+              <BlurView intensity={80} tint="dark" style={styles.unverifiedBannerGlass}>
+                <Ionicons
+                  name={user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}
+                  size={16}
+                  color={user?.verification_status === 'rejected' ? '#FF4B4B' : '#FFD700'}
+                />
+                <Text style={styles.unverifiedBannerText} numberOfLines={1}>
+                  {user?.verification_status === 'rejected'
+                    ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
+                    : user?.verification_status === 'pending'
+                    ? 'Verification Pending ⏳ Under Review'
+                    : 'Verify your ID to send likes & show your profile!'}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
+              </BlurView>
+            </TouchableOpacity>
+          )}
 
           {/* Top Controls Row */}
           <View style={styles.topControlsRow}>
@@ -2122,6 +2225,28 @@ const styles = StyleSheet.create({
     color: '#C2FF3D',
     fontSize: 11,
     fontWeight: '800',
+  },
+  unverifiedBanner: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.35)',
+  },
+  unverifiedBannerGlass: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: 'rgba(20, 20, 25, 0.88)',
+  },
+  unverifiedBannerText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
   },
 
   // Empty State

@@ -637,6 +637,14 @@ export default function CampusLive() {
       return;
     }
 
+    if (audience === 'global' && !user?.is_premium) {
+      closeAudienceModal();
+      setUpsellTitle('Post Global Stories 🌐');
+      setUpsellFeature('Global Story Upload');
+      setUpsellVisible(true);
+      return;
+    }
+
     setPosting(true);
     try {
       if (sessionToken === 'dummy_token') {
@@ -1828,14 +1836,14 @@ export default function CampusLive() {
 
                   {/* Global Network Visibility Option */}
                   <TouchableOpacity style={styles.audienceOpt} onPress={() => {
-                    Alert.alert(
-                      'Premium Feature 🌟',
-                      'Posting a story to the Global Network is a premium feature.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'OK', onPress: () => handlePostStory('global') }
-                      ]
-                    );
+                    if (!user?.is_premium) {
+                      closeAudienceModal();
+                      setUpsellTitle('Post Global Stories 🌐');
+                      setUpsellFeature('Global Story Upload');
+                      setUpsellVisible(true);
+                      return;
+                    }
+                    handlePostStory('global');
                   }} activeOpacity={0.8}>
                     <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 215, 0, 0.15)', borderColor: 'rgba(255, 215, 0, 0.3)' }]}>
                       <Ionicons name="globe" size={20} color="#FFD700" />

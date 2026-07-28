@@ -96,6 +96,21 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      await sequelize.query("ALTER TABLE users DROP COLUMN looking_for;");
+      console.log('[Patch] Dropped looking_for column from users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN cover_photo TEXT NULL;");
+      console.log('[Patch] Added cover_photo column to users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN rejection_reason TEXT NULL;");
+      console.log('[Patch] Added rejection_reason column to users table');
+    } catch (e) {}
+
+    try {
       await sequelize.query("ALTER TABLE users ADD COLUMN chosen_tags JSON NULL;");
       console.log('[Patch] Manually added chosen_tags column to users');
     } catch (e) {}

@@ -102,7 +102,144 @@ exports.verifyPayment = async (req, res) => {
   }
 };
 
-// 3. Get Premium Status
+// 4. Render Mobile Checkout Page for WebBrowser
+exports.renderCheckoutPage = async (req, res) => {
+  const { order_id, key_id, amount, token } = req.query;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Off Campus Premium Checkout</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    body {
+      background-color: #0F0817;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(194, 255, 61, 0.3);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+      max-width: 360px;
+      width: 100%;
+    }
+    .badge {
+      background: rgba(194, 255, 61, 0.12);
+      color: #C2FF3D;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-bottom: 16px;
+      border: 1px solid rgba(194, 255, 61, 0.3);
+    }
+    h1 { font-size: 24px; font-weight: 900; margin: 0 0 8px 0; }
+    p { color: rgba(255, 255, 255, 0.6); font-size: 14px; margin: 0 0 24px 0; }
+    .pay-btn {
+      background: #C2FF3D;
+      color: #000000;
+      font-size: 16px;
+      font-weight: 900;
+      border: none;
+      border-radius: 20px;
+      padding: 16px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .status { margin-top: 16px; font-size: 13px; color: #C2FF3D; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">OFF CAMPUS PREMIUM</div>
+    <h1>Student Pass Pass</h1>
+    <p>Complete your ₹99 membership payment via Razorpay</p>
+    <button id="pay-button" class="pay-btn">Open Payment Gateway</button>
+    <div id="status-msg" class="status">Verifying payment...</div>
+  </div>
+
+  <script>
+    const options = {
+      key: "${key_id || process.env.RAZORPAY_KEY_ID}",
+      amount: ${amount || 9900},
+      currency: "INR",
+      name: "Off Campus Premium",
+      description: "Student Pass (1 Month)",
+      order_id: "${order_id}",
+      theme: { color: "#C2FF3D" },
+      handler: function (response) {
+        document.getElementById('pay-button').style.display = 'none';
+        document.getElementById('status-msg').style.display = 'block';
+        document.getElementById('status-msg').innerText = 'Payment Successful! Verifying...';
+
+        fetch('/api/payment/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${token}'
+          },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success || data.is_premium) {
+            document.getElementById('status-msg').innerText = 'Premium Activated! Returning to App...';
+            setTimeout(() => {
+              window.location.href = '/premium-success?session_id=' + response.razorpay_payment_id;
+            }, 1200);
+          } else {
+            alert(data.detail || 'Verification failed');
+          }
+        })
+        .catch(err => {
+          alert('Verification error: ' + err.message);
+        });
+      },
+      modal: {
+        ondismiss: function() {
+          console.log('Payment dismissed');
+        }
+      }
+    };
+
+    const rzp = new Razorpay(options);
+
+    document.getElementById('pay-button').onclick = function() {
+      rzp.open();
+    };
+
+    // Auto open on load
+    window.onload = function() {
+      rzp.open();
+    };
+  </script>
+</body>
+</html>
+  `;
+
+  res.send(html);
+};
+
+// 5. Get Premium Status
 exports.getPremiumStatus = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -130,3 +267,4 @@ exports.getPremiumStatus = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to fetch premium status: ' + error.message });
   }
 };
+

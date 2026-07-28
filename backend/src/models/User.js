@@ -64,10 +64,10 @@ const User = sequelize.define('User', {
     type: DataTypes.JSON,
     allowNull: true
   },
-  looking_for: {
-    type: DataTypes.ENUM('dating', 'friends', 'networking', 'all'),
+  cover_photo: {
+    type: DataTypes.TEXT,
     allowNull: true,
-    field: 'looking_for'
+    field: 'cover_photo'
   },
   gender_preference: {
     type: DataTypes.ENUM('male', 'female', 'both'),
@@ -145,6 +145,11 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('email', 'manual'),
     allowNull: true,
     field: 'verification_method'
+  },
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'rejection_reason'
   },
   picture: {
     type: DataTypes.TEXT,

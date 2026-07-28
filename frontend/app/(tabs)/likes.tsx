@@ -114,7 +114,6 @@ const getScrollableItems = (profile: any) => {
     { icon: (profile.gender === 'female' ? 'female-outline' : profile.gender === 'male' ? 'male-outline' : 'person-outline'), text: genderLabel },
     { icon: 'resize-outline', text: heightVal },
     { icon: 'location-outline', text: locationLabel },
-    { icon: 'heart-outline', text: lookingLabel },
     { icon: 'sparkles-outline', text: religion },
     { icon: 'wine-outline', text: drinkLabel },
     { icon: 'flame-outline', text: smokeLabel },
@@ -299,7 +298,7 @@ export default function Likes() {
                 <View style={styles.gridContainer}>
                   {gridData.map((profile, index) => {
                     if (profile) {
-                      const isLockedForFree = !user?.is_premium && index >= 3;
+                      const isLockedForFree = !user?.is_premium && index > 0;
 
                       if (isLockedForFree) {
                         return (

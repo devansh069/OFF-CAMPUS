@@ -34,7 +34,8 @@ router.post('/verification/send-email-otp', authMiddleware, authController.sendE
 router.post('/verification/verify-email-otp', authMiddleware, authController.verifyEmailOTP);
 router.post('/profile/spotify', authMiddleware, spotifyController.exchangeCode);
 
-// Payment & Subscription routes (Protected)
+// Payment & Subscription routes
+router.get('/payment/checkout-page', paymentController.renderCheckoutPage);
 router.post('/payment/create-order', authMiddleware, paymentController.createOrder);
 router.post('/payment/verify', authMiddleware, paymentController.verifyPayment);
 router.get('/payment/status', authMiddleware, paymentController.getPremiumStatus);

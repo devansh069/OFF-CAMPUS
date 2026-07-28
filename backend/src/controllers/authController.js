@@ -267,13 +267,14 @@ exports.onboard = async (req, res) => {
       age,
       bio,
       gender,
-      looking_for,
       gender_preference,
       height,
       location,
       latitude,
       longitude,
       photos,
+      picture,
+      cover_photo,
       prompts,
       interests,
       religion,
@@ -330,7 +331,6 @@ exports.onboard = async (req, res) => {
     user.age = age ? parseInt(age, 10) : user.age;
     user.bio = bio !== undefined ? bio : user.bio;
     user.gender = gender || user.gender;
-    user.looking_for = looking_for || user.looking_for;
     user.gender_preference = gender_preference || user.gender_preference;
     user.height = height ? parseInt(height, 10) : user.height;
     user.location = location || user.location;
@@ -343,6 +343,10 @@ exports.onboard = async (req, res) => {
     user.course = course || user.course;
     user.year = year || user.year;
     user.college_id = collegeId || user.college_id;
+
+    // Main Photo & Cover Photo explicitly provided or fallback
+    if (picture) user.picture = picture;
+    if (cover_photo) user.cover_photo = cover_photo;
 
     // Handle array / JSON types
     if (photos) {
@@ -364,6 +368,15 @@ exports.onboard = async (req, res) => {
         }
       }
       user.photos = updatedPhotos;
+
+      // Automatically assign Main Photo (picture) to photo 1 if not set
+      if (updatedPhotos.length > 0 && !user.picture) {
+        user.picture = updatedPhotos[0];
+      }
+      // Automatically assign Cover Photo to photo 2 (or photo 1 fallback) if not set
+      if (updatedPhotos.length > 0 && !user.cover_photo) {
+        user.cover_photo = updatedPhotos[1] || updatedPhotos[0];
+      }
     }
     if (prompts) user.prompts = typeof prompts === 'object' ? prompts : JSON.parse(prompts);
     if (interests) user.interests = Array.isArray(interests) ? interests : JSON.parse(interests);
@@ -670,7 +683,8 @@ exports.getDiscoveryProfiles = async (req, res) => {
 
     const whereClause = {
       user_id: { [Op.notIn]: swipedUserIds },
-      name: { [Op.ne]: null } // Only show real (onboarded) profiles
+      name: { [Op.ne]: null }, // Only show real (onboarded) profiles
+      verification_status: 'verified' // Only show verified profiles in Vibe page!
     };
 
 
@@ -719,6 +733,15 @@ exports.likeUser = async (req, res) => {
 
     // Check if user is premium
     const currentUser = await User.findByPk(currentUserId);
+    if (!currentUser || currentUser.verification_status !== 'verified') {
+      return res.status(403).json({
+        error: 'unverified_user',
+        detail: 'You must verify your student profile before sending likes to anyone!',
+        verification_status: currentUser ? currentUser.verification_status : 'unverified',
+        rejection_reason: currentUser ? currentUser.rejection_reason : null
+      });
+    }
+
     const isPremium = currentUser ? currentUser.is_premium : false;
 
     const todayDate = new Date().toISOString().split('T')[0]; // Resets at 00:00 UTC = 5:30 AM IST

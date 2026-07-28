@@ -27,7 +27,6 @@ export default function SettingsScreen() {
   // Profile preferences state
   const [gender, setGender] = useState(user?.gender || 'male');
   const [genderPreference, setGenderPreference] = useState(user?.gender_preference || 'both');
-  const [lookingFor, setLookingFor] = useState(user?.looking_for || 'dating');
 
   // App settings state
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -50,7 +49,6 @@ export default function SettingsScreen() {
         body: JSON.stringify({
           gender,
           gender_preference: genderPreference,
-          looking_for: lookingFor,
         }),
       });
 
