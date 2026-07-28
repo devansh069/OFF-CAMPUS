@@ -93,6 +93,16 @@ const startServer = async () => {
       console.log('[Patch] Manually added image column to confessions');
     } catch (e) {}
 
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN chosen_tags JSON NULL;");
+      console.log('[Patch] Manually added chosen_tags column to users');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE likes ADD COLUMN tag VARCHAR(255) NULL;");
+      console.log('[Patch] Manually added tag column to likes');
+    } catch (e) {}
+
 
 
     // 3. Seed colleges and dummy users if they are not already present
