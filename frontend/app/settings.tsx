@@ -146,32 +146,6 @@ export default function SettingsScreen() {
                 })}
               </View>
             </View>
-
-            <View style={styles.divider} />
-
-            {/* Relationship Mode Selector */}
-            <View style={styles.settingItemRow}>
-              <View>
-                <Text style={styles.settingItemLabel}>Vibe Mode (Goal)</Text>
-                <Text style={styles.settingItemSub}>Primary connection mode</Text>
-              </View>
-              <View style={styles.pillsContainerVertical}>
-                {[{ v: 'dating', l: ' Dating' }, { v: 'friends', l: ' Friends' }, { v: 'networking', l: 'Network' }, { v: 'all', l: ' All' }].map((o) => {
-                  const active = lookingFor === o.v;
-                  return (
-                    <TouchableOpacity
-                      key={o.v}
-                      style={[styles.pillVertical, active && styles.pillVerticalActive]}
-                      onPress={() => setLookingFor(o.v as any)}
-                    >
-                      <Text style={[styles.pillText, active && styles.pillTextActive]}>
-                        {o.l}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
           </View>
 
           {/* APP THEME */}

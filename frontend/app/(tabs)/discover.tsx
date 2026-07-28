@@ -293,7 +293,6 @@ const cmToFeetInches = (cm: number) => {
 const getScrollableItems = (profile: any) => {
   let height = profile.height;
   let religion = profile.religion;
-  let looking = profile.looking_for;
   let drink = profile.drink;
   let smoke = profile.smoke;
   let weed = profile.weed;
@@ -309,9 +308,6 @@ const getScrollableItems = (profile: any) => {
   if (!religion) {
     const religions = ['Hindu', 'Sikh', 'Christian', 'Muslim', 'Jain'];
     religion = religions[hash % religions.length];
-  }
-  if (!looking) {
-    looking = (hash % 2 === 0) ? 'dating' : 'friends';
   }
   if (!drink) {
     drink = (hash % 3 === 0) ? 'yes' : 'no';
@@ -337,8 +333,6 @@ const getScrollableItems = (profile: any) => {
   const heightVal = cmToFeetInches(height);
   const locationLabel = `${location}, ${state}`;
   const religionLabel = religion;
-
-  const lookingLabel = looking === 'friends' ? 'Friends' : looking === 'dating' ? 'Dating' : looking === 'all' ? 'Dating/Friends' : looking;
 
   const drinkLabel = drink.toLowerCase() === 'yes' ? 'Drinks' : 'Drink: No';
   const smokeLabel = smoke.toLowerCase() === 'yes' ? 'Smoker' : 'Smoke: No';
@@ -537,9 +531,7 @@ export default function Discover() {
   const [filterHeightMax, setFilterHeightMax] = useState(190);
   const [filterDistanceMin, setFilterDistanceMin] = useState(1);
   const [filterDistanceMax, setFilterDistanceMax] = useState(50);
-  const [filterLookingFor, setFilterLookingFor] = useState<'friends' | 'dating' | 'both'>(
-    user?.looking_for === 'dating' || user?.looking_for === 'friends' ? user.looking_for : 'both'
-  );
+  const [filterLookingFor, setFilterLookingFor] = useState<'friends' | 'dating' | 'both'>('both');
   const [filterVerifiedOnly, setFilterVerifiedOnly] = useState(false);
 
   // Animation Refs
@@ -572,9 +564,6 @@ export default function Discover() {
     if (user?.gender_preference) {
       setGenderFilter(user.gender_preference);
       setFilterGender(user.gender_preference);
-    }
-    if (user?.looking_for === 'dating' || user?.looking_for === 'friends') {
-      setFilterLookingFor(user.looking_for);
     }
   }, [user, targetUserId]);
 

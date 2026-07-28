@@ -91,7 +91,6 @@ const cmToFeetInches = (cm: number) => {
 const getScrollableItems = (profile: any) => {
   const height = profile.height || 165;
   const religion = profile.religion || 'Hindu';
-  const looking = profile.looking_for || 'dating';
   const drink = profile.drink || 'no';
   const smoke = profile.smoke || 'no';
   const weed = profile.weed || 'no';
@@ -105,7 +104,6 @@ const getScrollableItems = (profile: any) => {
   const heightVal = cmToFeetInches(height);
   const locationLabel = `${location}, ${state}`;
 
-  const lookingLabel = looking === 'friends' ? 'Friends' : looking === 'dating' ? 'Dating' : looking === 'all' ? 'Dating/Friends' : looking;
   const drinkLabel = drink.toLowerCase() === 'yes' ? 'Drinks' : 'Drink: No';
   const smokeLabel = smoke.toLowerCase() === 'yes' ? 'Smoker' : 'Smoke: No';
   const weedLabel = weed.toLowerCase() === 'yes' ? 'Weed' : 'Weed: No';

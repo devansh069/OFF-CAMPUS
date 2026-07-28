@@ -314,7 +314,6 @@ export default function ProfileEdit() {
   const getScrollableItems = () => {
     return [
       gender && { icon: 'person-outline', text: gender.toUpperCase() },
-      lookingFor && { icon: 'search-outline', text: `Looking for ${lookingFor.toUpperCase()}` },
       religion && { icon: 'heart-outline', text: religion },
       drink && { icon: 'wine-outline', text: `Drinks: ${drink.toUpperCase()}` },
       smoke && { icon: 'logo-no-smoking', text: `Smokes: ${smoke.toUpperCase()}` },

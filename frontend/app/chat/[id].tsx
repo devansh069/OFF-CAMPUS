@@ -186,6 +186,151 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
   );
 }
 
+function RecordingWaveformBar({ levels }: { levels: number[] }) {
+  const displayLevels = levels.length > 0 ? levels : [6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8];
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, flex: 1, paddingHorizontal: 8, height: 36, overflow: 'hidden' }}>
+      {displayLevels.map((h, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: Math.max(6, Math.min(34, h)),
+            backgroundColor: '#FF4B4B',
+            borderRadius: 3,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+function WhatsAppVoicePreviewBar({
+  audioUri,
+  onCancel,
+  onSend,
+  sending
+}: {
+  audioUri: string;
+  onCancel: () => void;
+  onSend: () => void;
+  sending: boolean;
+}) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    let localSound: Audio.Sound | null = null;
+
+    const loadAudio = async () => {
+      try {
+        const { sound: newSound, status } = await Audio.Sound.createAsync(
+          { uri: audioUri },
+          { shouldPlay: false },
+          (status: any) => {
+            if (!isMounted) return;
+            if (status.isLoaded) {
+              setPosition(status.positionMillis);
+              setDuration(status.durationMillis || 0);
+              if (status.didJustFinish) {
+                setIsPlaying(false);
+                setPosition(0);
+              }
+            }
+          }
+        );
+        localSound = newSound;
+        if (isMounted) {
+          setSound(newSound);
+          if (status.isLoaded) {
+            setDuration(status.durationMillis || 0);
+          }
+        }
+      } catch (err) {
+        console.warn('Preview audio load error:', err);
+      }
+    };
+
+    loadAudio();
+
+    return () => {
+      isMounted = false;
+      if (localSound) {
+        localSound.unloadAsync();
+      }
+    };
+  }, [audioUri]);
+
+  const togglePlayback = async () => {
+    if (!sound) return;
+    try {
+      if (isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        if (position >= duration && duration > 0) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+        setIsPlaying(true);
+      }
+    } catch (e) {
+      console.warn('Preview play error:', e);
+    }
+  };
+
+  const formatTime = (millis: number) => {
+    const totalSecs = Math.floor(millis / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
+
+  return (
+    <BlurView intensity={95} tint="dark" style={styles.previewContainer}>
+      {/* Delete / Trash Button */}
+      <TouchableOpacity onPress={onCancel} style={styles.trashBtn} activeOpacity={0.7}>
+        <Ionicons name="trash-outline" size={22} color="#FF4B4B" />
+      </TouchableOpacity>
+
+      {/* Play / Pause Button */}
+      <TouchableOpacity onPress={togglePlayback} style={styles.previewPlayBtn} activeOpacity={0.8}>
+        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color="#000" style={{ marginLeft: isPlaying ? 0 : 2 }} />
+      </TouchableOpacity>
+
+      {/* Track Visualizer */}
+      <View style={styles.previewTrackWrapper}>
+        <View style={styles.previewTrackBackground}>
+          <View style={[styles.previewTrackFill, { width: `${progressPercent}%` }]} />
+        </View>
+        <Text style={styles.previewTimerText}>
+          {formatTime(position)} / {formatTime(duration)}
+        </Text>
+      </View>
+
+      {/* Send Button */}
+      <TouchableOpacity
+        onPress={onSend}
+        disabled={sending}
+        style={styles.previewSendBtn}
+        activeOpacity={0.8}
+      >
+        {sending ? (
+          <ActivityIndicator size="small" color="#000" />
+        ) : (
+          <Ionicons name="send" size={18} color="#000" style={{ marginLeft: 2 }} />
+        )}
+      </TouchableOpacity>
+    </BlurView>
+  );
+}
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, sessionToken } = useAuth();
@@ -206,7 +351,11 @@ export default function ChatScreen() {
 
   // Voice Recording States
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingTimerRef = useRef<any>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [previewAudioUri, setPreviewAudioUri] = useState<string | null>(null);
+  const [audioLevels, setAudioLevels] = useState<number[]>([]);
 
   // Start Audio Recording
   const startRecording = async () => {
@@ -232,49 +381,94 @@ export default function ChatScreen() {
         recordingRef.current = null;
       }
 
-      console.log('[VoiceNote] Creating Recording object...');
+      setPreviewAudioUri(null);
+      setRecordingDuration(0);
+      setAudioLevels([]);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+
+      console.log('[VoiceNote] Creating Recording object with live metering...');
+      const customOptions = {
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      };
+
       const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+        customOptions,
+        (status: any) => {
+          if (status.isRecording && status.metering !== undefined) {
+            const db = status.metering; // dB from -160 to 0 (silence around -60)
+            const norm = Math.max(0, Math.min(1, (db + 60) / 60)); // normalized 0..1
+            const barHeight = Math.max(6, Math.floor(norm * 32));
+
+            setAudioLevels(prev => {
+              const updated = [...prev, barHeight];
+              if (updated.length > 20) updated.shift();
+              return updated;
+            });
+          }
+        },
+        80
       );
       
       recordingRef.current = newRecording;
       setIsRecording(true);
-      console.log('[VoiceNote] Recording started successfully!');
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+      console.log('[VoiceNote] Recording started with live audio metering successfully!');
     } catch (err: any) {
       console.error('[VoiceNote] Failed to start recording', err);
       Alert.alert('Start Recording Error', err.message || String(err));
     }
   };
 
-  // Stop Recording & Send Voice Note
-  const stopRecording = async () => {
-    console.log('[VoiceNote] stopRecording called. Active recording exists:', !!recordingRef.current);
-    const activeRecording = recordingRef.current;
-    if (!activeRecording) {
-      Alert.alert('Stop Error', 'No active recording found.');
-      return;
+  // Cancel & Discard Recording
+  const cancelRecording = async () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+      } catch (e) {}
+      recordingRef.current = null;
     }
+    setIsRecording(false);
+    setPreviewAudioUri(null);
+    setRecordingDuration(0);
+  };
+
+  // Stop Recording & Enter WhatsApp Preview Mode
+  const stopRecordingToPreview = async () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    const activeRecording = recordingRef.current;
+    if (!activeRecording) return;
 
     setIsRecording(false);
     recordingRef.current = null;
 
     try {
-      console.log('[VoiceNote] Stopping and unloading recording...');
       await activeRecording.stopAndUnloadAsync();
       const uri = activeRecording.getURI();
-      console.log('[VoiceNote] Recording URI:', uri);
-      if (!uri) {
-        Alert.alert('Error', 'Could not retrieve recording URI.');
-        return;
+      if (uri) {
+        setPreviewAudioUri(uri);
       }
+    } catch (err: any) {
+      console.error('[VoiceNote] Failed to stop recording to preview', err);
+      Alert.alert('Error', 'Failed to stop recording for preview.');
+    }
+  };
 
+  // Upload and Send Voice Note
+  const sendVoiceNote = async (audioUriToUpload?: string) => {
+    const targetUri = audioUriToUpload || previewAudioUri;
+    if (!targetUri) return;
+
+    setSending(true);
+
+    try {
       console.log('[VoiceNote] Reading audio file as base64...');
-      const base64Audio = await FileSystem.readAsStringAsync(uri, {
+      const base64Audio = await FileSystem.readAsStringAsync(targetUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      console.log('[VoiceNote] Base64 length:', base64Audio.length);
-
-      setSending(true);
 
       console.log('[VoiceNote] Uploading to backend...', `${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-audio`);
       const uploadRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/upload-audio`, {
@@ -286,16 +480,13 @@ export default function ChatScreen() {
         body: JSON.stringify({ audio: base64Audio })
       });
 
-      console.log('[VoiceNote] Upload response status:', uploadRes.status);
       if (!uploadRes.ok) {
         const errorData = await uploadRes.json();
         throw new Error(errorData.detail || 'Upload failed');
       }
       
       const { audio_url } = await uploadRes.json();
-      console.log('[VoiceNote] Uploaded audio URL:', audio_url);
 
-      console.log('[VoiceNote] Sending message...');
       const sendRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
         method: 'POST',
         headers: {
@@ -306,14 +497,14 @@ export default function ChatScreen() {
           to_user_id: id,
           content: '🎵 Sent a voice note',
           message_type: 'image',
-          image_url: audio_url // store audio link in image_url DB column
+          image_url: audio_url
         })
       });
 
-      console.log('[VoiceNote] Message send response status:', sendRes.status);
       if (sendRes.ok) {
         const data = await sendRes.json();
         setMessages(prev => [...prev, data.message]);
+        setPreviewAudioUri(null);
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
       } else {
         const errorData = await sendRes.json();
@@ -324,6 +515,25 @@ export default function ChatScreen() {
       Alert.alert('Send Error', err.message || String(err));
     } finally {
       setSending(false);
+    }
+  };
+
+  const stopAndDirectSend = async () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    const activeRecording = recordingRef.current;
+    if (!activeRecording) return;
+
+    setIsRecording(false);
+    recordingRef.current = null;
+
+    try {
+      await activeRecording.stopAndUnloadAsync();
+      const uri = activeRecording.getURI();
+      if (uri) {
+        await sendVoiceNote(uri);
+      }
+    } catch (err: any) {
+      console.error('[VoiceNote] Failed direct send', err);
     }
   };
 
@@ -835,37 +1045,74 @@ export default function ChatScreen() {
           </ScrollView>
         )}
 
-        {/* Input Bar Section */}
-        <BlurView intensity={90} tint="dark" style={styles.inputContainer}>
-          <TouchableOpacity
-            style={[styles.micBtn, isRecording && { backgroundColor: '#C2FF3D' }]}
-            onPress={isRecording ? stopRecording : startRecording}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="mic" size={20} color={isRecording ? '#000' : 'rgba(255, 255, 255, 0.6)'} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor="#666"
-            value={text}
-            onChangeText={setText}
-            multiline
-            maxLength={500}
+        {/* Dynamic Input Bar Section */}
+        {previewAudioUri ? (
+          <WhatsAppVoicePreviewBar
+            audioUri={previewAudioUri}
+            onCancel={cancelRecording}
+            onSend={() => sendVoiceNote(previewAudioUri)}
+            sending={sending}
           />
-          <TouchableOpacity
-            style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={sendMessage}
-            disabled={!text.trim() || sending}
-            activeOpacity={0.8}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Ionicons name="send" size={16} color="#FFF" style={{ marginLeft: 2 }} />
-            )}
-          </TouchableOpacity>
-        </BlurView>
+        ) : isRecording ? (
+          <BlurView intensity={95} tint="dark" style={styles.liveRecordingContainer}>
+            {/* Red Pulsing Record Indicator & Timer */}
+            <View style={styles.recordingTimerBox}>
+              <View style={styles.redPulsingDot} />
+              <Text style={styles.recordingTimerText}>
+                {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60) < 10 ? '0' : ''}{recordingDuration % 60}
+              </Text>
+            </View>
+
+            {/* Dynamic Real-time Audio Input Frequency Visualizer */}
+            <RecordingWaveformBar levels={audioLevels} />
+
+            {/* Cancel/Trash Button */}
+            <TouchableOpacity onPress={cancelRecording} style={styles.recordingActionIcon} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={22} color="#FF4B4B" />
+            </TouchableOpacity>
+
+            {/* Stop & Preview Button */}
+            <TouchableOpacity onPress={stopRecordingToPreview} style={styles.stopPreviewBtn} activeOpacity={0.8}>
+              <Ionicons name="stop" size={16} color="#000" />
+            </TouchableOpacity>
+
+            {/* Direct Send Button */}
+            <TouchableOpacity onPress={stopAndDirectSend} style={styles.directSendBtn} activeOpacity={0.8}>
+              <Ionicons name="send" size={16} color="#000" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          </BlurView>
+        ) : (
+          <BlurView intensity={90} tint="dark" style={styles.inputContainer}>
+            <TouchableOpacity
+              style={styles.micBtn}
+              onPress={startRecording}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="mic" size={20} color="rgba(255, 255, 255, 0.6)" />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor="#666"
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+              onPress={sendMessage}
+              disabled={!text.trim() || sending}
+              activeOpacity={0.8}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="send" size={16} color="#FFF" style={{ marginLeft: 2 }} />
+              )}
+            </TouchableOpacity>
+          </BlurView>
+        )}
       </KeyboardAvoidingView>
 
       {/* Report Modal */}
@@ -1114,6 +1361,7 @@ const styles = StyleSheet.create({
   },
 
   // Input Box
+  // Input Box
   inputContainer: {
     flexDirection: 'row',
     padding: 12,
@@ -1123,6 +1371,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+  },
+  liveRecordingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(20, 20, 25, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+  },
+  recordingTimerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  redPulsingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF4B4B',
+  },
+  recordingTimerText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  recordingActionIcon: {
+    padding: 6,
+  },
+  stopPreviewBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  directSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // WhatsApp Preview Bar
+  previewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(20, 20, 25, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+  },
+  trashBtn: {
+    padding: 6,
+  },
+  previewPlayBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewTrackWrapper: {
+    flex: 1,
+    gap: 4,
+    justifyContent: 'center',
+  },
+  previewTrackBackground: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  previewTrackFill: {
+    height: '100%',
+    backgroundColor: '#C2FF3D',
+    borderRadius: 2,
+  },
+  previewTimerText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  previewSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   micBtn: {
     width: 38,
