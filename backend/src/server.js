@@ -111,9 +111,10 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
-      // Reset is_premium to false by default for non-paid users
-      await sequelize.query("UPDATE users SET is_premium = FALSE WHERE premium_until IS NULL OR premium_until < NOW();");
-      console.log('[Patch] Reset is_premium status for non-paid users');
+      // Reset ALL users to non-premium (undo previous auto-premium patch damage)
+      // Only real Razorpay payments will re-activate premium going forward
+      await sequelize.query("UPDATE users SET is_premium = FALSE, premium_until = NULL, profile_visibility = 1.0;");
+      console.log('[Patch] Reset ALL users to non-premium status');
     } catch (e) {}
 
     try {
