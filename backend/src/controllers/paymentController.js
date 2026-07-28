@@ -90,7 +90,7 @@ exports.verifyPayment = async (req, res) => {
     }
 
     // Activate 30-day Premium membership
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({ where: { user_id: userId } });
     if (user) {
       const premiumUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
       user.is_premium = true;
@@ -296,7 +296,7 @@ exports.renderCheckoutPage = async (req, res) => {
 exports.getPremiumStatus = async (req, res) => {
   try {
     const userId = req.user.user_id;
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({ where: { user_id: userId } });
 
     if (!user) {
       return res.status(404).json({ detail: 'User not found' });

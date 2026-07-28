@@ -732,7 +732,7 @@ exports.likeUser = async (req, res) => {
     }
 
     // Check if user is premium
-    const currentUser = await User.findByPk(currentUserId);
+    const currentUser = await User.findOne({ where: { user_id: currentUserId } });
     if (!currentUser || currentUser.verification_status !== 'verified') {
       return res.status(403).json({
         error: 'unverified_user',
@@ -831,7 +831,7 @@ exports.passUser = async (req, res) => {
 exports.getDailyLikesStatus = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
-    const currentUser = await User.findByPk(currentUserId);
+    const currentUser = await User.findOne({ where: { user_id: currentUserId } });
     const isPremium = currentUser ? currentUser.is_premium : false;
 
     if (isPremium) {
@@ -865,7 +865,7 @@ exports.getDailyLikesStatus = async (req, res) => {
 exports.getSkippedProfiles = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
-    const currentUser = await User.findByPk(currentUserId);
+    const currentUser = await User.findOne({ where: { user_id: currentUserId } });
 
     if (!currentUser || !currentUser.is_premium) {
       return res.status(403).json({
