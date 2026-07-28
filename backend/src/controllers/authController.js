@@ -231,14 +231,7 @@ exports.verifyOTP = async (req, res) => {
       }
     }
 
-    // Auto-activate Premium & Verified status for test user 1111111111
-    if (user.phone_number?.includes('1111111111') || user.user_id?.includes('1111111111')) {
-      user.is_premium = true;
-      user.premium_until = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-      user.profile_visibility = 2.0;
-      user.verification_status = 'verified';
-      await user.save();
-    }
+
 
     // Fetch refreshed user record including associated college details
     const fullUser = await User.findOne({
@@ -555,15 +548,7 @@ exports.getCurrentUser = async (req, res) => {
       return res.status(404).json({ detail: 'User profile not found' });
     }
 
-    if (user.phone_number?.includes('1111111111') || user.user_id?.includes('1111111111')) {
-      if (!user.is_premium || user.verification_status !== 'verified') {
-        user.is_premium = true;
-        user.premium_until = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-        user.profile_visibility = 2.0;
-        user.verification_status = 'verified';
-        await user.save();
-      }
-    }
+
 
     return res.status(200).json({ user });
   } catch (error) {

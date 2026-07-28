@@ -85,7 +85,7 @@ const dummyUser: User = {
   looking_for: 'dating',
   photos: ['https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'],
   vibe_score: 4.8,
-  is_premium: true,
+  is_premium: false,
   verification_status: 'verified',
   is_on_campus: true,
   college: {

@@ -343,7 +343,8 @@ export default function ChatScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const socketRef = useRef<any>(null);
 
-  // Report Modal States
+  // Modal States
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState('Spam / Fake Profile');
   const [customReason, setCustomReason] = useState('');
@@ -900,49 +901,52 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient matching Vibe page */}
+      {/* App main dark theme linear gradient */}
       <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        colors={['#050005', '#160222', '#000000']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      {/* Dark veil overlay */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
 
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-        <SafeAreaView style={{ flex: 1 }}>
-      {/* Premium Header */}
-      <BlurView intensity={90} tint="dark" style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        {otherUser && (
-          <TouchableOpacity 
-            style={styles.headerUserRow}
-            activeOpacity={0.7}
-            onPress={() => {
-              // Direct navigation to user's profile card if desired
-            }}
-          >
-            <View style={styles.headerAvatarWrapper}>
-              <Image
-                source={{ uri: otherUser.photos?.[0] || otherUser.picture }}
-                style={styles.headerAvatar}
-              />
-              {otherUser.is_on_campus && (
-                <View style={styles.headerOnlineBadge} />
-              )}
-            </View>
-            <View style={styles.headerMeta}>
-              <Text style={styles.headerName}>{otherUser.name}</Text>
-            </View>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Floating Glass Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
           </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu}>
-          <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
-        </TouchableOpacity>
-      </BlurView>
+          {otherUser && (
+            <TouchableOpacity 
+              style={styles.headerUserRow}
+              activeOpacity={0.7}
+              onPress={() => setShowProfileModal(true)}
+            >
+              <View style={styles.headerAvatarWrapper}>
+                <Image
+                  source={{ uri: otherUser.photos?.[0] || otherUser.picture }}
+                  style={styles.headerAvatar}
+                />
+                {otherUser.is_on_campus && (
+                  <View style={styles.headerOnlineBadge} />
+                )}
+              </View>
+              <View style={styles.headerMeta}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.headerName}>{otherUser.name}</Text>
+                  {otherUser.verification_status === 'verified' && (
+                    <Ionicons name="checkmark-circle" size={14} color="#00D2FF" />
+                  )}
+                </View>
+                {otherUser.college?.name && (
+                  <Text style={styles.headerStatus}>{otherUser.college.name}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu}>
+            <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
+          </TouchableOpacity>
+        </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1106,14 +1110,133 @@ export default function ChatScreen() {
               activeOpacity={0.8}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color="#000" />
               ) : (
-                <Ionicons name="send" size={16} color="#FFF" style={{ marginLeft: 2 }} />
+                <Ionicons name="send" size={16} color="#000" style={{ marginLeft: 2 }} />
               )}
             </TouchableOpacity>
           </BlurView>
         )}
       </KeyboardAvoidingView>
+
+      {/* User Profile Preview Modal */}
+      <Modal
+        visible={showProfileModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={95} tint="dark" style={[styles.modalContainer, { maxHeight: '90%', padding: 0, overflow: 'hidden' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>User Profile 👤</Text>
+              <TouchableOpacity onPress={() => setShowProfileModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+              {/* Photo */}
+              <View style={{ alignItems: 'center' }}>
+                <Image
+                  source={{ uri: otherUser?.photos?.[0] || otherUser?.picture }}
+                  style={{ width: 130, height: 130, borderRadius: 65, borderWidth: 3, borderColor: '#C2FF3D' }}
+                />
+                {otherUser?.is_premium && (
+                  <View style={{ position: 'absolute', top: 4, right: '32%', backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 12, padding: 4 }}>
+                    <Ionicons name="crown" size={20} color="#FFD700" />
+                  </View>
+                )}
+              </View>
+
+              {/* Name & Age */}
+              <View style={{ alignItems: 'center', gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '900' }}>
+                    {otherUser?.name || 'User'}, {otherUser?.age || 20}
+                  </Text>
+                  {otherUser?.verification_status === 'verified' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00D2FF" />
+                  )}
+                </View>
+                {otherUser?.college?.name && (
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' }}>
+                    🎓 {otherUser.college.name}
+                  </Text>
+                )}
+              </View>
+
+              {/* Bio */}
+              {otherUser?.bio ? (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 4 }}>
+                    ABOUT
+                  </Text>
+                  <Text style={{ color: '#FFF', fontSize: 14, lineHeight: 20 }}>
+                    {otherUser.bio}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Characteristics Pills */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {otherUser?.gender && (
+                  <View style={{ backgroundColor: 'rgba(194, 255, 61, 0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.3)' }}>
+                    <Text style={{ color: '#C2FF3D', fontSize: 12, fontWeight: '700' }}>
+                      👤 {otherUser.gender.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                {otherUser?.religion && (
+                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
+                      🙏 {otherUser.religion}
+                    </Text>
+                  </View>
+                )}
+                {otherUser?.drink && (
+                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
+                      🍷 Drinks: {otherUser.drink}
+                    </Text>
+                  </View>
+                )}
+                {otherUser?.smoke && (
+                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
+                      🚬 Smokes: {otherUser.smoke}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Interests */}
+              {Array.isArray(otherUser?.interests) && otherUser.interests.length > 0 && (
+                <View>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>
+                    INTERESTS & VIBES
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {otherUser.interests.map((tag: string, idx: number) => (
+                      <View key={idx} style={{ backgroundColor: 'rgba(255, 27, 107, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 27, 107, 0.3)' }}>
+                        <Text style={{ color: '#FF6CD2', fontSize: 12, fontWeight: '600' }}>#{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Back Action */}
+              <TouchableOpacity
+                style={{ backgroundColor: '#C2FF3D', paddingVertical: 14, borderRadius: 24, alignItems: 'center', marginTop: 10 }}
+                onPress={() => setShowProfileModal(false)}
+              >
+                <Text style={{ color: '#000', fontSize: 15, fontWeight: '800' }}>Back to Chat</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </BlurView>
+        </View>
+      </Modal>
 
       {/* Report Modal */}
       <Modal
@@ -1189,8 +1312,7 @@ export default function ChatScreen() {
           </BlurView>
         </View>
       </Modal>
-        </SafeAreaView>
-      </BlurView>
+      </SafeAreaView>
     </View>
   );
 }
@@ -1205,31 +1327,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    gap: 12,
+    paddingVertical: 10,
+    backgroundColor: 'transparent',
+    gap: 10,
   },
   backBtn: {
-    padding: 4,
-    marginLeft: -4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerUserRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerAvatarWrapper: {
     position: 'relative',
   },
   headerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerOnlineBadge: {
     position: 'absolute',
@@ -1266,7 +1398,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerInfoBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Messages Container
@@ -1364,24 +1503,25 @@ const styles = StyleSheet.create({
   // Input Box
   inputContainer: {
     flexDirection: 'row',
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    backgroundColor: 'transparent',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
   },
   liveRecordingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'rgba(20, 20, 25, 0.95)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 12,
+    marginBottom: Platform.OS === 'ios' ? 20 : 10,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     gap: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
   },
   recordingTimerBox: {
     flexDirection: 'row',
@@ -1426,11 +1566,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'rgba(20, 20, 25, 0.95)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 12,
+    marginBottom: Platform.OS === 'ios' ? 20 : 10,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     gap: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
   },
   trashBtn: {
     padding: 6,
@@ -1474,31 +1616,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   micBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     color: '#FFF',
     fontSize: 14,
     fontWeight: '500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    backgroundColor: '#ee4d4d',
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    backgroundColor: '#C2FF3D',
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },

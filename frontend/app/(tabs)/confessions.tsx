@@ -1851,7 +1851,18 @@ export default function CampusLive() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={styles.audienceName}>Global Network</Text>
-                        <View style={styles.premiumBadge}><Text style={styles.premiumBadgeText}>PREMIUM</Text></View>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            closeAudienceModal();
+                            setUpsellTitle('Post Global Stories 🌐');
+                            setUpsellFeature('Global Story Upload');
+                            setUpsellVisible(true);
+                          }}
+                          style={styles.premiumBadge}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.premiumBadgeText}>PREMIUM 👑</Text>
+                        </TouchableOpacity>
                       </View>
                       <Text style={styles.audienceDetail}>Visible globally to all colleges on the network</Text>
                     </View>

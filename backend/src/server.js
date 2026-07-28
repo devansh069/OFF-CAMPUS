@@ -111,23 +111,9 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
-      const [affected] = await User.update(
-        {
-          is_premium: true,
-          premium_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          profile_visibility: 2.0,
-          verification_status: 'verified'
-        },
-        {
-          where: {
-            [Op.or]: [
-              { phone_number: { [Op.like]: '%1111111111%' } },
-              { user_id: { [Op.like]: '%1111111111%' } }
-            ]
-          }
-        }
-      );
-      console.log(`[Patch] Activated Premium & Verified status for user 1111111111 (${affected} row updated)`);
+      // Reset is_premium to false by default for non-paid users
+      await sequelize.query("UPDATE users SET is_premium = FALSE WHERE premium_until IS NULL OR premium_until < NOW();");
+      console.log('[Patch] Reset is_premium status for non-paid users');
     } catch (e) {}
 
     try {
