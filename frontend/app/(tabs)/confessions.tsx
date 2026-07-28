@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
 
 const { width, height: screenHeight } = Dimensions.get('window');
@@ -210,6 +210,21 @@ export default function CampusLive() {
   const [tempSortBy, setTempSortBy] = useState<'latest' | 'engagement'>('latest');
   const [appliedFeedScope, setAppliedFeedScope] = useState<'college' | 'global'>('college');
   const [appliedSortBy, setAppliedSortBy] = useState<'latest' | 'engagement'>('latest');
+
+  // Custom Options Modal State
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [selectedOptionsConfession, setSelectedOptionsConfession] = useState<any | null>(null);
+
+  const { id } = useLocalSearchParams();
+
+  useEffect(() => {
+    if (id && confessions.length > 0) {
+      const match = confessions.find((c: any) => c.confession_id === id);
+      if (match) {
+        openComments(match);
+      }
+    }
+  }, [id, confessions]);
 
   useEffect(() => {
     if (showAudienceModal) {
@@ -834,8 +849,12 @@ export default function CampusLive() {
 
   const handleShare = async (confession: any) => {
     try {
+      const shareUrl = `https://offcampus.app/confessions?id=${confession.confession_id}`;
+      const message = `Check out this confession on Off-Campus: "${confession.content.substring(0, 120)}..."\n\nRead here: ${shareUrl}`;
       await Share.share({
-        message: `Check out this confession on Off-Campus: "${confession.content.substring(0, 120)}..." Join the discussion: offcampus://confession/${confession.confession_id}`,
+        message,
+        url: shareUrl,
+        title: 'Share Confession'
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -843,30 +862,8 @@ export default function CampusLive() {
   };
 
   const openOptions = (confession: any) => {
-    Alert.alert(
-      'Confession Options 🛡️',
-      'Choose an action for this confession:',
-      [
-        {
-          text: 'Report Confession',
-          onPress: () => {
-            setSelectedReportConfession(confession);
-            setSelectedReason('');
-            setCustomReason('');
-            setShowReportModal(true);
-          },
-          style: 'destructive'
-        },
-        {
-          text: 'Share Confession',
-          onPress: () => handleShare(confession)
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
+    setSelectedOptionsConfession(confession);
+    setShowOptionsModal(true);
   };
 
   const handleReportSubmit = async () => {
@@ -1453,9 +1450,21 @@ export default function CampusLive() {
                               </Text>
                             </View>
                           </View>
-                          <Text style={styles.modalConfTime}>
-                            {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
-                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Text style={styles.modalConfTime}>
+                              {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.threeDotsBtn}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                openOptions(selectedConfession);
+                              }}
+                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                              <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
+                            </TouchableOpacity>
+                          </View>
                         </View>
                         <View style={styles.modalMessageBubble}>
                           <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
@@ -1550,6 +1559,142 @@ export default function CampusLive() {
                   </View>
                 </View>
               </KeyboardAvoidingView>
+
+              {/* RENDER OPTIONS & REPORT MODALS INSIDE THREAD MODAL TO PREVENT IOS MULTI-MODAL CONFLICTS */}
+              {/* REPORT POPUP MODAL (INNER) */}
+              <Modal
+                visible={showReportModal && selectedConfession !== null}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowReportModal(false)}
+              >
+                <View style={styles.reportModalOverlay}>
+                  <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+                    <View style={styles.reportModalHeader}>
+                      <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
+                      <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
+                        <Ionicons name="close" size={24} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                      <Text style={styles.reportModalDesc}>
+                        Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                      </Text>
+
+                      <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                      {reportReasons.map((reason) => {
+                        const isSelected = selectedReason === reason;
+                        return (
+                          <TouchableOpacity
+                            key={reason}
+                            style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                            onPress={() => setSelectedReason(reason)}
+                          >
+                            <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                              {isSelected && <View style={styles.radioInner} />}
+                            </View>
+                            <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                              {reason}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                      <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                      <TextInput
+                        style={styles.reasonInput}
+                        placeholder="Enter details here..."
+                        placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                        multiline={true}
+                        numberOfLines={4}
+                        value={customReason}
+                        onChangeText={setCustomReason}
+                      />
+
+                      <View style={styles.reportModalActions}>
+                        <TouchableOpacity
+                          style={styles.reportCancelBtn}
+                          onPress={() => setShowReportModal(false)}
+                        >
+                          <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                          onPress={handleReportSubmit}
+                          disabled={submittingReport}
+                        >
+                          {submittingReport ? (
+                            <ActivityIndicator color="#000" />
+                          ) : (
+                            <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </ScrollView>
+                  </BlurView>
+                </View>
+              </Modal>
+
+              {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL (INNER) */}
+              <Modal
+                visible={showOptionsModal && selectedConfession !== null}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowOptionsModal(false)}
+              >
+                <TouchableOpacity 
+                  style={styles.optionsModalOverlay} 
+                  activeOpacity={1} 
+                  onPress={() => setShowOptionsModal(false)}
+                >
+                  <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
+                    <View style={styles.optionsHeader}>
+                      <View style={styles.optionsHeaderBar} />
+                      <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={styles.optionsItem} 
+                      onPress={() => {
+                        setShowOptionsModal(false);
+                        if (selectedOptionsConfession) {
+                          handleShare(selectedOptionsConfession);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="share-social-outline" size={20} color="#FFF" />
+                      <Text style={styles.optionsItemText}>Share Confession</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.optionsItem, styles.optionsItemDanger]} 
+                      onPress={() => {
+                        setShowOptionsModal(false);
+                        if (selectedOptionsConfession) {
+                          setSelectedReportConfession(selectedOptionsConfession);
+                          setSelectedReason('');
+                          setCustomReason('');
+                          setShowReportModal(true);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
+                      <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.optionsCancelBtn} 
+                      onPress={() => setShowOptionsModal(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.optionsCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </BlurView>
+                </TouchableOpacity>
+              </Modal>
             </SafeAreaView>
           </Modal>
 
@@ -1803,7 +1948,7 @@ export default function CampusLive() {
 
           {/* REPORT POPUP MODAL */}
           <Modal
-            visible={showReportModal}
+            visible={showReportModal && selectedConfession === null}
             transparent={true}
             animationType="slide"
             onRequestClose={() => setShowReportModal(false)}
@@ -1977,6 +2122,66 @@ export default function CampusLive() {
                 </ScrollView>
               </BlurView>
             </View>
+          </Modal>
+
+          {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL */}
+          <Modal
+            visible={showOptionsModal && selectedConfession === null}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowOptionsModal(false)}
+          >
+            <TouchableOpacity 
+              style={styles.optionsModalOverlay} 
+              activeOpacity={1} 
+              onPress={() => setShowOptionsModal(false)}
+            >
+              <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
+                <View style={styles.optionsHeader}>
+                  <View style={styles.optionsHeaderBar} />
+                  <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.optionsItem} 
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    if (selectedOptionsConfession) {
+                      handleShare(selectedOptionsConfession);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="share-social-outline" size={20} color="#FFF" />
+                  <Text style={styles.optionsItemText}>Share Confession</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.optionsItem, styles.optionsItemDanger]} 
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    if (selectedOptionsConfession) {
+                      setSelectedReportConfession(selectedOptionsConfession);
+                      setSelectedReason('');
+                      setCustomReason('');
+                      setShowReportModal(true);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
+                  <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.optionsCancelBtn} 
+                  onPress={() => setShowOptionsModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.optionsCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </BlurView>
+            </TouchableOpacity>
           </Modal>
         </SafeAreaView>
     </View>
@@ -2384,7 +2589,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    width: 4,
+    width: 2,
   },
   textCardContent: {
     padding: 18,
@@ -3192,5 +3397,75 @@ const styles = StyleSheet.create({
   globalToggleTextActive: {
     color: '#000000',
     fontWeight: '800',
+  },
+  optionsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  optionsModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    backgroundColor: '#0F0F14',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  optionsHeader: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 16,
+  },
+  optionsHeaderBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 12,
+  },
+  optionsTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  optionsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    marginBottom: 10,
+    gap: 12,
+  },
+  optionsItemDanger: {
+    backgroundColor: 'rgba(255, 75, 75, 0.05)',
+    borderColor: 'rgba(255, 75, 75, 0.1)',
+    borderWidth: 1,
+  },
+  optionsItemText: {
+    color: '#FFF',
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
+  optionsItemTextDanger: {
+    color: '#FF4B4B',
+  },
+  optionsCancelBtn: {
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  optionsCancelBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
