@@ -764,6 +764,22 @@ export default function CampusLive() {
     }
   };
 
+  const handleViewerClick = (viewer: any) => {
+    if (!viewer || !viewer.user_id) return;
+
+    setShowViewersSheet(false);
+    setShowStoryModal(false);
+
+    if (viewer.is_match) {
+      router.push(`/chat/${viewer.user_id}`);
+    } else {
+      router.push({
+        pathname: '/(tabs)/discover',
+        params: { targetUserId: viewer.user_id }
+      });
+    }
+  };
+
   const openComments = async (confession: any) => {
     setSelectedConfession(confession);
     setReplyingTo(null);
@@ -1772,12 +1788,17 @@ export default function CampusLive() {
                         ) : (
                           activeStory.views.map((v: any, index: number) => {
                             const hasDetails = typeof v === 'object';
-                            const vName = hasDetails ? v.user_name : 'Campus Mate';
-                            const vPic = hasDetails ? v.user_picture : null;
+                            const vName = hasDetails ? (v.name || v.user_name || 'Campus Mate') : 'Campus Mate';
+                            const vPic = hasDetails ? (v.picture || v.user_picture || null) : null;
                             const vTime = hasDetails && v.viewed_at ? formatViewTime(v.viewed_at) : 'Some time ago';
 
                             return (
-                              <View key={index} style={styles.viewerRow}>
+                              <TouchableOpacity
+                                key={index}
+                                style={styles.viewerRow}
+                                onPress={() => handleViewerClick(v)}
+                                activeOpacity={0.7}
+                              >
                                 {vPic ? (
                                   <Image source={{ uri: vPic }} style={styles.viewerPic} />
                                 ) : (
@@ -1786,10 +1807,17 @@ export default function CampusLive() {
                                   </View>
                                 )}
                                 <View style={{ flex: 1 }}>
-                                  <Text style={styles.viewerName}>{vName}</Text>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={styles.viewerName}>{vName}</Text>
+                                    {hasDetails && !v.is_match && (
+                                      <Text style={{ color: '#FF3366', fontSize: 11, fontWeight: '700', marginLeft: 6 }}>
+                                        (not in match list)
+                                      </Text>
+                                    )}
+                                  </View>
                                   <Text style={styles.viewerTime}>{vTime}</Text>
                                 </View>
-                              </View>
+                              </TouchableOpacity>
                             );
                           })
                         )}

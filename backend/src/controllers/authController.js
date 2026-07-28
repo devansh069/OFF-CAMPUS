@@ -681,7 +681,24 @@ exports.getDiscoveryProfiles = async (req, res) => {
       include: [{ model: College, as: 'college' }]
     });
 
-    return res.status(200).json({ profiles });
+    // If targetUserId is requested, prepend them to the list
+    let finalProfiles = profiles;
+    const targetUserId = req.query.targetUserId;
+    if (targetUserId) {
+      try {
+        const targetProfile = await User.findOne({
+          where: { user_id: targetUserId },
+          include: [{ model: College, as: 'college' }]
+        });
+        if (targetProfile) {
+          finalProfiles = [targetProfile, ...profiles.filter(p => p.user_id !== targetUserId)];
+        }
+      } catch (e) {
+        console.error('[targetUserId Prepend Error]:', e);
+      }
+    }
+
+    return res.status(200).json({ profiles: finalProfiles });
   } catch (error) {
     console.error('[getDiscoveryProfiles Error]:', error);
     return res.status(500).json({ detail: 'Failed to fetch profiles: ' + error.message });

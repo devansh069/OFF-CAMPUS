@@ -514,6 +514,8 @@ const sliderStyles = StyleSheet.create({
 export default function Discover() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const targetUserId = params.targetUserId as string | undefined;
 
   // Data state
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -548,6 +550,11 @@ export default function Discover() {
 
   useEffect(() => {
     fetchProfiles();
+    setCurrentIndex(0);
+    scrollY.setValue(0);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: false });
+    }
     if (user?.college) {
       setCollege(user.college);
     } else if (user?.college_id) {
@@ -561,7 +568,7 @@ export default function Discover() {
     if (user?.looking_for === 'dating' || user?.looking_for === 'friends') {
       setFilterLookingFor(user.looking_for);
     }
-  }, [user]);
+  }, [user, targetUserId]);
 
   const fetchProfiles = async () => {
     if (sessionToken === 'dummy_token') {
@@ -571,8 +578,12 @@ export default function Discover() {
     }
 
     try {
-      console.log('fetchProfiles (frontend): Fetching profiles...');
-      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/profiles`, { headers: { 'Authorization': `Bearer ${sessionToken}` } });
+      console.log('fetchProfiles (frontend): Fetching profiles, targetUserId:', targetUserId);
+      let url = `${EXPO_PUBLIC_BACKEND_URL}/api/discovery/profiles`;
+      if (targetUserId) {
+        url += `?targetUserId=${targetUserId}`;
+      }
+      const r = await fetch(url, { headers: { 'Authorization': `Bearer ${sessionToken}` } });
       if (!r.ok) throw new Error('Failed to fetch from backend');
       const d = await r.json();
       console.log('fetchProfiles (frontend): Response count:', d.profiles ? d.profiles.length : 0);
@@ -721,6 +732,15 @@ export default function Discover() {
   const getFilteredProfiles = () => {
     let result = [...profiles];
 
+    // If targetUserId is present, extract that profile first so filters don't remove it
+    let targetProfile: any = null;
+    if (targetUserId) {
+      const targetIdx = result.findIndex(p => p.user_id === targetUserId);
+      if (targetIdx !== -1) {
+        targetProfile = result.splice(targetIdx, 1)[0];
+      }
+    }
+
     // Global Mode (In Campus vs Go Global)
     if (!globalMode) {
       result = result.filter(p => p.college_id === user?.college_id);
@@ -753,6 +773,11 @@ export default function Discover() {
     // Verified accounts only filter
     if (filterVerifiedOnly) {
       result = result.filter(p => p.verification_status === 'verified');
+    }
+
+    // Prepend target profile back at index 0 (bypasses all filters)
+    if (targetProfile) {
+      result = [targetProfile, ...result];
     }
 
     return result;

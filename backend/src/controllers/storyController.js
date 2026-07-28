@@ -108,6 +108,59 @@ exports.getStoriesFeed = async (req, res) => {
 
     const users_with_stories = Object.values(userMap);
 
+    // Enrich views for the current logged-in user's own stories
+    for (const group of users_with_stories) {
+      if (group.user_id === userId) {
+        for (const story of group.stories) {
+          if (Array.isArray(story.views) && story.views.length > 0) {
+            const viewerIds = story.views
+              .map(v => (typeof v === 'string' ? v : (v && v.user_id ? v.user_id : null)))
+              .filter(Boolean);
+
+            if (viewerIds.length > 0) {
+              const viewerUsers = await sequelize.query(
+                `SELECT user_id, name, picture, photos FROM users WHERE user_id IN (?)`,
+                { replacements: [viewerIds], type: sequelize.QueryTypes.SELECT }
+              );
+
+              const viewerMatches = await sequelize.query(
+                `SELECT to_user_id FROM likes WHERE from_user_id = ? AND to_user_id IN (?) AND is_match = true`,
+                { replacements: [userId, viewerIds], type: sequelize.QueryTypes.SELECT }
+              );
+              const matchedViewerIds = new Set(viewerMatches.map(m => m.to_user_id));
+
+              const userDetailsMap = {};
+              for (const u of viewerUsers) {
+                let pic = u.picture;
+                if (!pic && u.photos) {
+                  try {
+                    const parsed = typeof u.photos === 'string' ? JSON.parse(u.photos) : u.photos;
+                    if (Array.isArray(parsed) && parsed.length > 0) pic = parsed[0];
+                  } catch (e) {}
+                }
+                userDetailsMap[u.user_id] = {
+                  name: u.name || 'Student',
+                  picture: pic || null
+                };
+              }
+
+              story.views = story.views.map(v => {
+                const vId = typeof v === 'string' ? v : (v && v.user_id ? v.user_id : null);
+                const details = userDetailsMap[vId] || {};
+                return {
+                  user_id: vId,
+                  name: details.name || 'Student',
+                  picture: details.picture || null,
+                  viewed_at: typeof v === 'object' && v.viewed_at ? v.viewed_at : new Date().toISOString(),
+                  is_match: matchedViewerIds.has(vId)
+                };
+              });
+            }
+          }
+        }
+      }
+    }
+
     return res.status(200).json({ users_with_stories });
   } catch (error) {
     console.error('[getStoriesFeed Error]:', error);
