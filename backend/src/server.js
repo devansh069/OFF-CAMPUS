@@ -49,9 +49,9 @@ const startServer = async () => {
       console.log('[Patch] parent_id check error:', e.message);
     }
 
-    // Register all models explicitly before syncing so Sequelize knows about them
     require('./models/CollegeMaster');
     require('./models/Confession');
+    require('./models/ConfessionLike');
     require('./models/Story');
     require('./models/Comment');
     require('./models/Rating');

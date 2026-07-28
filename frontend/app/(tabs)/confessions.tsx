@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,21 +98,72 @@ export default function CampusLive() {
     }));
   };
 
-  const selectConfImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Media library permission is required to select photos.');
-      return;
+  const launchConfessionCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+        base64: true,
+      });
+      if (result.canceled) return;
+      if (result.assets?.[0]?.base64) {
+        setConfessionImage(result.assets[0].base64);
+      }
+    } catch (e) {
+      console.warn(e);
+      Alert.alert('Error', 'Camera is not available on this device.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.5,
-      base64: true,
-    });
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      setConfessionImage(result.assets[0].base64);
+  };
+
+  const launchConfessionGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Media library permission is required to choose photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+        base64: true,
+      });
+      if (result.canceled) return;
+      if (result.assets?.[0]?.base64) {
+        setConfessionImage(result.assets[0].base64);
+      }
+    } catch (e) {
+      console.warn(e);
+      Alert.alert('Error', 'Failed to launch gallery.');
     }
+  };
+
+  const selectConfImage = () => {
+    Alert.alert(
+      'Add Photo 📸',
+      'Choose a photo source:',
+      [
+        {
+          text: 'Open Camera',
+          onPress: launchConfessionCamera
+        },
+        {
+          text: 'Open Gallery',
+          onPress: launchConfessionGallery
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
   const [college, setCollege] = useState<any>(null);
@@ -128,7 +179,37 @@ export default function CampusLive() {
 
   // Animation refs for Story Audience bottom sheet
   const slideAnim = useRef(new Animated.Value(500)).current;
+
+  // Single/Double tap references
+  const lastCardTap = useRef<number>(0);
+  const tapTimeout = useRef<any>(null);
+  const lastDetailCardTap = useRef<number>(0);
+
+  // Confession Reporting States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReportConfession, setSelectedReportConfession] = useState<any | null>(null);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [activeDoubleTapId, setActiveDoubleTapId] = useState<string | null>(null);
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const reportReasons = [
+    "Inappropriate content/photos",
+    "Harassment or abusive behavior",
+    "Fake profile / Impersonation",
+    "Spam, scam, or commercial",
+    "Underage user",
+    "Other"
+  ];
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Confessions Filters States
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [tempFeedScope, setTempFeedScope] = useState<'college' | 'global'>('college');
+  const [tempSortBy, setTempSortBy] = useState<'latest' | 'engagement'>('latest');
+  const [appliedFeedScope, setAppliedFeedScope] = useState<'college' | 'global'>('college');
+  const [appliedSortBy, setAppliedSortBy] = useState<'latest' | 'engagement'>('latest');
 
   useEffect(() => {
     if (showAudienceModal) {
@@ -362,18 +443,96 @@ export default function CampusLive() {
     }
   };
 
-  const likeC = async (id: string) => {
+  const likeC = async (id: string, playAnimation: boolean = false) => {
     if (sessionToken === 'dummy_token') {
-      setConfessions(prev => prev.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
-      setSelectedConfession((prev: any) => prev && prev.confession_id === id ? { ...prev, likes: (prev.likes || 0) + 1 } : prev);
+      let isLiking = false;
+      setConfessions(prev => prev.map(c => {
+        if (c.confession_id === id) {
+          const alreadyLiked = c.has_liked;
+          isLiking = !alreadyLiked;
+          return {
+            ...c,
+            likes: alreadyLiked ? Math.max(0, (c.likes || 0) - 1) : (c.likes || 0) + 1,
+            has_liked: !alreadyLiked
+          };
+        }
+        return c;
+      }));
+
+      setSelectedConfession((prev: any) => {
+        if (prev && prev.confession_id === id) {
+          const alreadyLiked = prev.has_liked;
+          isLiking = !alreadyLiked;
+          return {
+            ...prev,
+            likes: alreadyLiked ? Math.max(0, (prev.likes || 0) - 1) : (prev.likes || 0) + 1,
+            has_liked: !alreadyLiked
+          };
+        }
+        return prev;
+      });
+
+      if (playAnimation && isLiking) {
+        triggerHeartAnimation(id);
+      }
       return;
     }
 
     try {
-      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${id}/like`, { method: 'POST', headers: { 'Authorization': `Bearer ${sessionToken}` } });
-      setConfessions(confessions.map(c => c.confession_id === id ? { ...c, likes: (c.likes || 0) + 1 } : c));
-      setSelectedConfession((prev: any) => prev && prev.confession_id === id ? { ...prev, likes: (prev.likes || 0) + 1 } : prev);
-    } catch (e) { console.error(e); }
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${id}/like`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setConfessions(prev => prev.map(c =>
+          c.confession_id === id ? { ...c, likes: data.likes, has_liked: data.liked } : c
+        ));
+        setSelectedConfession((prev: any) =>
+          prev && prev.confession_id === id ? { ...prev, likes: data.likes, has_liked: data.liked } : prev
+        );
+
+        if (playAnimation && data.liked) {
+          triggerHeartAnimation(id);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const triggerHeartAnimation = (id: string) => {
+    setActiveDoubleTapId(id);
+    heartScale.setValue(0.3);
+    heartOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.spring(heartScale, {
+        toValue: 1.2,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.timing(heartOpacity, {
+        toValue: 0.9,
+        duration: 150,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      Animated.parallel([
+        Animated.timing(heartScale, {
+          toValue: 0.8,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        setActiveDoubleTapId(null);
+      });
+    });
   };
 
   // Image Picking Handlers
@@ -649,6 +808,118 @@ export default function CampusLive() {
     }
   };
 
+  const handleCardPress = (c: any) => {
+    const now = Date.now();
+    const isDouble = now - lastCardTap.current < 300;
+    lastCardTap.current = now;
+
+    if (isDouble) {
+      if (tapTimeout.current) clearTimeout(tapTimeout.current);
+      likeC(c.confession_id, true);
+    } else {
+      if (tapTimeout.current) clearTimeout(tapTimeout.current);
+      tapTimeout.current = setTimeout(() => {
+        openComments(c);
+      }, 250);
+    }
+  };
+
+  const handleDetailCardPress = (c: any) => {
+    const now = Date.now();
+    if (now - lastDetailCardTap.current < 300) {
+      likeC(c.confession_id, true);
+    }
+    lastDetailCardTap.current = now;
+  };
+
+  const handleShare = async (confession: any) => {
+    try {
+      await Share.share({
+        message: `Check out this confession on Off-Campus: "${confession.content.substring(0, 120)}..." Join the discussion: offcampus://confession/${confession.confession_id}`,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const openOptions = (confession: any) => {
+    Alert.alert(
+      'Confession Options 🛡️',
+      'Choose an action for this confession:',
+      [
+        {
+          text: 'Report Confession',
+          onPress: () => {
+            setSelectedReportConfession(confession);
+            setSelectedReason('');
+            setCustomReason('');
+            setShowReportModal(true);
+          },
+          style: 'destructive'
+        },
+        {
+          text: 'Share Confession',
+          onPress: () => handleShare(confession)
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  const handleReportSubmit = async () => {
+    if (!selectedReason && !customReason.trim()) {
+      Alert.alert('Reason Required', 'Please select or enter a reason for your report.');
+      return;
+    }
+    if (!selectedReportConfession) return;
+
+    setSubmittingReport(true);
+    const finalReason = selectedReason ? `${selectedReason}. ${customReason.trim()}` : customReason.trim();
+
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          target_user_id: selectedReportConfession.user_id,
+          reason: `Confession Report: ${finalReason} (Confession ID: ${selectedReportConfession.confession_id})`
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert(
+          'Report Submitted 🛡️',
+          'Thank you for reporting. Our safety team will review this confession within 24 hours. The poster\'s vibe score has been penalized.'
+        );
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to submit report.');
+      }
+    } catch (err: any) {
+      console.error('Report error:', err);
+      Alert.alert('Network Error', 'Could not submit report. Please check connection.');
+    } finally {
+      setSubmittingReport(false);
+      setShowReportModal(false);
+      setSelectedReportConfession(null);
+    }
+  };
+
+  const handleScopeChange = (scope: 'college' | 'global') => {
+    setTempFeedScope(scope);
+    if (scope === 'college') {
+      setTempSortBy('latest');
+    } else {
+      setTempSortBy('engagement');
+    }
+  };
+
   const postComment = async () => {
     if (!commentText.trim() || !selectedConfession) return;
     setPostingComment(true);
@@ -781,15 +1052,17 @@ export default function CampusLive() {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF1B6B" /></View>;
 
   const filteredConfessions = confessions.filter((c: any) => {
-    if (feedType === 'college') {
+    if (appliedFeedScope === 'college') {
       return c.college_id === user?.college_id;
     }
     return true;
   }).sort((a: any, b: any) => {
-    if (feedType === 'college') {
+    if (appliedSortBy === 'latest') {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     } else {
-      return (b.likes || 0) - (a.likes || 0);
+      const aEngagement = (a.likes || 0) + (a.comments || 0);
+      const bEngagement = (b.likes || 0) + (b.comments || 0);
+      return bEngagement - aEngagement;
     }
   });
 
@@ -820,14 +1093,26 @@ export default function CampusLive() {
               <View style={styles.newHeaderLeft}>
                 <TouchableOpacity
                   style={styles.newHeaderDropdown}
-                  onPress={() => setFeedType(prev => prev === 'global' ? 'college' : 'global')}
+                  onPress={() => {
+                    const newScope = appliedFeedScope === 'global' ? 'college' : 'global';
+                    setAppliedFeedScope(newScope);
+                    setAppliedSortBy(newScope === 'college' ? 'latest' : 'engagement');
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.newHeaderTitle} numberOfLines={1}>
-                    {feedType === 'global' ? 'Global Live' : (college?.short_name || college?.name || 'My Campus')}
+                    {appliedFeedScope === 'global' ? 'Global Live' : (college?.short_name || college?.name || 'My Campus')}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
+
+                {/* Inline Live Indicator */}
+                <View style={[styles.newLiveBadge, { marginLeft: 8 }]}>
+                  <View style={styles.newLiveDot} />
+                  <Text style={styles.newLiveText}>
+                    {appliedFeedScope === 'global' ? `${liveCountGlobal} Live` : `${liveCountCollege} Live`}
+                  </Text>
+                </View>
               </View>
 
               <View style={styles.newHeaderRight}>
@@ -836,16 +1121,6 @@ export default function CampusLive() {
                   style={styles.headerLogo}
                   resizeMode="contain"
                 />
-              </View>
-            </View>
-
-            {/* Live Count Indicator above stories */}
-            <View style={styles.liveBadgeSection}>
-              <View style={styles.newLiveBadge}>
-                <View style={styles.newLiveDot} />
-                <Text style={styles.newLiveText}>
-                  {feedType === 'global' ? `${liveCountGlobal} Live` : `${liveCountCollege} Live`}
-                </Text>
               </View>
             </View>
 
@@ -895,10 +1170,22 @@ export default function CampusLive() {
 
             {/* Confessions Title */}
             <View style={styles.sectionHead}>
-              <View style={styles.megaphoneIc}>
-                <Ionicons name="megaphone" size={18} color="#FF1B6B" />
-              </View>
               <Text style={styles.sectionT}>Live Confessions</Text>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => {
+                  setTempFeedScope(appliedFeedScope);
+                  setTempSortBy(appliedSortBy);
+                  setShowFilterModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="filter" size={18} color="#C2FF3D" />
+                {(appliedFeedScope !== 'college' || appliedSortBy !== 'latest') && (
+                  <View style={styles.filterActiveDot} />
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* Confession Composer matching Events page Search bar */}
@@ -980,7 +1267,7 @@ export default function CampusLive() {
                   <TouchableOpacity
                     key={c.confession_id}
                     style={styles.confessionCardWrapper}
-                    onPress={() => openComments(c)}
+                    onPress={() => handleCardPress(c)}
                     activeOpacity={0.9}
                   >
                     {c.image ? (
@@ -1006,9 +1293,14 @@ export default function CampusLive() {
                                 <Text style={styles.collegeName}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
                               </View>
                             </View>
-                            <Text style={styles.cardTime}>
-                              {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <Text style={styles.cardTime}>
+                                {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
+                              </Text>
+                              <TouchableOpacity style={styles.threeDotsBtn} onPress={(e) => { e.stopPropagation(); openOptions(c); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
+                              </TouchableOpacity>
+                            </View>
                           </View>
 
                           <View style={styles.textContainer}>
@@ -1019,8 +1311,8 @@ export default function CampusLive() {
 
                           <View style={styles.cardActionBar}>
                             <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                              <Ionicons name="heart" size={18} color={c.likes > 0 ? "#FF3366" : "#FFF"} />
-                              <Text style={[styles.actionCountNew, { color: '#FFF' }]}>{c.likes || 0}</Text>
+                              <Ionicons name="heart" size={18} color={c.has_liked ? "#FF3366" : "#FFF"} />
+                              <Text style={[styles.actionCountNew, { color: c.has_liked ? '#FF3366' : '#FFF' }]}>{c.likes || 0}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); openComments(c); }}>
@@ -1053,9 +1345,14 @@ export default function CampusLive() {
                                 <Text style={styles.collegeNameTextOnly}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
                               </View>
                             </View>
-                            <Text style={styles.cardTimeTextOnly}>
-                              {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <Text style={styles.cardTimeTextOnly}>
+                                {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
+                              </Text>
+                              <TouchableOpacity style={styles.threeDotsBtn} onPress={(e) => { e.stopPropagation(); openOptions(c); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
+                              </TouchableOpacity>
+                            </View>
                           </View>
 
                           <View style={styles.textContainer}>
@@ -1066,8 +1363,8 @@ export default function CampusLive() {
 
                           <View style={styles.cardActionBar}>
                             <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                              <Ionicons name="heart" size={18} color={c.likes > 0 ? "#FF3366" : "#A1A1AA"} />
-                              <Text style={[styles.actionCountNew, { color: c.likes > 0 ? '#FF3366' : '#A1A1AA' }]}>{c.likes || 0}</Text>
+                              <Ionicons name="heart" size={18} color={c.has_liked ? "#FF3366" : "#A1A1AA"} />
+                              <Text style={[styles.actionCountNew, { color: c.has_liked ? '#FF3366' : '#A1A1AA' }]}>{c.likes || 0}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); openComments(c); }}>
@@ -1077,6 +1374,18 @@ export default function CampusLive() {
                           </View>
                         </View>
                       </BlurView>
+                    )}
+
+                    {activeDoubleTapId === c.confession_id && (
+                      <Animated.View style={[
+                        styles.doubleTapHeartContainer,
+                        {
+                          transform: [{ scale: heartScale }],
+                          opacity: heartOpacity
+                        }
+                      ]}>
+                        <Ionicons name="heart" size={72} color="#FF3366" />
+                      </Animated.View>
                     )}
                   </TouchableOpacity>
                 );
@@ -1124,48 +1433,62 @@ export default function CampusLive() {
                   showsVerticalScrollIndicator={false}
                 >
                   {selectedConfession && (
-                    <View style={styles.modalConfCard}>
-                      <View style={styles.modalConfTop}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <View style={styles.anonAvatarBadge}>
-                            {selectedConfession.user_picture ? (
-                              <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
-                            ) : (
-                              <Ionicons name="eye-off" size={14} color="#C2FF3D" />
-                            )}
+                    <TouchableOpacity activeOpacity={1} onPress={() => handleDetailCardPress(selectedConfession)}>
+                      <View style={styles.modalConfCard}>
+                        <View style={styles.modalConfTop}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <View style={styles.anonAvatarBadge}>
+                              {selectedConfession.user_picture ? (
+                                <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
+                              ) : (
+                                <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                              )}
+                            </View>
+                            <View>
+                              <Text style={styles.authorNameTextOnly}>
+                                {selectedConfession.user_name || 'Campus Voice'}
+                              </Text>
+                              <Text style={styles.collegeNameTextOnly}>
+                                @{selectedConfession.college_name?.toLowerCase() || 'campus'}
+                              </Text>
+                            </View>
                           </View>
-                          <View>
-                            <Text style={styles.authorNameTextOnly}>
-                              {selectedConfession.user_name || 'Campus Voice'}
-                            </Text>
-                            <Text style={styles.collegeNameTextOnly}>
-                              @{selectedConfession.college_name?.toLowerCase() || 'campus'}
-                            </Text>
+                          <Text style={styles.modalConfTime}>
+                            {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
+                          </Text>
+                        </View>
+                        <View style={styles.modalMessageBubble}>
+                          <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
+                          {selectedConfession.image && (
+                            <View style={styles.modalConfImageWrapper}>
+                              <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.modalConfActions}>
+                          <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
+                            <Ionicons name="heart" size={16} color={selectedConfession.has_liked ? "#FF2D55" : "#FFF"} />
+                            <Text style={[styles.modalConfActT, { color: selectedConfession.has_liked ? "#FF2D55" : "rgba(255, 255, 255, 0.75)" }]}>{selectedConfession.likes || 0}</Text>
+                          </TouchableOpacity>
+                          <View style={styles.modalConfAct}>
+                            <Ionicons name="chatbubble" size={14} color="#FFF" />
+                            <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
                           </View>
                         </View>
-                        <Text style={styles.modalConfTime}>
-                          {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
-                        </Text>
-                      </View>
-                      <View style={styles.modalMessageBubble}>
-                        <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
-                        {selectedConfession.image && (
-                          <View style={styles.modalConfImageWrapper}>
-                            <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
-                          </View>
+
+                        {activeDoubleTapId === selectedConfession.confession_id && (
+                          <Animated.View style={[
+                            styles.doubleTapHeartContainer,
+                            {
+                              transform: [{ scale: heartScale }],
+                              opacity: heartOpacity
+                            }
+                          ]}>
+                            <Ionicons name="heart" size={72} color="#FF3366" />
+                          </Animated.View>
                         )}
                       </View>
-                      <View style={styles.modalConfActions}>
-                        <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
-                          <Ionicons name="heart" size={16} color="#FF2D55" />
-                          <Text style={styles.modalConfActT}>{selectedConfession.likes || 0}</Text>
-                        </TouchableOpacity>
-                        <View style={styles.modalConfAct}>
-                          <Ionicons name="chatbubble" size={14} color="#FFF" />
-                          <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
-                        </View>
-                      </View>
-                    </View>
+                    </TouchableOpacity>
                   )}
 
                   <Text style={styles.repliesTitleHeader}>Replies</Text>
@@ -1475,6 +1798,184 @@ export default function CampusLive() {
                   </View>
                 </Modal>
               )}
+            </View>
+          </Modal>
+
+          {/* REPORT POPUP MODAL */}
+          <Modal
+            visible={showReportModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowReportModal(false)}
+          >
+            <View style={styles.reportModalOverlay}>
+              <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+                <View style={styles.reportModalHeader}>
+                  <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
+                  <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.reportModalDesc}>
+                    Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                  </Text>
+
+                  <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                  {reportReasons.map((reason) => {
+                    const isSelected = selectedReason === reason;
+                    return (
+                      <TouchableOpacity
+                        key={reason}
+                        style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                        onPress={() => setSelectedReason(reason)}
+                      >
+                        <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                          {isSelected && <View style={styles.radioInner} />}
+                        </View>
+                        <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                          {reason}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                  <TextInput
+                    style={styles.reasonInput}
+                    placeholder="Enter details here..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    multiline={true}
+                    numberOfLines={4}
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                  />
+
+                  <View style={styles.reportModalActions}>
+                    <TouchableOpacity
+                      style={styles.reportCancelBtn}
+                      onPress={() => setShowReportModal(false)}
+                    >
+                      <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                      onPress={handleReportSubmit}
+                      disabled={submittingReport}
+                    >
+                      {submittingReport ? (
+                        <ActivityIndicator color="#000" />
+                      ) : (
+                        <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </BlurView>
+            </View>
+          </Modal>
+
+          {/* FILTER POPUP MODAL */}
+          <Modal
+            visible={showFilterModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowFilterModal(false)}
+          >
+            <View style={styles.filterModalOverlay}>
+              <BlurView intensity={90} tint="dark" style={styles.filterModalContainer}>
+                <View style={styles.filterModalHeader}>
+                  <Text style={styles.filterModalTitle}>Filter Confessions ⚙️</Text>
+                  <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalCloseBtn}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.filterSectionLabel}>POST SOURCE</Text>
+                  <View style={styles.filterButtonGroup}>
+                    <TouchableOpacity
+                      style={[styles.filterButtonOpt, tempFeedScope === 'college' && styles.filterButtonOptActive]}
+                      onPress={() => handleScopeChange('college')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="school" size={16} color={tempFeedScope === 'college' ? '#000' : '#FFF'} />
+                      <Text style={[styles.filterButtonOptText, tempFeedScope === 'college' && styles.filterButtonOptTextActive]}>
+                        My College
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.filterButtonOpt, tempFeedScope === 'global' && styles.filterButtonOptActive]}
+                      onPress={() => handleScopeChange('global')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="globe" size={16} color={tempFeedScope === 'global' ? '#000' : '#FFF'} />
+                      <Text style={[styles.filterButtonOptText, tempFeedScope === 'global' && styles.filterButtonOptTextActive]}>
+                        Global Network
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.filterSectionLabel}>SORT BY</Text>
+                  
+                  <TouchableOpacity
+                    style={styles.filterSortRow}
+                    onPress={() => setTempSortBy('latest')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.radioCircle, tempSortBy === 'latest' && styles.radioCircleActive]}>
+                      {tempSortBy === 'latest' && <View style={styles.radioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.filterSortName, tempSortBy === 'latest' && styles.filterSortNameActive]}>
+                        Latest Posts
+                      </Text>
+                      <Text style={styles.filterSortDesc}>Show newest confessions first</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.filterSortRow}
+                    onPress={() => setTempSortBy('engagement')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.radioCircle, tempSortBy === 'engagement' && styles.radioCircleActive]}>
+                      {tempSortBy === 'engagement' && <View style={styles.radioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.filterSortName, tempSortBy === 'engagement' && styles.filterSortNameActive]}>
+                        Most Engaged
+                      </Text>
+                      <Text style={styles.filterSortDesc}>Sort by max engagements (likes + comments)</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={styles.filterModalActions}>
+                    <TouchableOpacity
+                      style={styles.filterResetBtn}
+                      onPress={() => {
+                        setTempFeedScope('college');
+                        setTempSortBy('latest');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.filterResetBtnText}>Reset</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.filterApplyBtn}
+                      onPress={() => {
+                        setAppliedFeedScope(tempFeedScope);
+                        setAppliedSortBy(tempSortBy);
+                        setShowFilterModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </BlurView>
             </View>
           </Modal>
         </SafeAreaView>
@@ -2303,7 +2804,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14.5,
     lineHeight: 20,
-    minHeight: 80,
+    minHeight: 52,
     textAlignVertical: 'top',
     padding: 0,
     marginBottom: 12,
@@ -2376,5 +2877,320 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  reportModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  reportModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#0F0F14',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  reportModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  reportModalCloseBtn: {
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+  },
+  reportModalContent: {
+    paddingVertical: 12,
+  },
+  reportModalDesc: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+  threeDotsBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reasonLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  reasonOptionActive: {},
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  radioCircleActive: {
+    borderColor: '#C2FF3D',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#C2FF3D',
+  },
+  reasonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13.5,
+    fontWeight: '500',
+  },
+  reasonTextActive: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  reasonInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    color: '#FFF',
+    padding: 12,
+    fontSize: 13,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  reportModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  reportCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  reportCancelBtnText: {
+    color: '#FFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  reportSubmitBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportSubmitBtnText: {
+    color: '#000',
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  doubleTapHeartContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -36,
+    marginTop: -36,
+    zIndex: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+    backgroundColor: 'rgba(194, 255, 61, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  filterActiveDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF1B6B',
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#0F0F14',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  filterModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  filterModalCloseBtn: {
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+  },
+  filterSectionLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  filterButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: 10,
+  },
+  filterButtonOpt: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  filterButtonOptActive: {
+    backgroundColor: '#C2FF3D',
+    borderColor: '#C2FF3D',
+  },
+  filterButtonOptText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterButtonOptTextActive: {
+    color: '#000',
+    fontWeight: '800',
+  },
+  filterSortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    gap: 12,
+  },
+  filterSortName: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterSortNameActive: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  filterSortDesc: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  filterResetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterResetBtnText: {
+    color: '#FFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  filterApplyBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterApplyBtnText: {
+    color: '#000',
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  globalToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: '#C2FF3D',
+  },
+  globalToggleOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  globalToggleActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  globalToggleText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  globalToggleTextActive: {
+    color: '#000000',
+    fontWeight: '800',
   },
 });

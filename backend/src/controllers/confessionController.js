@@ -55,15 +55,35 @@ exports.getConfessionsFeed = async (req, res) => {
 
     // Fetch confessions sorted by created_at DESC
     const confessions = await sequelize.query(
-      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.image, c.likes, c.comments, c.created_at, col.short_name as college_name, u.name as user_name, u.picture as user_picture 
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.image, c.likes, c.comments, c.created_at, col.short_name as college_name, u.name as user_name, u.picture as user_picture, u.photos as user_photos,
+              (cl.user_id IS NOT NULL) as has_liked 
        FROM confessions c
        LEFT JOIN colleges col ON c.college_id = col.college_id
        LEFT JOIN users u ON c.user_id = u.user_id
+       LEFT JOIN confession_likes cl ON c.confession_id = cl.confession_id AND cl.user_id = ?
        ORDER BY c.created_at DESC LIMIT 100`,
       {
+        replacements: [userId],
         type: sequelize.QueryTypes.SELECT
       }
     );
+
+    // Map confessions to parse user profile photo from u.photos if c.user_picture is not set
+    const formattedConfessions = confessions.map(c => {
+      let resolvedPicture = c.user_picture;
+      if (c.user_photos) {
+        try {
+          const photos = typeof c.user_photos === 'string' ? JSON.parse(c.user_photos) : c.user_photos;
+          if (Array.isArray(photos) && photos.length > 0) {
+            resolvedPicture = photos[0];
+          }
+        } catch (e) {}
+      }
+      return {
+        ...c,
+        user_picture: resolvedPicture
+      };
+    });
 
     // Get live counts dynamically from checked in users
     const [globalCountRow] = await sequelize.query(
@@ -86,7 +106,7 @@ exports.getConfessionsFeed = async (req, res) => {
     }
 
     return res.status(200).json({
-      confessions,
+      confessions: formattedConfessions,
       live_count_global: liveCountGlobal,
       live_count_college: liveCountCollege
     });
@@ -163,16 +183,65 @@ exports.createConfession = async (req, res) => {
 
 // 3. Like Confession
 exports.likeConfession = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
+    const userId = req.user.user_id;
 
-    await sequelize.query(
-      'UPDATE confessions SET likes = likes + 1 WHERE confession_id = ?',
+    // Check if user already liked this confession
+    const [existingLike] = await sequelize.query(
+      'SELECT * FROM confession_likes WHERE confession_id = ? AND user_id = ? LIMIT 1',
       {
-        replacements: [id],
-        type: sequelize.QueryTypes.UPDATE
+        replacements: [id, userId],
+        type: sequelize.QueryTypes.SELECT,
+        transaction
       }
     );
+
+    let liked = false;
+
+    if (existingLike) {
+      // Unlike: remove like relation, decrement count
+      await sequelize.query(
+        'DELETE FROM confession_likes WHERE confession_id = ? AND user_id = ?',
+        {
+          replacements: [id, userId],
+          type: sequelize.QueryTypes.DELETE,
+          transaction
+        }
+      );
+
+      await sequelize.query(
+        'UPDATE confessions SET likes = GREATEST(0, likes - 1) WHERE confession_id = ?',
+        {
+          replacements: [id],
+          type: sequelize.QueryTypes.UPDATE,
+          transaction
+        }
+      );
+    } else {
+      // Like: insert relation, increment count
+      await sequelize.query(
+        'INSERT INTO confession_likes (confession_id, user_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+        {
+          replacements: [id, userId],
+          type: sequelize.QueryTypes.INSERT,
+          transaction
+        }
+      );
+
+      await sequelize.query(
+        'UPDATE confessions SET likes = likes + 1 WHERE confession_id = ?',
+        {
+          replacements: [id],
+          type: sequelize.QueryTypes.UPDATE,
+          transaction
+        }
+      );
+      liked = true;
+    }
+
+    await transaction.commit();
 
     const [conf] = await sequelize.query(
       'SELECT likes FROM confessions WHERE confession_id = ? LIMIT 1',
@@ -182,10 +251,11 @@ exports.likeConfession = async (req, res) => {
       }
     );
 
-    return res.status(200).json({ success: true, likes: conf ? conf.likes : 0 });
+    return res.status(200).json({ success: true, likes: conf ? conf.likes : 0, liked });
   } catch (error) {
+    await transaction.rollback();
     console.error('[likeConfession Error]:', error);
-    return res.status(500).json({ detail: 'Failed to like confession: ' + error.message });
+    return res.status(500).json({ detail: 'Failed to toggle like: ' + error.message });
   }
 };
 
@@ -195,7 +265,7 @@ exports.getComments = async (req, res) => {
     const { id } = req.params;
 
     const comments = await sequelize.query(
-      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.parent_id, c.created_at, u.college_id, col.short_name as college_name, u.name as user_name, u.picture as user_picture 
+      `SELECT c.comment_id, c.confession_id, c.user_id, c.content, c.parent_id, c.created_at, u.college_id, col.short_name as college_name, u.name as user_name, u.picture as user_picture, u.photos as user_photos 
        FROM comments c 
        LEFT JOIN users u ON c.user_id = u.user_id 
        LEFT JOIN colleges col ON u.college_id = col.college_id 
@@ -207,7 +277,24 @@ exports.getComments = async (req, res) => {
       }
     );
 
-    return res.status(200).json({ comments });
+    // Map comments to parse user profile photo from u.photos if c.user_picture is not set
+    const formattedComments = comments.map(c => {
+      let resolvedPicture = c.user_picture;
+      if (c.user_photos) {
+        try {
+          const photos = typeof c.user_photos === 'string' ? JSON.parse(c.user_photos) : c.user_photos;
+          if (Array.isArray(photos) && photos.length > 0) {
+            resolvedPicture = photos[0];
+          }
+        } catch (e) {}
+      }
+      return {
+        ...c,
+        user_picture: resolvedPicture
+      };
+    });
+
+    return res.status(200).json({ comments: formattedComments });
   } catch (error) {
     console.error('[getComments Error]:', error);
     return res.status(500).json({ detail: 'Failed to retrieve comments: ' + error.message });
