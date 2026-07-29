@@ -503,6 +503,30 @@ export default function Messages() {
                 </TouchableOpacity>
               );
             })()}
+
+            {/* Matches stories bubbles */}
+            {storiesFeed.filter(g => g.user_id !== user?.user_id).map((group) => {
+              const absIdx = storiesFeed.findIndex(g => g.user_id === group.user_id);
+              return (
+                <TouchableOpacity
+                  key={group.user_id}
+                  style={styles.storyItem}
+                  onPress={() => openStoryViewer(absIdx)}
+                >
+                  <View style={styles.storyAvatarWrapper}>
+                    <Image source={{ uri: group.user_picture }} style={styles.storyAvatar} />
+                    {group.has_unviewed ? (
+                      <View style={styles.storyRingUnviewed} />
+                    ) : (
+                      <View style={styles.storyRingViewed} />
+                    )}
+                  </View>
+                  <Text style={styles.storyUsername} numberOfLines={1}>
+                    {group.user_name?.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
