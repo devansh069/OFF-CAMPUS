@@ -1820,7 +1820,7 @@ export default function CampusLive() {
                 <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
                   <View style={styles.optionsHeader}>
                     <View style={styles.optionsHeaderBar} />
-                    <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+                    <Text style={styles.optionsTitle}>Confession Options </Text>
                   </View>
 
                   <TouchableOpacity

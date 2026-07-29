@@ -281,8 +281,12 @@ export default function Events() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
         return Math.abs(gestureState.dy) > 5;
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -570,6 +574,7 @@ export default function Events() {
   const categories = [
     { key: 'party', label: 'parties and clubbing', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline' },
     { key: 'fest', label: 'concert and fest', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline' },
+    { key: 'workshop', label: 'workshops and tech', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline' },
     { key: 'trip', label: 'Trips', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline' },
     { key: 'sports', label: 'sports', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline' },
   ];
@@ -879,14 +884,17 @@ export default function Events() {
         {selectedEvent && (
           <View style={styles.detailsModalContainer}>
             {/* Full-Screen Cover Image Section */}
-            <View style={styles.modalCoverContainer}>
+            <View 
+              style={styles.modalCoverContainer}
+              {...(!sheetExpanded ? panResponder.panHandlers : {})}
+            >
               <Image
                 source={{ uri: getEventFlyer(selectedEvent) }}
                 style={styles.modalCoverImage}
               />
 
               {/* Header buttons overlay */}
-              <SafeAreaView style={styles.modalOverlayHeader}>
+              <View style={styles.modalOverlayHeader}>
                 <TouchableOpacity
                   style={styles.circularBackBtn}
                   onPress={() => setSelectedEvent(null)}
@@ -907,7 +915,7 @@ export default function Events() {
                     color={selectedEvent.is_starred ? "#000" : "#FFF"}
                   />
                 </TouchableOpacity>
-              </SafeAreaView>
+              </View>
 
               {/* Overlaid Label & Title */}
               <View style={styles.modalCoverTextOverlay}>
@@ -919,6 +927,22 @@ export default function Events() {
                 </Text>
               </View>
             </View>
+
+            {/* Tap to collapse overlay above details sheet */}
+            {sheetExpanded && (
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: SNAP_TOP,
+                  zIndex: 8,
+                }}
+                activeOpacity={1}
+                onPress={() => animateTo(SNAP_BOTTOM)}
+              />
+            )}
 
             {/* Sliding Bottom Sheet */}
             <Animated.View
@@ -947,7 +971,7 @@ export default function Events() {
                     onPress={() => animateTo(SNAP_TOP)}
                   >
                     <Text style={styles.minimizedViewDetailsText}>View Details</Text>
-                    <Ionicons name="chevron-up" size={18} color="#000" />
+                    {/* <Ionicons name="chevron-up" size={18} color="#000" /> */}
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -2278,12 +2302,12 @@ const styles = StyleSheet.create({
   },
   modalOverlayHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 12 : 24,
+    top: Platform.OS === 'ios' ? 60 : 44,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
     zIndex: 10,
   },
   circularBackBtn: {
