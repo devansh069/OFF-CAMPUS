@@ -13,12 +13,13 @@ import {
   Alert,
   PanResponder
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAuth } from '@/src/contexts/AuthContext';
+import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 
 const { width: screenWidth } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -75,7 +76,8 @@ const MOCK_NEARBY_PROFILES = [
 
 export default function NearbyScreen() {
   const router = useRouter();
-  const { sessionToken } = useAuth();
+  const { user, sessionToken } = useAuth();
+  const [upsellVisible, setUpsellVisible] = useState(false);
 
   // Location state
   const [locationEnabled, setLocationEnabled] = useState(false);
@@ -89,6 +91,14 @@ export default function NearbyScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTextIndex, setSearchTextIndex] = useState(0);
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([]);
+  const [handshakesRemaining, setHandshakesRemaining] = useState(user?.is_premium ? 5 : 1);
+
+  // Initialize handshakes from user profile data
+  useEffect(() => {
+    if (user?.handshakes_remaining !== undefined) {
+      setHandshakesRemaining(user.handshakes_remaining);
+    }
+  }, [user]);
 
   // Animation values
   const radarAnim = useRef(new Animated.Value(1)).current;
@@ -230,6 +240,9 @@ export default function NearbyScreen() {
       if (response.ok) {
         const data = await response.json();
         setNearbyProfiles(data.profiles || []);
+        if (data.handshakes_remaining !== undefined) {
+          setHandshakesRemaining(data.handshakes_remaining);
+        }
       } else {
         throw new Error('Failed to retrieve nearby list');
       }
@@ -244,10 +257,18 @@ export default function NearbyScreen() {
       // Redirect directly to the user chat inbox page
       router.push(`/chat/${userItem.user_id}`);
     } else {
+      // Check if handshakes remaining
+      if (handshakesRemaining <= 0) {
+        setUpsellVisible(true);
+        return;
+      }
       // Redirect to the vibe page with specific focus on this profile
       router.push({
         pathname: '/(tabs)/discover',
-        params: { targetUserId: userItem.user_id }
+        params: { 
+          targetUserId: userItem.user_id,
+          fromNearby: 'true'
+        }
       });
     }
   };
@@ -259,9 +280,25 @@ export default function NearbyScreen() {
       <SafeAreaView style={styles.safeContainer}>
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <Ionicons name="location" size={24} color="#C2FF3D" />
-            <Text style={styles.headerTitle}>nearby</Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.titleRow}>
+              <Ionicons name="location" size={24} color="#C2FF3D" />
+              <Text style={styles.headerTitle}>nearby</Text>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.handshakeCountPill} 
+              activeOpacity={0.8}
+              onPress={() => {
+                Alert.alert(
+                  'Weekly Handshakes 🤝',
+                  `You have ${handshakesRemaining} handshake${handshakesRemaining === 1 ? '' : 's'} remaining this week. Handshakes allow you to connect directly with students nearby!\n\nLimits: 1/week for free members, 5/week for Premium members. Resets every Sunday at 4 AM.`
+                );
+              }}
+            >
+              <MaterialCommunityIcons name="handshake" size={18} color="#C2FF3D" style={{ marginRight: 4 }} />
+              <Text style={styles.handshakeCountText}>{handshakesRemaining}</Text>
+            </TouchableOpacity>
           </View>
           <Text style={styles.headerSubtitle}>Connect with campus students around you</Text>
         </View>
@@ -348,12 +385,27 @@ export default function NearbyScreen() {
                   </View>
                 </View>
 
-                {/* Start Search Button */}
-                <TouchableOpacity style={styles.searchBtn} onPress={startSearching} activeOpacity={0.8}>
-                  <LinearGradient colors={['#C2FF3D', '#9BC72B']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.searchBtnGradient}>
-                    <Text style={styles.searchBtnText}>Start Search</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                {/* Start Search & Change Location Buttons */}
+                <View style={styles.searchBtnsRow}>
+                  <TouchableOpacity style={styles.searchBtn} onPress={startSearching} activeOpacity={0.8}>
+                    <LinearGradient colors={['#C2FF3D', '#9BC72B']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.searchBtnGradient}>
+                      <Text style={styles.searchBtnText}>Start Search</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.resetLocBtn}
+                    onPress={() => {
+                      setLocationEnabled(false);
+                      setLatitude(null);
+                      setLongitude(null);
+                      setReadableLocation(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.resetLocBtnText}>Change Location</Text>
+                  </TouchableOpacity>
+                </View>
               </BlurView>
 
               {/* Profiles List */}
@@ -365,8 +417,8 @@ export default function NearbyScreen() {
               {nearbyProfiles.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="people-outline" size={44} color="rgba(255,255,255,0.2)" />
-                  <Text style={styles.emptyText}>No students found in this range.</Text>
-                  <Text style={styles.emptySubtext}>Try increasing the search range radius and search again!</Text>
+                  <Text style={styles.emptyText}>no nearby profiles sorry try at a different location</Text>
+                  <Text style={styles.emptySubtext}>Try changing your location or increasing the range.</Text>
                 </View>
               ) : (
                 <View style={styles.profilesGrid}>
@@ -416,6 +468,13 @@ export default function NearbyScreen() {
           )
         )}
       </SafeAreaView>
+
+      <PremiumUpsellSheet
+        visible={upsellVisible}
+        onClose={() => setUpsellVisible(false)}
+        title="Weekly Handshakes Used! 🤝"
+        featureName="5 Weekly Handshakes"
+      />
     </View>
   );
 }
@@ -458,6 +517,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  handshakeCountPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(194, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.3)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  handshakeCountText: {
+    color: '#C2FF3D',
+    fontSize: 15,
+    fontWeight: '900',
   },
   centerContainer: {
     flex: 1,
@@ -655,7 +734,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   searchBtn: {
-    width: '100%',
+    flex: 1,
     height: 48,
     borderRadius: 24,
     overflow: 'hidden',
@@ -670,6 +749,23 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 15,
     fontWeight: '900',
+  },
+  searchBtnsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  resetLocBtn: {
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  resetLocBtnText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '700',
   },
   resultsHeaderRow: {
     flexDirection: 'row',

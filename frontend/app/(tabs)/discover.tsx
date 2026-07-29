@@ -510,6 +510,7 @@ export default function Discover() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const targetUserId = params.targetUserId as string | undefined;
+  const fromNearby = params.fromNearby === 'true';
 
   // Data state
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -701,6 +702,41 @@ export default function Discover() {
     }
   };
 
+  const handleHandshake = async (targetUserId: string) => {
+    const targetProfile = profiles.find(p => p.user_id === targetUserId);
+    if (sessionToken === 'dummy_token') {
+      if (Math.random() < 0.4 && targetProfile) {
+        setShowMatch(targetProfile);
+      }
+      return;
+    }
+
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/handshake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ target_user_id: targetUserId }),
+      });
+
+      if (r.status === 403) {
+        const errData = await r.json();
+        if (errData.error === 'no_handshakes_remaining') {
+          setUpsellTitle('Weekly Handshakes Used! 🤝');
+          setUpsellFeature('5 Weekly Handshakes');
+          setUpsellVisible(true);
+          return;
+        }
+      }
+
+      const d = await r.json();
+      if (d.is_match && targetProfile) {
+        setShowMatch(targetProfile);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handlePass = async (targetUserId: string) => {
     if (sessionToken === 'dummy_token') {
       return;
@@ -773,16 +809,20 @@ export default function Discover() {
       return;
     }
 
-    if (!user?.is_premium && likesRemaining <= 0) {
-      setUpsellTitle('Daily Free Likes Limit Reached! ⚡');
-      setUpsellFeature('6 Likes Daily Limit');
-      setUpsellVisible(true);
-      return;
-    }
+    if (fromNearby) {
+      // Handshake flow — no daily like decrement
+    } else {
+      if (!user?.is_premium && likesRemaining <= 0) {
+        setUpsellTitle('Daily Free Likes Limit Reached! ⚡');
+        setUpsellFeature('6 Likes Daily Limit');
+        setUpsellVisible(true);
+        return;
+      }
 
-    // Optimistically decrement daily free likes counter
-    if (!user?.is_premium) {
-      setLikesRemaining(prev => Math.max(0, prev - 1));
+      // Optimistically decrement daily free likes counter
+      if (!user?.is_premium) {
+        setLikesRemaining(prev => Math.max(0, prev - 1));
+      }
     }
 
     // 1. Slide out to the right
@@ -791,8 +831,12 @@ export default function Discover() {
       duration: 250,
       useNativeDriver: true,
     }).start(async () => {
-      // 2. Perform backend like logic in background
-      handleLike(targetUserId);
+      // 2. Perform backend like/handshake logic in background
+      if (fromNearby) {
+        handleHandshake(targetUserId);
+      } else {
+        handleLike(targetUserId);
+      }
       // 3. Move to next user & enable 1-step rewind
       setCurrentIndex(prev => prev + 1);
       setCanRewind(true);
@@ -1249,7 +1293,11 @@ export default function Discover() {
                 onPress={() => handleLikeAndNext(currentProfile.user_id)}
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
+                {fromNearby ? (
+                  <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
+                ) : (
+                  <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
+                )}
               </TouchableOpacity>
             </View>
           </View>

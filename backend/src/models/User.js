@@ -97,6 +97,17 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'current_longitude'
   },
+  handshakes_remaining: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+    field: 'handshakes_remaining'
+  },
+  last_handshake_reset: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'last_handshake_reset'
+  },
   height: {
     type: DataTypes.INTEGER,
     allowNull: true

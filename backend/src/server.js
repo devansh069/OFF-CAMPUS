@@ -121,6 +121,21 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN handshakes_remaining INT NOT NULL DEFAULT 1;");
+      console.log('[Patch] Added handshakes_remaining column to users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN last_handshake_reset DATETIME NULL;");
+      console.log('[Patch] Added last_handshake_reset column to users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE likes ADD COLUMN is_handshake TINYINT(1) NOT NULL DEFAULT 0;");
+      console.log('[Patch] Added is_handshake column to likes table');
+    } catch (e) {}
+
+    try {
       // Reset ALL users to non-premium (undo previous auto-premium patch damage)
       // Only real Razorpay payments will re-activate premium going forward
       await sequelize.query("UPDATE users SET is_premium = FALSE, premium_until = NULL, profile_visibility = 1.0;");

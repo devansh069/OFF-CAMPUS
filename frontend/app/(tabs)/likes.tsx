@@ -122,12 +122,15 @@ const getScrollableItems = (profile: any) => {
 export default function Likes() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
-  const [likes, setLikes] = useState<any[]>([]);
+  const [incomingLikes, setIncomingLikes] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'likes' | 'handshakes'>('handshakes');
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any | null>(null);
   const [showFullProfile, setShowFullProfile] = useState(false);
   const [activeProfileIndex, setActiveProfileIndex] = useState<number>(0);
   const [upsellVisible, setUpsellVisible] = useState(false);
+
+  const likes = incomingLikes.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake);
 
   useEffect(() => {
     fetchLikes();
@@ -135,7 +138,7 @@ export default function Likes() {
 
   const fetchLikes = async () => {
     if (sessionToken === 'dummy_token') {
-      setLikes([]);
+      setIncomingLikes([]);
       setLoading(false);
       return;
     }
@@ -146,10 +149,10 @@ export default function Likes() {
       });
       if (!r.ok) throw new Error('Failed to fetch incoming likes');
       const d = await r.json();
-      setLikes(d.likes || []);
+      setIncomingLikes(d.likes || []);
     } catch (e: any) {
       console.warn('fetchLikes failed:', e.message);
-      setLikes([]);
+      setIncomingLikes([]);
     } finally {
       setLoading(false);
     }
@@ -157,10 +160,10 @@ export default function Likes() {
 
   const handleAccept = async (targetUserId: string) => {
     if (sessionToken === 'dummy_token') {
-      const targetProfile = likes.find(p => p.user_id === targetUserId);
-      setLikes(prev => {
+      const targetProfile = incomingLikes.find(p => p.user_id === targetUserId);
+      setIncomingLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
-        if (nextList.length === 0) {
+        if (nextList.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake).length === 0) {
           setShowFullProfile(false);
         }
         return nextList;
@@ -172,7 +175,7 @@ export default function Likes() {
     }
 
     try {
-      const targetProfile = likes.find(p => p.user_id === targetUserId);
+      const targetProfile = incomingLikes.find(p => p.user_id === targetUserId);
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
@@ -181,9 +184,9 @@ export default function Likes() {
       const d = await r.json();
 
       // Filter out the resolved profile immediately
-      setLikes(prev => {
+      setIncomingLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
-        if (nextList.length === 0) {
+        if (nextList.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake).length === 0) {
           setShowFullProfile(false);
         }
         return nextList;
@@ -201,9 +204,9 @@ export default function Likes() {
 
   const handleReject = async (targetUserId: string) => {
     if (sessionToken === 'dummy_token') {
-      setLikes(prev => {
+      setIncomingLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
-        if (nextList.length === 0) {
+        if (nextList.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake).length === 0) {
           setShowFullProfile(false);
         }
         return nextList;
@@ -219,9 +222,9 @@ export default function Likes() {
       });
 
       // Filter out the resolved profile immediately
-      setLikes(prev => {
+      setIncomingLikes(prev => {
         const nextList = prev.filter(p => p.user_id !== targetUserId);
-        if (nextList.length === 0) {
+        if (nextList.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake).length === 0) {
           setShowFullProfile(false);
         }
         return nextList;
@@ -273,21 +276,47 @@ export default function Likes() {
               </View>
             </View>
 
+            {/* Custom Tab Selector */}
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'handshakes' && styles.tabButtonActive]}
+                onPress={() => setActiveTab('handshakes')}
+              >
+                <MaterialCommunityIcons name="handshake" size={18} color={activeTab === 'handshakes' ? '#000' : '#FFF'} />
+                <Text style={[styles.tabText, activeTab === 'handshakes' && styles.tabTextActive]}>
+                  Handshakes ({incomingLikes.filter(p => p.is_handshake).length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'likes' && styles.tabButtonActive]}
+                onPress={() => setActiveTab('likes')}
+              >
+                <Ionicons name="heart" size={16} color={activeTab === 'likes' ? '#000' : '#FFF'} style={{ marginRight: 2 }} />
+                <Text style={[styles.tabText, activeTab === 'likes' && styles.tabTextActive]}>
+                  Likes ({incomingLikes.filter(p => !p.is_handshake).length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {likes.length === 0 ? (
               <View style={styles.empty}>
                 <View style={styles.emptyHeartGlow}>
                   <Text style={styles.oopsIconText}>!</Text>
                 </View>
-                <Text style={styles.emptyT}>Oops! You don't have any likes for now.</Text>
+                <Text style={styles.emptyT}>No {activeTab} for now.</Text>
                 <Text style={styles.emptyS}>
-                  Go to start vibing with other students and build up matches!
+                  {activeTab === 'handshakes' 
+                    ? "Verify your profile and update your current location to connect with students around you!" 
+                    : "Go to start vibing with other students and build up matches!"}
                 </Text>
                 <TouchableOpacity
                   style={styles.exploreBtn}
-                  onPress={() => router.replace('/discover')}
+                  onPress={() => router.replace(activeTab === 'handshakes' ? '/nearby' : '/discover')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.exploreText}>Start Vibing </Text>
+                  <Text style={styles.exploreText}>
+                    {activeTab === 'handshakes' ? "Explore Nearby" : "Start Vibing"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -1062,4 +1091,36 @@ const styles = StyleSheet.create({
   matchBtnText: { color: '#000', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
+
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    padding: 4,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 16,
+    gap: 6,
+  },
+  tabButtonActive: {
+    backgroundColor: '#C2FF3D',
+  },
+  tabText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tabTextActive: {
+    color: '#000',
+    fontWeight: '900',
+  },
 });

@@ -550,7 +550,10 @@ exports.getCurrentUser = async (req, res) => {
       return res.status(404).json({ detail: 'User profile not found' });
     }
 
-
+    checkHandshakeReset(user);
+    if (user.changed()) {
+      await user.save();
+    }
 
     return res.status(200).json({ user });
   } catch (error) {
@@ -965,10 +968,14 @@ exports.getLikesReceived = async (req, res) => {
         is_match: false,
         like_id: { [Op.notLike]: 'pass_%' }
       },
-      attributes: ['from_user_id']
+      attributes: ['from_user_id', 'is_handshake']
     });
 
     const senderIds = receivedLikes.map(l => l.from_user_id);
+    const handshakeMap = receivedLikes.reduce((acc, l) => {
+      acc[l.from_user_id] = l.is_handshake;
+      return acc;
+    }, {});
 
     const likes = await User.findAll({
       where: {
@@ -977,7 +984,13 @@ exports.getLikesReceived = async (req, res) => {
       include: [{ model: College, as: 'college' }]
     });
 
-    return res.status(200).json({ likes });
+    const formattedLikes = likes.map(user => {
+      const u = user.toJSON();
+      u.is_handshake = handshakeMap[u.user_id] || false;
+      return u;
+    });
+
+    return res.status(200).json({ likes: formattedLikes });
   } catch (error) {
     console.error('[getLikesReceived Error]:', error);
     return res.status(500).json({ detail: 'Failed to retrieve likes received: ' + error.message });
@@ -1465,6 +1478,11 @@ exports.getNearbyUsers = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    checkHandshakeReset(currentUser);
+    if (currentUser.changed()) {
+      await currentUser.save();
+    }
+
     const myLat = currentUser.current_latitude !== null ? currentUser.current_latitude : currentUser.latitude;
     const myLon = currentUser.current_longitude !== null ? currentUser.current_longitude : currentUser.longitude;
 
@@ -1509,9 +1527,103 @@ exports.getNearbyUsers = async (req, res) => {
     // Sort by distance (closest first)
     nearbyProfiles.sort((a, b) => a.distance - b.distance);
 
-    return res.status(200).json({ profiles: nearbyProfiles });
+    return res.status(200).json({
+      profiles: nearbyProfiles,
+      handshakes_remaining: currentUser.handshakes_remaining
+    });
   } catch (error) {
     console.error('[getNearbyUsers Error]:', error);
     return res.status(500).json({ detail: 'Failed to fetch nearby users: ' + error.message });
+  }
+};
+
+function checkHandshakeReset(user) {
+  const now = new Date();
+  
+  // Calculate last Sunday 4 AM
+  const lastSunday = new Date(now);
+  const day = lastSunday.getDay(); // 0: Sunday, 1: Mon, etc.
+  const diff = lastSunday.getDate() - day;
+  lastSunday.setDate(diff);
+  lastSunday.setHours(4, 0, 0, 0);
+  
+  if (lastSunday > now) {
+    lastSunday.setDate(lastSunday.getDate() - 7);
+  }
+
+  // If last_handshake_reset is older than lastSunday or null, reset!
+  if (!user.last_handshake_reset || new Date(user.last_handshake_reset) < lastSunday) {
+    user.handshakes_remaining = user.is_premium ? 5 : 1;
+    user.last_handshake_reset = now;
+  }
+}
+
+exports.sendHandshake = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ error: 'target_user_id is required' });
+    }
+
+    const currentUser = await User.findOne({ where: { user_id: currentUserId } });
+    if (!currentUser || currentUser.verification_status !== 'verified') {
+      return res.status(403).json({
+        error: 'unverified_user',
+        detail: 'You must verify your student profile before sending handshakes.'
+      });
+    }
+
+    checkHandshakeReset(currentUser);
+    if (currentUser.handshakes_remaining <= 0) {
+      return res.status(403).json({
+        error: 'no_handshakes_remaining',
+        detail: 'Weekly handshakes limit reached! Upgrade to Premium for 5 weekly handshakes.',
+        is_premium: currentUser.is_premium
+      });
+    }
+
+    currentUser.handshakes_remaining -= 1;
+    await currentUser.save();
+
+    // Check if target user liked current user
+    const receivedLike = await Like.findOne({
+      where: { from_user_id: target_user_id, to_user_id: currentUserId }
+    });
+
+    let isMatch = false;
+    const likeId = `${currentUserId}_${target_user_id}`;
+
+    if (receivedLike) {
+      isMatch = true;
+      receivedLike.is_match = true;
+      await receivedLike.save();
+
+      await Like.upsert({
+        like_id: likeId,
+        from_user_id: currentUserId,
+        to_user_id: target_user_id,
+        is_match: true,
+        is_handshake: true
+      });
+    } else {
+      await Like.upsert({
+        like_id: likeId,
+        from_user_id: currentUserId,
+        to_user_id: target_user_id,
+        is_match: false,
+        is_handshake: true
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      is_match: isMatch,
+      handshakes_remaining: currentUser.handshakes_remaining
+    });
+  } catch (error) {
+    console.error('[sendHandshake Error]:', error);
+    return res.status(500).json({ detail: 'Failed to send handshake: ' + error.message });
   }
 };
