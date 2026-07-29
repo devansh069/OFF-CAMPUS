@@ -20,9 +20,17 @@ import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 
 let firebaseAuth: any = null;
+let GoogleSignin: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   firebaseAuth = require('@react-native-firebase/auth').default;
+} catch {
+  // Safe fallback if native module is not linked (Expo Go)
+}
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
 } catch {
   // Safe fallback if native module is not linked (Expo Go)
 }
@@ -36,6 +44,10 @@ const isNativeFirebaseAvailable = () => {
     console.warn('isNativeFirebaseAvailable check failed:', e);
     return false;
   }
+};
+
+const isGoogleSigninAvailable = () => {
+  return !!GoogleSignin && isNativeFirebaseAvailable();
 };
 
 const devanagariMap: { [key: string]: string } = {
@@ -54,6 +66,7 @@ export default function Welcome() {
   // Navigation steps: 'phone' | 'otp'
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
   
   // OTP States
   const [otpCode, setOtpCode] = useState('');
@@ -62,6 +75,16 @@ export default function Welcome() {
   const [timer, setTimer] = useState(30);
   const [confirmResult, setConfirmResult] = useState<any>(null);
   const otpInputRef = useRef<TextInput>(null);
+
+  // Initialize Google Sign-In SDK conditionally
+  useEffect(() => {
+    if (isGoogleSigninAvailable()) {
+      GoogleSignin.configure({
+        webClientId: '948138685161-9m1j3qkbjh2j5o0kvqucashjoher0o0u.apps.googleusercontent.com',
+        offlineAccess: true,
+      });
+    }
+  }, []);
 
   // Redirect if user is already authenticated
   useEffect(() => {
@@ -171,6 +194,52 @@ export default function Welcome() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (isGoogleSigninAvailable()) {
+      try {
+        setGoogleLoading(true);
+        await GoogleSignin.hasPlayServices();
+        const response = await GoogleSignin.signIn();
+        const idToken = response.data?.idToken;
+        if (!idToken) throw new Error('Failed to retrieve Google ID Token.');
+
+        // Authenticate with Firebase using Google credentials
+        const authModule = require('@react-native-firebase/auth').default;
+        const googleCredential = authModule.GoogleAuthProvider.credential(idToken);
+        const userCredential = await authModule().signInWithCredential(googleCredential);
+        
+        // Get verified Firebase ID Token (JWT)
+        const firebaseIdToken = await userCredential.user.getIdToken();
+        if (firebaseIdToken) {
+          await login(firebaseIdToken, true, referralCode.trim());
+        } else {
+          throw new Error('Failed to retrieve Firebase ID Token.');
+        }
+      } catch (error: any) {
+        console.error('Google Sign-in failed:', error);
+        Alert.alert('Sign-in Failed', error.message || 'Failed to authenticate via Google.');
+      } finally {
+        setGoogleLoading(false);
+      }
+    } else {
+      console.log('[Dev Bypass] Mocking Google Login in Expo Go...');
+      Alert.alert(
+        'Developer Mode 🛠️',
+        'Running inside Expo Go (Mock Mode). Real Google Sign-in is disabled. Press OK to log in with a mock Google account.',
+        [{ text: 'OK', onPress: async () => {
+          setGoogleLoading(true);
+          try {
+            await login('google-test-user@test.edu.in', false, referralCode.trim());
+          } catch (error: any) {
+            Alert.alert('Login Failed', error.message || 'Failed mock Google login.');
+          } finally {
+            setGoogleLoading(false);
+          }
+        }}]
+      );
+    }
+  };
+
   // Render 6-digit OTP code boxes
   const renderOTPslices = () => {
     const slots = Array(6).fill('');
@@ -264,6 +333,29 @@ export default function Welcome() {
                         <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
                         <Text style={styles.btnText}>Send Verification Code</Text>
                       </LinearGradient>
+                    </TouchableOpacity>
+
+                    {/* OR Divider */}
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>OR</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+
+                    {/* Google Login Button */}
+                    <TouchableOpacity 
+                      style={styles.googleLoginBtn} 
+                      onPress={handleGoogleLogin}
+                      disabled={googleLoading}
+                    >
+                      {googleLoading ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="logo-google" size={18} color="#FFF" style={{ marginRight: 10 }} />
+                          <Text style={styles.googleBtnText}>Continue with Google</Text>
+                        </>
+                      )}
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -500,4 +592,40 @@ const styles = StyleSheet.create({
   footerContainer: { alignItems: 'center', width: '100%', gap: 14, marginBottom: 50 }, // Spacing increased from 20 to 50
   disclaimer: { color: '#4B5563', fontSize: 12, fontWeight: '500' },
   adminLink: { color: '#94A3B8', fontSize: 12, fontWeight: '600', textDecorationLine: 'underline', marginTop: 4 }, // Increased contrast & font weight
+
+  // Google Login and Divider Styles
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dividerText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginHorizontal: 12,
+  },
+  googleLoginBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  googleBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

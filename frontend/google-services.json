@@ -12,7 +12,20 @@
           "package_name": "com.devansh.offcampus"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "948138685161-1iv9v0qckito99qfa9g09g7jptm0iiev.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.devansh.offcampus",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "948138685161-9ibhvna8p7ec1sa58dcqakvs4n4rika5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBSP9Y6xOur2TpmaN2gIvKjJVG7GNjdprQ"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "948138685161-9ibhvna8p7ec1sa58dcqakvs4n4rika5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "948138685161-pgsj25d2pgouvn07sp410bt86j889afo.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.devansh.offcampus"
+              }
+            }
+          ]
         }
       }
     }

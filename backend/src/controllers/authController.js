@@ -85,37 +85,54 @@ exports.verifyOTP = async (req, res) => {
       return res.status(400).json({ detail: 'Firebase ID token is required' });
     }
 
-    let uid, phone_number;
+    let uid, phone_number, email, name, picture;
 
     // Check for development bypass token
     if ((!process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_BYPASS === 'true') && firebaseToken.startsWith('dev-token-')) {
-      phone_number = firebaseToken.replace('dev-token-', '');
-      uid = 'dev_user_' + phone_number.replace(/\D/g, '');
-      console.log(`[Auth Dev Bypass] Logging in with test number: ${phone_number}`);
+      const devVal = firebaseToken.replace('dev-token-', '');
+      if (devVal.includes('@')) {
+        email = devVal;
+        uid = 'dev_user_' + email.replace(/[^a-zA-Z0-9]/g, '');
+        name = 'Mock Google User';
+      } else {
+        phone_number = devVal;
+        uid = 'dev_user_' + phone_number.replace(/\D/g, '');
+      }
+      console.log(`[Auth Dev Bypass] Logging in with dev bypass: ${devVal}`);
     } else {
       // Verify token using Firebase Admin SDK
       const decodedToken = await auth.verifyIdToken(firebaseToken);
       uid = decodedToken.uid;
       phone_number = decodedToken.phone_number;
+      email = decodedToken.email;
+      name = decodedToken.name;
+      picture = decodedToken.picture;
 
-      if (!phone_number) {
-        return res.status(400).json({ detail: 'Firebase token must contain a verified phone number' });
+      if (!phone_number && !email) {
+        return res.status(400).json({ detail: 'Firebase token must contain a verified phone number or email' });
       }
     }
 
-    // Check if user exists by firebase_uid or phone_number
+    // Check if user exists by firebase_uid, phone_number, or email
     let user = await User.findOne({
       where: { firebase_uid: uid }
     });
 
     if (!user) {
-      user = await User.findOne({
-        where: { phone_number: phone_number }
-      });
+      if (phone_number) {
+        user = await User.findOne({
+          where: { phone_number: phone_number }
+        });
+      } else if (email) {
+        user = await User.findOne({
+          where: { email: email }
+        });
+      }
 
       if (user) {
         // Link firebase_uid if it wasn't set yet
         user.firebase_uid = uid;
+        if (email && !user.email) user.email = email;
         await user.save();
       }
     }
@@ -124,25 +141,27 @@ exports.verifyOTP = async (req, res) => {
 
     // User already exists in database
     if (user) {
-      // Check if profile is complete (using name as proxy)
-      exists = !!user.name;
+      // Check if profile is complete (using year / course as onboarding complete proxy, as name is pre-filled from Google)
+      exists = !!(user.college_id && user.age);
     } else {
       // Create a shell user record
       const uniqueSuffix = Math.random().toString(36).substring(2, 9);
       user = await User.create({
         user_id: uid,
         firebase_uid: uid,
-        phone_number: phone_number,
+        phone_number: phone_number || null,
+        email: email || null,
+        name: name || '',
+        picture: picture || null,
         verification_status: 'pending',
         vibe_score: 10,
         interests: [],
-        photos: [],
+        photos: picture ? [picture] : [],
         spotify_data: {},
         is_premium: false,
         is_on_campus: false,
-        referral_code: `REF_${phone_number.replace(/\D/g, '') || uniqueSuffix}`
+        referral_code: `REF_${phone_number ? phone_number.replace(/\D/g, '') : uniqueSuffix}`
       });
-
     }
 
     // Handle Referral Logic — runs for ALL users (new & returning), duplicate-safe
