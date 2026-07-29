@@ -5,7 +5,7 @@ const College = require('../models/College');
 exports.exchangeCode = async (req, res) => {
   try {
     const { code, redirectUri } = req.body;
-    const userId = req.userId; // Populated by authMiddleware
+    const userId = req.user.user_id; // Populated by authMiddleware
 
     if (!code || !redirectUri) {
       return res.status(400).json({ detail: 'Authorization code and redirect URI are required.' });
