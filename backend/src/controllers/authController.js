@@ -1490,12 +1490,26 @@ exports.getNearbyUsers = async (req, res) => {
       return res.status(400).json({ error: 'Location coordinates not set for current user. Please update location first.' });
     }
 
-    // Fetch matches list to see connections
-    const matches = await Like.findAll({
-      where: { from_user_id: currentUserId, is_match: true },
+    // Fetch sent likes by this user to determine matches and handshakes
+    const sentLikes = await Like.findAll({
+      where: { from_user_id: currentUserId }
+    });
+    const matchUserIds = new Set();
+    const handshakeUserIds = new Set();
+    for (const l of sentLikes) {
+      if (l.is_match) {
+        matchUserIds.add(l.to_user_id);
+      } else if (l.is_handshake) {
+        handshakeUserIds.add(l.to_user_id);
+      }
+    }
+
+    // Fetch passed profiles by this user
+    const passed = await PassedProfile.findAll({
+      where: { from_user_id: currentUserId },
       attributes: ['to_user_id']
     });
-    const matchUserIds = new Set(matches.map(m => m.to_user_id));
+    const passedUserIds = new Set(passed.map(p => p.to_user_id));
 
     // Fetch all onboarded and verified other users
     const allUsers = await User.findAll({
@@ -1518,7 +1532,21 @@ exports.getNearbyUsers = async (req, res) => {
         if (dist <= range) {
           const userJSON = u.toJSON();
           userJSON.distance = parseFloat(dist.toFixed(1));
-          userJSON.is_connected = matchUserIds.has(u.user_id);
+          
+          if (matchUserIds.has(u.user_id)) {
+            userJSON.is_connected = true;
+            userJSON.nearby_status = 'connected';
+          } else if (handshakeUserIds.has(u.user_id)) {
+            userJSON.is_connected = false;
+            userJSON.nearby_status = 'handshake_sent';
+          } else if (passedUserIds.has(u.user_id)) {
+            userJSON.is_connected = false;
+            userJSON.nearby_status = 'rejected';
+          } else {
+            userJSON.is_connected = false;
+            userJSON.nearby_status = 'none';
+          }
+
           nearbyProfiles.push(userJSON);
         }
       }

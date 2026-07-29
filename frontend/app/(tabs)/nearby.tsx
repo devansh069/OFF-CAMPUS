@@ -92,6 +92,8 @@ export default function NearbyScreen() {
   const [searchTextIndex, setSearchTextIndex] = useState(0);
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([]);
   const [handshakesRemaining, setHandshakesRemaining] = useState(user?.is_premium ? 5 : 1);
+  // Track per-profile actions: 'handshake_sent' | 'rejected' | 'connected'
+  const [profileStatuses, setProfileStatuses] = useState<Record<string, string>>({});
 
   // Initialize handshakes from user profile data
   useEffect(() => {
@@ -253,9 +255,18 @@ export default function NearbyScreen() {
   };
 
   const handleProfileClick = (userItem: any) => {
-    if (userItem.is_connected) {
+    const status = userItem.nearby_status || (userItem.is_connected ? 'connected' : 'none');
+
+    if (status === 'connected') {
       // Redirect directly to the user chat inbox page
       router.push(`/chat/${userItem.user_id}`);
+    } else if (status === 'handshake_sent' || status === 'rejected') {
+      Alert.alert(
+        status === 'handshake_sent' ? 'Handshake Sent 🤝' : 'Pass / Rejected ❌',
+        status === 'handshake_sent'
+          ? `You have already sent a handshake to ${userItem.name}. Wait for them to match with you!`
+          : `You passed on ${userItem.name}. You cannot view their profile right now.`
+      );
     } else {
       // Check if handshakes remaining
       if (handshakesRemaining <= 0) {
@@ -432,10 +443,18 @@ export default function NearbyScreen() {
                       <Image source={{ uri: userItem.picture || userItem.photos?.[0] || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400' }} style={styles.profileImage} />
                       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.cardGradient} />
 
-                      {/* Connection Badge */}
-                      {userItem.is_connected ? (
+                      {/* Connection/Action Badge */}
+                      {userItem.nearby_status === 'connected' || userItem.is_connected ? (
                         <View style={styles.connectedBadge}>
                           <Text style={styles.connectedBadgeText}>CONNECTED 💬</Text>
+                        </View>
+                      ) : userItem.nearby_status === 'handshake_sent' ? (
+                        <View style={[styles.connectedBadge, { backgroundColor: '#3B82F6' }]}>
+                          <Text style={styles.connectedBadgeText}>HANDSHAKE SENT 🤝</Text>
+                        </View>
+                      ) : userItem.nearby_status === 'rejected' ? (
+                        <View style={[styles.connectedBadge, { backgroundColor: '#EF4444' }]}>
+                          <Text style={styles.connectedBadgeText}>REJECTED ❌</Text>
                         </View>
                       ) : (
                         <View style={styles.distanceBadge}>

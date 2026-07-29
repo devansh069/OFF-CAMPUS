@@ -1296,7 +1296,7 @@ export default function Discover() {
                 {fromNearby ? (
                   <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
                 ) : (
-                  <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
+                  <Ionicons name="heart" size={24} color="#C2FF3D" />
                 )}
               </TouchableOpacity>
             </View>
@@ -1425,8 +1425,28 @@ export default function Discover() {
                   styles.globalToggleText,
                   globalMode && styles.globalToggleTextActive
                 ]}>Go Global</Text>
-              </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Likes Remaining Count Pill */}
+          <View style={styles.likesPillContainer}>
+            <TouchableOpacity 
+              style={styles.likesPill}
+              activeOpacity={0.8}
+              onPress={() => {
+                Alert.alert(
+                  'Daily Likes 💖',
+                  user?.is_premium 
+                    ? 'You are a Premium member and have Unlimited daily likes! 🎉'
+                    : `You have ${likesRemaining} free daily like${likesRemaining === 1 ? '' : 's'} remaining. Upgrade to Premium for unlimited daily likes!`
+                );
+              }}
+            >
+              <Ionicons name="heart" size={14} color="#FF2D55" style={{ marginRight: 4 }} />
+              <Text style={styles.likesPillText}>
+                {user?.is_premium ? 'Unlimited' : likesRemaining}
+              </Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
 
@@ -1740,6 +1760,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginVertical: 10,
     marginHorizontal: 12,
+  },
+  likesPillContainer: {
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  likesPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 45, 85, 0.3)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  likesPillText: {
+    color: '#FF2D55',
+    fontSize: 13,
+    fontWeight: '900',
   },
   globalToggleContainer: {
     flexDirection: 'row',
