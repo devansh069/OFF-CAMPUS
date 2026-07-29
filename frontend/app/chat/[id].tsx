@@ -1358,19 +1358,20 @@ export default function ChatScreen() {
                     {/* Glass Details Card Overlay */}
                     <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.vibeGlassDetailsCard}>
                       <View style={styles.vibeCardDetailsContent}>
-                        {/* Name & Age */}
-                        <View style={styles.vibeCardNameRow}>
-                          <Text style={styles.vibeCardNameText}>
-                            {otherUser?.name || 'Student'}{otherUser?.age ? `, ${otherUser.age}` : ''}
-                          </Text>
-                          {otherUser?.verification_status === 'verified' && (
-                            <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
-                          )}
-                          {otherUser?.is_premium && (
-                            <Ionicons name="crown" size={18} color="#FFD700" style={{ marginLeft: 4 }} />
-                          )}
-                          <View style={{ flex: 1 }} />
-                          <View style={styles.innovativeVibeBadge}>
+                        {/* Name & Age Row */}
+                        <View style={[styles.vibeCardNameRow, { justifyContent: 'space-between' }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
+                            <Text style={styles.vibeCardNameText} numberOfLines={1} ellipsizeMode="tail">
+                              {otherUser?.name || 'Student'}{otherUser?.age ? `, ${otherUser.age}` : ''}
+                            </Text>
+                            {otherUser?.verification_status === 'verified' && (
+                              <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6, flexShrink: 0 }} />
+                            )}
+                            {otherUser?.is_premium && (
+                              <Ionicons name="crown" size={18} color="#FFD700" style={{ marginLeft: 4, flexShrink: 0 }} />
+                            )}
+                          </View>
+                          <View style={[styles.innovativeVibeBadge, { flexShrink: 0 }]}>
                             <Ionicons name="sparkles" size={13} color="#FFD700" />
                             <Text style={styles.innovativeVibeText}>{(otherUser?.vibe_score || 8.5).toFixed(1)}</Text>
                           </View>
@@ -1961,7 +1962,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   vibeAnimatedCardItem: {
-    width: screenWidth,
+    width: '100%',
+    borderRadius: 28,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -2104,6 +2106,23 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 12,
   },
+  vibeTrackIndex: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 14,
+    fontWeight: '700',
+    width: 20,
+  },
+  vibeTrackArt: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: 'rgba(29, 185, 84, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vibeSpotifyTrackInfo: {
+    flex: 1,
+  },
   vibeSpotifyTrackName: {
     color: '#FFF',
     fontSize: 13,
@@ -2119,6 +2138,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   vibeSecondaryPhotoCard: {
+    flex: 1,
+    width: '100%',
     borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 1.5,
@@ -2133,12 +2154,32 @@ const styles = StyleSheet.create({
     color: '#9D4EDD',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  vibePromptTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 28,
+    marginTop: 6,
   },
   vibePromptAnswer: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  vibeHingePhotoContainer: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  vibeHingePhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
   },
   vibeSecondaryPhotoContainer: {
     height: 380,

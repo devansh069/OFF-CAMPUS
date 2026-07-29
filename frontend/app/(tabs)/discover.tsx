@@ -1065,14 +1065,17 @@ export default function Discover() {
                             {/* Glass Details Card Overlay */}
                             <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.glassDetailsCard}>
                               <View style={styles.profileDetails}>
-                                {/* Name & Age */}
-                                <View style={styles.cardNameRow}>
-                                  <Text style={styles.cardName}>{currentProfile.name}, {currentProfile.age}</Text>
-                                  {currentProfile.verification_status === 'verified' && (
-                                    <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
-                                  )}
-                                  <View style={{ flex: 1 }} />
-                                  <View style={styles.innovativeVibeBadge}>
+                                {/* Name & Age Row */}
+                                <View style={[styles.cardNameRow, { justifyContent: 'space-between' }]}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
+                                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">
+                                      {currentProfile.name}, {currentProfile.age}
+                                    </Text>
+                                    {currentProfile.verification_status === 'verified' && (
+                                      <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6, flexShrink: 0 }} />
+                                    )}
+                                  </View>
+                                  <View style={[styles.innovativeVibeBadge, { flexShrink: 0 }]}>
                                     <Ionicons name="sparkles" size={13} color="#FFD700" />
                                     <Text style={styles.innovativeVibeText}>{currentProfile.vibe_score?.toFixed(1)}</Text>
                                   </View>
