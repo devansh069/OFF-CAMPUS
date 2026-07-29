@@ -192,6 +192,51 @@ export default function CampusLive() {
   ];
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Story transitions and sorting
+  const storyFadeAnim = useRef(new Animated.Value(1)).current;
+  const storySlideAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerUserTransition = () => {
+    storySlideAnim.setValue(80);
+    storyFadeAnim.setValue(0);
+    Animated.parallel([
+      Animated.timing(storySlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(storyFadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      })
+    ]).start();
+  };
+
+  const sortStoriesList = (storyGroups: any[], currentUserId?: string) => {
+    if (!Array.isArray(storyGroups)) return [];
+    const myGroup = storyGroups.find(g => g.user_id === currentUserId);
+    const otherGroups = storyGroups.filter(g => g.user_id !== currentUserId);
+
+    otherGroups.sort((a, b) => {
+      const aUnviewed = a.has_unviewed ? 1 : 0;
+      const bUnviewed = b.has_unviewed ? 1 : 0;
+      if (aUnviewed !== bUnviewed) {
+        return bUnviewed - aUnviewed;
+      }
+
+      const aLatestTime = a.stories && a.stories.length > 0
+        ? Math.max(...a.stories.map((st: any) => new Date(st.createdAt || st.created_at || 0).getTime()))
+        : 0;
+      const bLatestTime = b.stories && b.stories.length > 0
+        ? Math.max(...b.stories.map((st: any) => new Date(st.createdAt || st.created_at || 0).getTime()))
+        : 0;
+      return bLatestTime - aLatestTime;
+    });
+
+    return myGroup ? [myGroup, ...otherGroups] : otherGroups;
+  };
+
   // Confessions Filters States
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [tempFeedScope, setTempFeedScope] = useState<'college' | 'global'>('college');
@@ -333,7 +378,7 @@ export default function CampusLive() {
                 stories: [newStoryItem]
               });
             }
-            return updated;
+            return sortStoriesList(updated, user?.user_id);
           });
         }
       });
@@ -351,7 +396,7 @@ export default function CampusLive() {
   const fetchAll = async () => {
     if (sessionToken === 'dummy_token') {
       setConfessions(MOCK_CONFESSIONS);
-      setStories(MOCK_STORIES);
+      setStories(sortStoriesList(MOCK_STORIES, user?.user_id));
       setLoading(false);
       setRefreshing(false);
       return;
@@ -372,9 +417,9 @@ export default function CampusLive() {
       }
 
       if (s.users_with_stories) {
-        setStories(s.users_with_stories);
+        setStories(sortStoriesList(s.users_with_stories, user?.user_id));
       } else {
-        setStories(MOCK_STORIES);
+        setStories(sortStoriesList(MOCK_STORIES, user?.user_id));
       }
 
       if (liveCountsRes) {
@@ -384,7 +429,7 @@ export default function CampusLive() {
     } catch (e) {
       console.warn('fetchLive failed, using mock live data instead:', e);
       setConfessions(MOCK_CONFESSIONS);
-      setStories(MOCK_STORIES);
+      setStories(sortStoriesList(MOCK_STORIES, user?.user_id));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -643,16 +688,16 @@ export default function CampusLive() {
 
         setStories(prev => {
           const existingUserIdx = prev.findIndex(u => u.user_id === newStory.user_id);
+          let updated;
           if (existingUserIdx >= 0) {
-            const updated = [...prev];
+            updated = [...prev];
             updated[existingUserIdx] = {
               ...updated[existingUserIdx],
               has_unviewed: true,
               stories: [...(updated[existingUserIdx].stories || []), newStory]
             };
-            return updated;
           } else {
-            return [
+            updated = [
               {
                 user_id: newStory.user_id,
                 user_name: newStory.user_name,
@@ -663,6 +708,7 @@ export default function CampusLive() {
               ...prev
             ];
           }
+          return sortStoriesList(updated, user?.user_id);
         });
 
         Alert.alert('Story posted!', 'Your story will be live for 24 hours');
@@ -746,6 +792,7 @@ export default function CampusLive() {
     if (activeStoryIndex < activeUserWithStories.stories.length - 1) {
       setActiveStoryIndex(prev => prev + 1);
     } else if (activeStoryUserIndex < stories.length - 1) {
+      triggerUserTransition();
       setActiveStoryUserIndex(prev => prev + 1);
       setActiveStoryIndex(0);
     } else {
@@ -758,6 +805,7 @@ export default function CampusLive() {
     if (activeStoryIndex > 0) {
       setActiveStoryIndex(prev => prev - 1);
     } else if (activeStoryUserIndex > 0) {
+      triggerUserTransition();
       setActiveStoryUserIndex(prev => prev - 1);
       const prevUser = stories[activeStoryUserIndex - 1];
       setActiveStoryIndex(prevUser.stories.length - 1);
@@ -768,6 +816,7 @@ export default function CampusLive() {
   };
 
   const openStoryViewer = (userIndex: number) => {
+    triggerUserTransition();
     setActiveStoryUserIndex(userIndex);
     setActiveStoryIndex(0);
     setStoryProgress(0);
@@ -2075,7 +2124,9 @@ export default function CampusLive() {
 
             {/* Story Image */}
             {activeStory && (
-              <Image source={{ uri: activeStory.image }} style={styles.storyMainImg} />
+              <Animated.View style={{ width: '100%', height: '100%', opacity: storyFadeAnim, transform: [{ translateX: storySlideAnim }] }}>
+                <Image source={{ uri: activeStory.image }} style={styles.storyMainImg} />
+              </Animated.View>
             )}
 
             {/* Viewers list Drawer activator (Only visible on OWN stories) */}
