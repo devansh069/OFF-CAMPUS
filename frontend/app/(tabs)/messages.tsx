@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
   Modal,
+  Animated,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,6 +73,32 @@ export default function Messages() {
   const [activeStoryUserIndex, setActiveStoryUserIndex] = useState(0);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [storyProgress, setStoryProgress] = useState(0);
+  const [isStoryPaused, setIsStoryPaused] = useState(false);
+  const storyFadeAnim = useRef(new Animated.Value(1)).current;
+  const storySlideAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerUserTransition = () => {
+    storySlideAnim.setValue(80);
+    storyFadeAnim.setValue(0);
+    Animated.parallel([
+      Animated.timing(storySlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(storyFadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      })
+    ]).start();
+  };
+
+  useEffect(() => {
+    if (!showStoryModal) {
+      setIsStoryPaused(false);
+    }
+  }, [showStoryModal]);
 
   const reportReasons = [
     'Spam / Fake Profile',
@@ -288,6 +315,43 @@ export default function Messages() {
     }
   };
 
+  const handleDeleteStory = () => {
+    if (!activeStory) return;
+
+    Alert.alert(
+      'Delete Story?',
+      'Are you sure you want to delete this story? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (sessionToken && sessionToken !== 'dummy_token') {
+                const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/${activeStory.story_id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                if (!response.ok) {
+                  Alert.alert('Error', 'Failed to delete story.');
+                  return;
+                }
+              }
+
+              setShowStoryModal(false);
+              fetchStories();
+              Alert.alert('Deleted', 'Your story has been deleted successfully.');
+            } catch (e) {
+              console.error('Error deleting story:', e);
+              Alert.alert('Error', 'Failed to delete story.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     if (showStoryModal && activeStory && !isOwnStory) {
       registerStoryView(activeStory.story_id);
@@ -295,7 +359,7 @@ export default function Messages() {
   }, [showStoryModal, activeStoryUserIndex, activeStoryIndex]);
 
   useEffect(() => {
-    if (!showStoryModal || showViewersSheet) return;
+    if (!showStoryModal || showViewersSheet || isStoryPaused) return;
 
     const interval = setInterval(() => {
       setStoryProgress(prev => {
@@ -304,18 +368,19 @@ export default function Messages() {
           goNextStory();
           return 0;
         }
-        return prev + 0.02; // 5 seconds duration
+        return prev + 0.01; // 10 seconds duration (0.01 every 100ms)
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex, showViewersSheet]);
+  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex, showViewersSheet, isStoryPaused]);
 
   const goNextStory = () => {
     setStoryProgress(0);
     if (activeStoryIndex < activeUserWithStories.stories.length - 1) {
       setActiveStoryIndex(prev => prev + 1);
     } else if (activeStoryUserIndex < storiesFeed.length - 1) {
+      triggerUserTransition();
       setActiveStoryUserIndex(prev => prev + 1);
       setActiveStoryIndex(0);
     } else {
@@ -328,6 +393,7 @@ export default function Messages() {
     if (activeStoryIndex > 0) {
       setActiveStoryIndex(prev => prev - 1);
     } else if (activeStoryUserIndex > 0) {
+      triggerUserTransition();
       setActiveStoryUserIndex(prev => prev - 1);
       const prevUser = storiesFeed[activeStoryUserIndex - 1];
       setActiveStoryIndex(prevUser.stories.length - 1);
@@ -337,6 +403,7 @@ export default function Messages() {
   };
 
   const openStoryViewer = (userIndex: number) => {
+    triggerUserTransition();
     setActiveStoryUserIndex(userIndex);
     setActiveStoryIndex(0);
     setStoryProgress(0);
@@ -513,13 +580,23 @@ export default function Messages() {
                   style={styles.storyItem}
                   onPress={() => openStoryViewer(absIdx)}
                 >
-                  <View style={styles.storyAvatarWrapper}>
-                    <Image source={{ uri: group.user_picture }} style={styles.storyAvatar} />
-                    {group.has_unviewed ? (
-                      <View style={styles.storyRingUnviewed} />
-                    ) : (
-                      <View style={styles.storyRingViewed} />
-                    )}
+                  <View style={{ position: 'relative' }}>
+                    <LinearGradient
+                      colors={group.has_unviewed ? ['#C2FF3D', '#FF1B6B'] : ['#71717A', '#71717A']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.inboxStoryRing}
+                    >
+                      <View style={styles.inboxStoryInner}>
+                        {group.user_picture ? (
+                          <Image source={{ uri: group.user_picture }} style={styles.inboxStoryImg} />
+                        ) : (
+                          <View style={[styles.inboxStoryImg, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                            <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 22 }}>{group.user_name?.[0]}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </LinearGradient>
                   </View>
                   <Text style={styles.storyUsername} numberOfLines={1}>
                     {group.user_name?.split(' ')[0]}
@@ -1017,54 +1094,95 @@ export default function Messages() {
           <View style={styles.storyViewContainer}>
             {/* Progress bars */}
             <View style={styles.progBarRow}>
-              {activeUserWithStories.stories.map((_: any, idx: number) => (
-                <View key={idx} style={styles.progBarWrapper}>
-                  <View
-                    style={[
-                      styles.progBarFill,
-                      {
-                        width: idx < activeStoryIndex ? '100%' : idx === activeStoryIndex ? `${storyProgress * 100}%` : '0%',
-                      },
-                    ]}
-                  />
-                </View>
-              ))}
+              {activeUserWithStories.stories.map((_: any, idx: number) => {
+                const isCompleted = idx < activeStoryIndex;
+                const isActive = idx === activeStoryIndex;
+                return (
+                  <View key={idx} style={styles.progBarWrapper}>
+                    <View
+                      style={[
+                        styles.progBarFill,
+                        isCompleted && { width: '100%' },
+                        isActive && { width: `${storyProgress * 100}%` }
+                      ]}
+                    />
+                  </View>
+                );
+              })}
             </View>
 
             {/* Story header */}
             <View style={styles.storyHeader}>
-              <Image source={{ uri: activeUserWithStories.user_picture }} style={styles.storyHeadPic} />
+              {activeUserWithStories.user_picture ? (
+                <Image source={{ uri: activeUserWithStories.user_picture }} style={styles.storyHeadPic} />
+              ) : (
+                <View style={[styles.storyHeadPic, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: '#FFF', fontWeight: '900' }}>{activeUserWithStories?.user_name?.[0]}</Text>
+                </View>
+              )}
               <View style={{ marginLeft: 10 }}>
                 <Text style={styles.storyHeadName}>
                   {activeUserWithStories.user_name}
                 </Text>
                 <Text style={styles.storyHeadTime}>
-                  {activeStory.created_at ? formatViewTime(activeStory.created_at) : ''}
+                  {activeStory.createdAt ? formatViewTime(activeStory.createdAt) : activeStory.created_at ? formatViewTime(activeStory.created_at) : ''}
                 </Text>
+                {activeStory.audience ? (
+                  <Text style={[styles.storyHeadTime, { marginTop: 2, fontWeight: '600', color: '#C2FF3D' }]}>
+                    {activeStory.audience.toUpperCase()}
+                  </Text>
+                ) : null}
               </View>
-              <TouchableOpacity style={styles.storyClose} onPress={() => setShowStoryModal(false)}>
+              {isOwnStory && (
+                <TouchableOpacity
+                  style={{ marginLeft: 'auto', marginRight: 14, padding: 4 }}
+                  onPress={handleDeleteStory}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#FF3366" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={isOwnStory ? { padding: 4 } : styles.storyClose}
+                onPress={() => setShowStoryModal(false)}
+              >
                 <Ionicons name="close" size={28} color="#FFF" />
               </TouchableOpacity>
             </View>
 
             {/* Tap areas */}
-            <TouchableOpacity style={styles.storyLeftTap} onPress={goPrevStory} activeOpacity={1} />
-            <TouchableOpacity style={styles.storyRightTap} onPress={goNextStory} activeOpacity={1} />
+            <TouchableOpacity
+              style={styles.storyLeftTap}
+              onPress={goPrevStory}
+              onPressIn={() => setIsStoryPaused(true)}
+              onPressOut={() => setIsStoryPaused(false)}
+              activeOpacity={1}
+            />
+            <TouchableOpacity
+              style={styles.storyRightTap}
+              onPress={goNextStory}
+              onPressIn={() => setIsStoryPaused(true)}
+              onPressOut={() => setIsStoryPaused(false)}
+              activeOpacity={1}
+            />
 
-            {/* Story image */}
-            <Image source={{ uri: activeStory.image_url }} style={styles.storyMainImg} />
+            {/* Story image wrapper with transitions */}
+            <Animated.View style={{ width: '100%', height: '100%', opacity: storyFadeAnim, transform: [{ translateX: storySlideAnim }] }}>
+              <Image source={{ uri: activeStory.image || activeStory.image_url }} style={styles.storyMainImg} />
+            </Animated.View>
 
             {/* Viewers indicator (own stories only) */}
             {isOwnStory && (
               <TouchableOpacity
                 style={styles.viewersIndicator}
                 onPress={() => setShowViewersSheet(true)}
+                activeOpacity={0.8}
               >
-                <Ionicons name="chevron-up" size={20} color="#FFF" style={styles.bounceUpIcon} />
+                <Ionicons name="chevron-up" size={22} color="#FFF" style={styles.bounceUpIcon} />
                 <View style={styles.viewsCountBadge}>
-                  <Ionicons name="eye-outline" size={14} color="#FFF" />
+                  <Ionicons name="eye" size={14} color="#FF1B6B" />
                   <Text style={styles.viewsCountText}>
-                    {activeStory.views?.length || 0} views
+                    {activeStory.views?.length || 0} Views
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1078,11 +1196,8 @@ export default function Messages() {
                 animationType="slide"
                 onRequestClose={() => setShowViewersSheet(false)}
               >
-                <TouchableOpacity
-                  style={styles.viewsDrawerBackdrop}
-                  activeOpacity={1}
-                  onPress={() => setShowViewersSheet(false)}
-                >
+                <View style={styles.viewsDrawerBackdrop}>
+                  <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowViewersSheet(false)} />
                   <View style={styles.viewsDrawerSheet}>
                     <View style={styles.dragHandle} />
                     <View style={styles.viewsDrawerHeader}>
@@ -1109,7 +1224,7 @@ export default function Messages() {
                       )}
                     </ScrollView>
                   </View>
-                </TouchableOpacity>
+                </View>
               </Modal>
             )}
           </View>
@@ -1211,6 +1326,27 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  inboxStoryRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 2.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inboxStoryInner: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inboxStoryImg: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   storyUsername: {
     color: '#A1A1AA',
