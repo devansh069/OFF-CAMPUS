@@ -93,7 +93,7 @@ export default function CampusLive() {
   const [upsellFeature, setUpsellFeature] = useState("Global Story Upload");
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
-  const [expandedConfessions, setExpandedConfessions] = useState<{[key: string]: boolean}>({});
+  const [expandedConfessions, setExpandedConfessions] = useState<{ [key: string]: boolean }>({});
 
   const toggleExpand = (id: string) => {
     setExpandedConfessions(prev => ({
@@ -150,24 +150,7 @@ export default function CampusLive() {
   };
 
   const selectConfImage = () => {
-    Alert.alert(
-      'Add Photo 📸',
-      'Choose a photo source:',
-      [
-        {
-          text: 'Open Camera',
-          onPress: launchConfessionCamera
-        },
-        {
-          text: 'Open Gallery',
-          onPress: launchConfessionGallery
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
+    setShowConfessionPickModal(true);
   };
 
   const [college, setCollege] = useState<any>(null);
@@ -177,6 +160,7 @@ export default function CampusLive() {
 
   // New states for Story Creation Flow
   const [showPickModal, setShowPickModal] = useState(false);
+  const [showConfessionPickModal, setShowConfessionPickModal] = useState(false);
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [showBuyPremiumPopup, setShowBuyPremiumPopup] = useState(false);
   const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -218,17 +202,6 @@ export default function CampusLive() {
   // Custom Options Modal State
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [selectedOptionsConfession, setSelectedOptionsConfession] = useState<any | null>(null);
-
-  const { id } = useLocalSearchParams();
-
-  useEffect(() => {
-    if (id && confessions.length > 0) {
-      const match = confessions.find((c: any) => c.confession_id === id);
-      if (match) {
-        openComments(match);
-      }
-    }
-  }, [id, confessions]);
 
   useEffect(() => {
     if (showAudienceModal) {
@@ -275,6 +248,13 @@ export default function CampusLive() {
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [storyProgress, setStoryProgress] = useState(0);
   const [showViewersSheet, setShowViewersSheet] = useState(false);
+  const [isStoryPaused, setIsStoryPaused] = useState(false);
+
+  useEffect(() => {
+    if (!showStoryModal) {
+      setIsStoryPaused(false);
+    }
+  }, [showStoryModal]);
 
   // Reddit Comments Thread states
   const [selectedConfession, setSelectedConfession] = useState<any | null>(null);
@@ -414,7 +394,7 @@ export default function CampusLive() {
   const post = async () => {
     if (!text.trim() && !confessionImage) return;
     setPosting(true);
- 
+
     if (sessionToken === 'dummy_token') {
       const newConf = {
         confession_id: `conf_mock_${Date.now()}`,
@@ -431,7 +411,7 @@ export default function CampusLive() {
       setPosting(false);
       return;
     }
- 
+
     try {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/create`, {
         method: 'POST',
@@ -745,7 +725,7 @@ export default function CampusLive() {
 
   // Story Progression Loop
   useEffect(() => {
-    if (!showStoryModal || showViewersSheet) return;
+    if (!showStoryModal || showViewersSheet || isStoryPaused) return;
 
     const interval = setInterval(() => {
       setStoryProgress(prev => {
@@ -754,12 +734,12 @@ export default function CampusLive() {
           goNextStory();
           return 0;
         }
-        return prev + 0.02; // Increment progress (5 seconds duration total)
+        return prev + 0.01; // Increment progress (10 seconds duration total)
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex, showViewersSheet]);
+  }, [showStoryModal, activeStoryUserIndex, activeStoryIndex, showViewersSheet, isStoryPaused]);
 
   const goNextStory = () => {
     setStoryProgress(0);
@@ -793,6 +773,43 @@ export default function CampusLive() {
     setStoryProgress(0);
     setShowViewersSheet(false);
     setShowStoryModal(true);
+  };
+
+  const handleDeleteStory = () => {
+    if (!activeStory) return;
+
+    Alert.alert(
+      'Delete Story?',
+      'Are you sure you want to delete this story? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (sessionToken && sessionToken !== 'dummy_token') {
+                const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/${activeStory.story_id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                if (!response.ok) {
+                  Alert.alert('Error', 'Failed to delete story.');
+                  return;
+                }
+              }
+
+              setShowStoryModal(false);
+              fetchAll();
+              Alert.alert('Deleted', 'Your story has been deleted successfully.');
+            } catch (e) {
+              console.error('Error deleting story:', e);
+              Alert.alert('Error', 'Failed to delete story.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const formatViewTime = (isoString: string) => {
@@ -915,6 +932,45 @@ export default function CampusLive() {
       console.error('Error sharing:', error);
     }
   };
+
+  const { id } = useLocalSearchParams();
+
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      if (!id) return;
+      const targetId = Array.isArray(id) ? id[0] : id;
+
+      // If already opened, do nothing
+      if (selectedConfession?.confession_id === targetId) return;
+
+      // 1. Try to find in the local confessions list first
+      const match = confessions.find((c: any) => c.confession_id === targetId);
+      if (match) {
+        openComments(match);
+        return;
+      }
+
+      // 2. If not found locally, fetch it from the backend
+      if (sessionToken && sessionToken !== 'dummy_token') {
+        try {
+          const headers = { 'Authorization': `Bearer ${sessionToken}` };
+          const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${targetId}`, { headers });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.confession) {
+              openComments(data.confession);
+            }
+          } else {
+            console.warn('Failed to fetch deep-linked confession, status:', response.status);
+          }
+        } catch (e) {
+          console.error('Error fetching deep-linked confession:', e);
+        }
+      }
+    };
+
+    handleDeepLink();
+  }, [id, confessions, sessionToken, selectedConfession?.confession_id]);
 
   const openOptions = (confession: any) => {
     setSelectedOptionsConfession(confession);
@@ -1122,6 +1178,19 @@ export default function CampusLive() {
     }
   });
 
+  let myUserPicture = user?.picture;
+  if (user?.photos) {
+    try {
+      const photos = typeof user.photos === 'string' ? JSON.parse(user.photos) : user.photos;
+      if (Array.isArray(photos) && photos.length > 0) {
+        myUserPicture = photos[0];
+      }
+    } catch (e) {}
+  }
+
+  const myStoryIndex = stories.findIndex((s: any) => s.user_id === user?.user_id);
+  const hasMyStory = myStoryIndex !== -1;
+
   return (
     <View style={styles.container}>
       {/* Top-Left Dark Purple Glow Ball */}
@@ -1134,72 +1203,104 @@ export default function CampusLive() {
         />
       </View>
       <SafeAreaView style={{ flex: 1 }}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => { setRefreshing(true); fetchAll(); }}
-                tintColor="#FF1B6B"
-              />
-            }
-          >
-            {/* Redesigned Premium Header Bar */}
-            <View style={styles.newHeaderBar}>
-              <View style={styles.newHeaderLeft}>
-                <TouchableOpacity
-                  style={styles.newHeaderDropdown}
-                  onPress={() => {
-                    const newScope = appliedFeedScope === 'global' ? 'college' : 'global';
-                    setAppliedFeedScope(newScope);
-                    setAppliedSortBy(newScope === 'college' ? 'latest' : 'engagement');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.newHeaderTitle} numberOfLines={1}>
-                    {appliedFeedScope === 'global' ? 'Global Live' : (college?.short_name || college?.name || 'My Campus')}
-                  </Text>
-                  <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); fetchAll(); }}
+              tintColor="#FF1B6B"
+            />
+          }
+        >
+          {/* Redesigned Premium Header Bar */}
+          <View style={styles.newHeaderBar}>
+            <View style={styles.newHeaderLeft}>
+              <TouchableOpacity
+                style={styles.newHeaderDropdown}
+                onPress={() => {
+                  const newScope = appliedFeedScope === 'global' ? 'college' : 'global';
+                  setAppliedFeedScope(newScope);
+                  setAppliedSortBy(newScope === 'college' ? 'latest' : 'engagement');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.newHeaderTitle} numberOfLines={1}>
+                  {appliedFeedScope === 'global' ? 'Global Live' : (college?.short_name || college?.name || 'My Campus')}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
 
-                {/* Inline Live Indicator */}
-                <View style={[styles.newLiveBadge, { marginLeft: 8 }]}>
-                  <View style={styles.newLiveDot} />
-                  <Text style={styles.newLiveText}>
-                    {appliedFeedScope === 'global' ? `${liveCountGlobal} Live` : `${liveCountCollege} Live`}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.newHeaderRight}>
-                <Image
-                  source={require('../../assets/images/logo_off.png')}
-                  style={styles.headerLogo}
-                  resizeMode="contain"
-                />
+              {/* Inline Live Indicator */}
+              <View style={[styles.newLiveBadge, { marginLeft: 8 }]}>
+                <View style={styles.newLiveDot} />
+                <Text style={styles.newLiveText}>
+                  {appliedFeedScope === 'global' ? `${liveCountGlobal} Live` : `${liveCountCollege} Live`}
+                </Text>
               </View>
             </View>
 
-            {/* Stories List */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}>
-              {/* Create Story Button */}
+            <View style={styles.newHeaderRight}>
+              <Image
+                source={require('../../assets/images/logo_off.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+
+          {/* Stories List */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}>
+            {/* Create / View Your Story Button */}
+            {hasMyStory ? (
+              <TouchableOpacity style={styles.storyItem} onPress={() => openStoryViewer(myStoryIndex)}>
+                <View style={{ position: 'relative' }}>
+                  <LinearGradient
+                    colors={['#71717A', '#71717A']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.storyRing}
+                  >
+                    <View style={styles.storyInner}>
+                      {myUserPicture ? (
+                        <Image source={{ uri: myUserPicture }} style={styles.storyImg} />
+                      ) : (
+                        <View style={[styles.storyImg, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                          <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 24 }}>{user?.name?.[0] || 'Y'}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </LinearGradient>
+                </View>
+                <Text style={styles.storyName}>Your Story</Text>
+              </TouchableOpacity>
+            ) : (
               <TouchableOpacity style={styles.storyItem} onPress={() => setShowPickModal(true)}>
                 <View style={{ position: 'relative' }}>
                   <View style={styles.addStoryCircle}>
-                    <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFillObject} />
-                    <Ionicons name="camera" size={24} color="#FF1B6B" />
+                    {myUserPicture ? (
+                      <Image source={{ uri: myUserPicture }} style={styles.storyImg} />
+                    ) : (
+                      <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderRadius: 28 }}>
+                        <Ionicons name="camera" size={24} color="#FF1B6B" />
+                      </View>
+                    )}
                   </View>
                   <View style={styles.addPlus}><Ionicons name="add" size={14} color="#FFF" /></View>
                 </View>
                 <Text style={styles.storyName}>Your Story</Text>
               </TouchableOpacity>
+            )}
 
-              {/* Display Active Stories */}
-              {stories.map((s: any, userIndex: number) => (
-                <TouchableOpacity key={s.user_id} style={styles.storyItem} onPress={() => openStoryViewer(userIndex)}>
+            {/* Display Active Stories (excluding myself) */}
+            {stories
+              .map((s: any, originalIndex: number) => ({ ...s, originalIndex }))
+              .filter((s: any) => s.user_id !== user?.user_id)
+              .map((s: any) => (
+                <TouchableOpacity key={s.user_id} style={styles.storyItem} onPress={() => openStoryViewer(s.originalIndex)}>
                   <View style={{ position: 'relative' }}>
                     <LinearGradient
-                      colors={s.has_unviewed ? ['#C2FF3D', '#FF1B6B'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.15)']}
+                      colors={s.has_unviewed ? ['#C2FF3D', '#FF1B6B'] : ['#71717A', '#71717A']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.storyRing}
@@ -1218,1074 +1319,1085 @@ export default function CampusLive() {
                     <View style={styles.storyOnlineDot} />
                   </View>
                   <Text style={styles.storyName} numberOfLines={1}>
-                    {s.user_id === user?.user_id ? 'My Stories' : s.user_name?.split(' ')[0]}
+                    {s.user_name?.split(' ')[0]}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+          </ScrollView>
 
-            {/* Confessions Title */}
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionT}>Live Confessions</Text>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity
-                style={styles.filterBtn}
-                onPress={() => {
-                  setTempFeedScope(appliedFeedScope);
-                  setTempSortBy(appliedSortBy);
-                  setShowFilterModal(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="filter" size={18} color="#C2FF3D" />
-                {(appliedFeedScope !== 'college' || appliedSortBy !== 'latest') && (
-                  <View style={styles.filterActiveDot} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Confession Composer matching Events page Search bar */}
-            {/* Confession Composer Card */}
-            <BlurView intensity={25} tint="dark" style={styles.premiumComposerCard}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.03)', 'rgba(255,255,255,0.01)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              
-              {/* Image Preview Container (Inside the card) */}
-              {confessionImage && (
-                <View style={styles.composerImagePreviewWrapper}>
-                  <Image source={{ uri: `data:image/jpeg;base64,${confessionImage}` }} style={styles.composerImagePreviewNew} />
-                  <BlurView intensity={40} tint="dark" style={styles.imageCloseBlur}>
-                    <TouchableOpacity style={styles.composerImageCloseBtnNew} onPress={() => setConfessionImage(null)}>
-                      <Ionicons name="close" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                  </BlurView>
-                </View>
+          {/* Confessions Title */}
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionT}>Live Confessions</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => {
+                setTempFeedScope(appliedFeedScope);
+                setTempSortBy(appliedSortBy);
+                setShowFilterModal(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="filter" size={18} color="#C2FF3D" />
+              {(appliedFeedScope !== 'college' || appliedSortBy !== 'latest') && (
+                <View style={styles.filterActiveDot} />
               )}
+            </TouchableOpacity>
+          </View>
 
-              {/* TextInput Area */}
-              <TextInput
-                style={styles.composerTextInputNew}
-                placeholder="Drop an anonymous confession... What's on your mind?"
-                placeholderTextColor="rgba(255, 255, 255, 0.35)"
-                value={text}
-                onChangeText={setText}
-                maxLength={300}
-                multiline={true}
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
+          {/* Confession Composer matching Events page Search bar */}
+          {/* Confession Composer Card */}
+          <BlurView intensity={25} tint="dark" style={styles.premiumComposerCard}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.03)', 'rgba(255,255,255,0.01)']}
+              style={StyleSheet.absoluteFillObject}
+            />
 
-              {/* Bottom Action & Status Bar */}
-              <View style={styles.composerActionBarNew}>
-                {/* Left side actions */}
-                <TouchableOpacity onPress={selectConfImage} style={styles.composerImageSelectBtnNew} activeOpacity={0.7}>
-                  <Ionicons name="image" size={18} color={confessionImage ? '#C2FF3D' : '#FFF'} />
-                  <Text style={[styles.composerImageSelectText, { color: confessionImage ? '#C2FF3D' : 'rgba(255, 255, 255, 0.6)' }]}>
-                    {confessionImage ? 'Photo Added' : 'Add Photo'}
-                  </Text>
+            {/* Image Preview Container (Inside the card) */}
+            {confessionImage && (
+              <View style={styles.composerImagePreviewWrapper}>
+                <Image source={{ uri: `data:image/jpeg;base64,${confessionImage}` }} style={styles.composerImagePreviewNew} />
+                <BlurView intensity={40} tint="dark" style={styles.imageCloseBlur}>
+                  <TouchableOpacity style={styles.composerImageCloseBtnNew} onPress={() => setConfessionImage(null)}>
+                    <Ionicons name="close" size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </BlurView>
+              </View>
+            )}
+
+            {/* TextInput Area */}
+            <TextInput
+              style={styles.composerTextInputNew}
+              placeholder="Drop an anonymous confession... What's on your mind?"
+              placeholderTextColor="rgba(255, 255, 255, 0.35)"
+              value={text}
+              onChangeText={setText}
+              maxLength={300}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            {/* Bottom Action & Status Bar */}
+            <View style={styles.composerActionBarNew}>
+              {/* Left side actions */}
+              <TouchableOpacity onPress={selectConfImage} style={styles.composerImageSelectBtnNew} activeOpacity={0.7}>
+                <Ionicons name="image" size={18} color={confessionImage ? '#C2FF3D' : '#FFF'} />
+                <Text style={[styles.composerImageSelectText, { color: confessionImage ? '#C2FF3D' : 'rgba(255, 255, 255, 0.6)' }]}>
+                  {confessionImage ? 'Photo Added' : 'Add Photo'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Right side status & send */}
+              <View style={styles.composerRightActions}>
+                <Text style={styles.charCountText}>{text.length}/300</Text>
+
+                <TouchableOpacity
+                  onPress={post}
+                  disabled={!text.trim() && !confessionImage || posting}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.composerSendBtnNew,
+                    (!text.trim() && !confessionImage) && styles.composerSendBtnDisabledNew
+                  ]}
+                >
+                  {posting ? (
+                    <ActivityIndicator color="#000" size="small" />
+                  ) : (
+                    <LinearGradient
+                      colors={['#C2FF3D', '#A4E020']}
+                      style={styles.sendBtnGradNew}
+                    >
+                      <Ionicons name="send" size={14} color="#000" />
+                      <Text style={styles.sendBtnTextNew}>Post</Text>
+                    </LinearGradient>
+                  )}
                 </TouchableOpacity>
+              </View>
+            </View>
+          </BlurView>
 
-                {/* Right side status & send */}
-                <View style={styles.composerRightActions}>
-                  <Text style={styles.charCountText}>{text.length}/300</Text>
-                  
+          {/* Confessions List (Simplified 100% width layout with divider line) */}
+          <View style={styles.gridContainer}>
+            {filteredConfessions.map((c: any) => {
+              return (
+                <TouchableOpacity
+                  key={c.confession_id}
+                  style={styles.simpleConfessionContainer}
+                  onPress={() => handleCardPress(c)}
+                  activeOpacity={0.9}
+                >
+                  {/* Header Row */}
+                  <View style={styles.simpleHeaderRow}>
+                    <TouchableOpacity
+                      style={styles.simpleHeaderLeft}
+                      onPress={(e) => { e.stopPropagation(); handleUserProfileClick(c.user_id, c.is_match); }}
+                      activeOpacity={0.7}
+                    >
+                      {c.user_picture ? (
+                        <Image source={{ uri: c.user_picture }} style={styles.simpleAvatar} />
+                      ) : (
+                        <View style={styles.simpleAvatarPlaceholder}>
+                          <Ionicons name="eye-off" size={16} color="#C2FF3D" />
+                        </View>
+                      )}
+                      <View style={styles.simpleHeaderText}>
+                        <Text style={styles.simpleAuthorName}>{c.user_name || 'Campus Voice'}</Text>
+                        <Text style={styles.simpleCollegeName}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.simpleHeaderRight}>
+                      <Text style={styles.simpleTimeText}>
+                        {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
+                      </Text>
+                      <TouchableOpacity style={styles.simpleDotsBtn} onPress={(e) => { e.stopPropagation(); openOptions(c); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Ionicons name="ellipsis-vertical" size={18} color="rgba(255,255,255,0.6)" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Content Body */}
+                  <View style={styles.simpleBodyContainer}>
+                    {/* Caption / Text first */}
+                    {c.content ? (
+                      <Text style={styles.simpleContentText}>{c.content}</Text>
+                    ) : null}
+
+                    {/* Photo attachment below text if it exists */}
+                    {c.image ? (
+                      <View style={styles.simpleImageWrapper}>
+                        <Image source={{ uri: c.image }} style={styles.simpleAttachedImage} resizeMode="cover" />
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Simple Action Bar (Likes and Comments) */}
+                  <View style={styles.simpleActionBar}>
+                    <TouchableOpacity style={styles.simpleActionBtn} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
+                      <Ionicons name="heart" size={18} color={c.has_liked ? "#FF3366" : "rgba(255, 255, 255, 0.4)"} />
+                      <Text style={[styles.simpleActionText, { color: c.has_liked ? '#FF3366' : 'rgba(255, 255, 255, 0.4)' }]}>{c.likes || 0}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.simpleActionBtn} onPress={(e) => { e.stopPropagation(); openComments(c); }}>
+                      <Ionicons name="chatbubble" size={16} color="rgba(255, 255, 255, 0.4)" />
+                      <Text style={styles.simpleActionText}>{c.comments || 0}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Double Tap Animation Overlay */}
+                  {activeDoubleTapId === c.confession_id && (
+                    <Animated.View style={[
+                      styles.doubleTapHeartContainer,
+                      {
+                        transform: [{ scale: heartScale }],
+                        opacity: heartOpacity
+                      }
+                    ]}>
+                      <Ionicons name="heart" size={72} color="#FF3366" />
+                    </Animated.View>
+                  )}
+
+                  {/* Stroke Divider Line */}
+                  <View style={styles.simpleDivider} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* REDDIT STYLE COMMENTS THREAD MODAL */}
+        <Modal
+          visible={selectedConfession !== null}
+          animationType="slide"
+          onRequestClose={() => setSelectedConfession(null)}
+        >
+          <SafeAreaView style={styles.commentsModalContainer}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
+              {/* Top-Left Dark Purple Glow Ball */}
+              <View style={styles.glowBallContainer}>
+                <LinearGradient
+                  colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0.8, y: 0.8 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              </View>
+
+              {/* Modal Header */}
+              <View style={styles.commentsModalHeader}>
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => setSelectedConfession(null)}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.modalHeaderTitle}>Confession Thread</Text>
+                <View style={{ width: 24 }} />
+              </View>
+
+              <ScrollView
+                style={styles.commentsScrollView}
+                contentContainerStyle={styles.commentsContentContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                {selectedConfession && (
+                  <TouchableOpacity activeOpacity={1} onPress={() => handleDetailCardPress(selectedConfession)}>
+                    <View style={styles.modalConfCard}>
+                      <View style={styles.modalConfTop}>
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                          onPress={() => handleUserProfileClick(selectedConfession.user_id, selectedConfession.is_match)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.anonAvatarBadge}>
+                            {selectedConfession.user_picture ? (
+                              <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
+                            ) : (
+                              <Ionicons name="eye-off" size={14} color="#C2FF3D" />
+                            )}
+                          </View>
+                          <View>
+                            <Text style={styles.authorNameTextOnly}>
+                              {selectedConfession.user_name || 'Campus Voice'}
+                            </Text>
+                            <Text style={styles.collegeNameTextOnly}>
+                              @{selectedConfession.college_name?.toLowerCase() || 'campus'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Text style={styles.modalConfTime}>
+                            {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.threeDotsBtn}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              openOptions(selectedConfession);
+                            }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          >
+                            <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <View style={styles.modalMessageBubble}>
+                        <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
+                        {selectedConfession.image && (
+                          <View style={styles.modalConfImageWrapper}>
+                            <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.modalConfActions}>
+                        <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
+                          <Ionicons name="heart" size={16} color={selectedConfession.has_liked ? "#FF2D55" : "#FFF"} />
+                          <Text style={[styles.modalConfActT, { color: selectedConfession.has_liked ? "#FF2D55" : "rgba(255, 255, 255, 0.75)" }]}>{selectedConfession.likes || 0}</Text>
+                        </TouchableOpacity>
+                        <View style={styles.modalConfAct}>
+                          <Ionicons name="chatbubble" size={14} color="#FFF" />
+                          <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
+                        </View>
+                      </View>
+
+                      {activeDoubleTapId === selectedConfession.confession_id && (
+                        <Animated.View style={[
+                          styles.doubleTapHeartContainer,
+                          {
+                            transform: [{ scale: heartScale }],
+                            opacity: heartOpacity
+                          }
+                        ]}>
+                          <Ionicons name="heart" size={72} color="#FF3366" />
+                        </Animated.View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                <Text style={styles.repliesTitleHeader}>Replies</Text>
+
+                {loadingComments ? (
+                  <ActivityIndicator color="#C2FF3D" size="large" style={{ marginTop: 20 }} />
+                ) : comments.length === 0 ? (
+                  <View style={styles.emptyCommentsBox}>
+                    <Ionicons name="chatbubbles-outline" size={48} color="rgba(255,255,255,0.15)" />
+                    <Text style={styles.emptyCommentsText}>Be the first to reply!</Text>
+                  </View>
+                ) : (
+                  <View style={styles.commentsTreeBox}>
+                    {buildCommentTree(comments).map(commentNode => renderCommentNode(commentNode, 0))}
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Input container at the bottom */}
+              <View style={styles.commentInputWrapper}>
+                {replyingTo && (
+                  <View style={styles.replyingToHeader}>
+                    <Text style={styles.replyingToText} numberOfLines={1}>
+                      Replying to Anonymous: "{replyingTo.content}"
+                    </Text>
+                    <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                      <Ionicons name="close-circle" size={18} color="#ee4d4d" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <View style={styles.commentInputRow}>
+                  <TextInput
+                    style={styles.commentTextInput}
+                    placeholder={replyingTo ? "Add a reply..." : "Add a comment..."}
+                    placeholderTextColor="#6B5B7A"
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    maxLength={250}
+                    multiline
+                  />
                   <TouchableOpacity
-                    onPress={post}
-                    disabled={!text.trim() && !confessionImage || posting}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.composerSendBtnNew,
-                      (!text.trim() && !confessionImage) && styles.composerSendBtnDisabledNew
-                    ]}
+                    style={[styles.commentSendBtn, !commentText.trim() && styles.commentSendBtnDisabled]}
+                    disabled={!commentText.trim() || postingComment}
+                    onPress={postComment}
                   >
-                    {posting ? (
-                      <ActivityIndicator color="#000" size="small" />
+                    {postingComment ? (
+                      <ActivityIndicator color="#FFF" size="small" />
                     ) : (
                       <LinearGradient
-                        colors={['#C2FF3D', '#A4E020']}
-                        style={styles.sendBtnGradNew}
+                        colors={['#C2FF3D', '#C2FF3D']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.sendGrad}
                       >
-                        <Ionicons name="send" size={14} color="#000" />
-                        <Text style={styles.sendBtnTextNew}>Post</Text>
+                        <Ionicons name="send" size={16} color="#000" />
                       </LinearGradient>
                     )}
                   </TouchableOpacity>
                 </View>
               </View>
-            </BlurView>
+            </KeyboardAvoidingView>
 
-            {/* Confessions List (Frosted Glass and full-bleed image cards layout) */}
-            <View style={styles.gridContainer}>
-              {filteredConfessions.map((c: any) => {
-                return (
+            {/* RENDER OPTIONS & REPORT MODALS INSIDE THREAD MODAL TO PREVENT IOS MULTI-MODAL CONFLICTS */}
+            {/* REPORT POPUP MODAL (INNER) */}
+            <Modal
+              visible={showReportModal && selectedConfession !== null}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowReportModal(false)}
+            >
+              <View style={styles.reportModalOverlay}>
+                <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+                  <View style={styles.reportModalHeader}>
+                    <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
+                    <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
+                      <Ionicons name="close" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.reportModalDesc}>
+                      Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                    </Text>
+
+                    <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                    {reportReasons.map((reason) => {
+                      const isSelected = selectedReason === reason;
+                      return (
+                        <TouchableOpacity
+                          key={reason}
+                          style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                          onPress={() => setSelectedReason(reason)}
+                        >
+                          <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                            {isSelected && <View style={styles.radioInner} />}
+                          </View>
+                          <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                            {reason}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                    <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                    <TextInput
+                      style={styles.reasonInput}
+                      placeholder="Enter details here..."
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      multiline={true}
+                      numberOfLines={4}
+                      value={customReason}
+                      onChangeText={setCustomReason}
+                    />
+
+                    <View style={styles.reportModalActions}>
+                      <TouchableOpacity
+                        style={styles.reportCancelBtn}
+                        onPress={() => setShowReportModal(false)}
+                      >
+                        <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                        onPress={handleReportSubmit}
+                        disabled={submittingReport}
+                      >
+                        {submittingReport ? (
+                          <ActivityIndicator color="#000" />
+                        ) : (
+                          <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                </BlurView>
+              </View>
+            </Modal>
+
+            {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL (INNER) */}
+            <Modal
+              visible={showOptionsModal && selectedConfession !== null}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowOptionsModal(false)}
+            >
+              <TouchableOpacity
+                style={styles.optionsModalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowOptionsModal(false)}
+              >
+                <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
+                  <View style={styles.optionsHeader}>
+                    <View style={styles.optionsHeaderBar} />
+                    <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+                  </View>
+
                   <TouchableOpacity
-                    key={c.confession_id}
-                    style={styles.confessionCardWrapper}
-                    onPress={() => handleCardPress(c)}
-                    activeOpacity={0.9}
+                    style={styles.optionsItem}
+                    onPress={() => {
+                      setShowOptionsModal(false);
+                      if (selectedOptionsConfession) {
+                        handleShare(selectedOptionsConfession);
+                      }
+                    }}
+                    activeOpacity={0.8}
                   >
-                    {c.image ? (
-                      <View style={styles.imageCard}>
-                        <Image source={{ uri: c.image }} style={StyleSheet.absoluteFillObject} />
-                        <LinearGradient
-                          colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.95)']}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                        <View style={[styles.accentRibbon, { backgroundColor: c.college_id ? '#C2FF3D' : '#FF1B6B' }]} />
-                        <View style={styles.imageCardContent}>
-                          <View style={styles.cardHeaderRow}>
-                            <TouchableOpacity
-                              style={styles.cardHeaderLeft}
-                              onPress={(e) => { e.stopPropagation(); handleUserProfileClick(c.user_id, c.is_match); }}
-                              activeOpacity={0.7}
-                            >
-                              <View style={styles.anonAvatarBadge}>
-                                {c.user_picture ? (
-                                  <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
-                                ) : (
-                                  <Ionicons name="eye-off" size={14} color="#C2FF3D" />
-                                )}
-                              </View>
-                              <View>
-                                <Text style={styles.authorName}>{c.user_name || 'Campus Voice'}</Text>
-                                <Text style={styles.collegeName}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
-                              </View>
-                            </TouchableOpacity>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <Text style={styles.cardTime}>
-                                {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
-                              </Text>
-                              <TouchableOpacity style={styles.threeDotsBtn} onPress={(e) => { e.stopPropagation(); openOptions(c); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-
-                          <View style={styles.textContainer}>
-                            <Text style={styles.confessionText} numberOfLines={4}>
-                              {c.content}
-                            </Text>
-                          </View>
-
-                          <View style={styles.cardActionBar}>
-                            <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                              <Ionicons name="heart" size={18} color={c.has_liked ? "#FF3366" : "#FFF"} />
-                              <Text style={[styles.actionCountNew, { color: c.has_liked ? '#FF3366' : '#FFF' }]}>{c.likes || 0}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); openComments(c); }}>
-                              <Ionicons name="chatbubble" size={16} color="#FFF" />
-                              <Text style={[styles.actionCountNew, { color: '#FFF' }]}>{c.comments || 0}</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    ) : (
-                      <BlurView intensity={25} tint="dark" style={styles.glassTextCard}>
-                        <LinearGradient
-                          colors={['rgba(255,255,255,0.02)', 'rgba(255,255,255,0.01)']}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                        <View style={[styles.accentRibbon, { backgroundColor: c.college_id ? '#C2FF3D' : '#FF1B6B' }]} />
-                        
-                        <View style={styles.textCardContent}>
-                          <View style={styles.cardHeaderRow}>
-                            <TouchableOpacity
-                              style={styles.cardHeaderLeft}
-                              onPress={(e) => { e.stopPropagation(); handleUserProfileClick(c.user_id, c.is_match); }}
-                              activeOpacity={0.7}
-                            >
-                              <View style={styles.anonAvatarBadge}>
-                                {c.user_picture ? (
-                                  <Image source={{ uri: c.user_picture }} style={styles.anonAvatarImage} />
-                                ) : (
-                                  <Ionicons name="eye-off" size={14} color="#C2FF3D" />
-                                )}
-                              </View>
-                              <View>
-                                <Text style={styles.authorNameTextOnly}>{c.user_name || 'Campus Voice'}</Text>
-                                <Text style={styles.collegeNameTextOnly}>@{c.college_name?.toLowerCase() || 'campus'}</Text>
-                              </View>
-                            </TouchableOpacity>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <Text style={styles.cardTimeTextOnly}>
-                                {c.created_at ? formatDistanceToNow(new Date(c.created_at), { addSuffix: false }).replace('about', '').trim() : 'now'}
-                              </Text>
-                              <TouchableOpacity style={styles.threeDotsBtn} onPress={(e) => { e.stopPropagation(); openOptions(c); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-
-                          <View style={styles.textContainer}>
-                            <Text style={styles.confessionTextTextOnly} numberOfLines={4}>
-                              {c.content}
-                            </Text>
-                          </View>
-
-                          <View style={styles.cardActionBar}>
-                            <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); likeC(c.confession_id); }}>
-                              <Ionicons name="heart" size={18} color={c.has_liked ? "#FF3366" : "#A1A1AA"} />
-                              <Text style={[styles.actionCountNew, { color: c.has_liked ? '#FF3366' : '#A1A1AA' }]}>{c.likes || 0}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.actionBtnNew} onPress={(e) => { e.stopPropagation(); openComments(c); }}>
-                              <Ionicons name="chatbubble" size={16} color="#A1A1AA" />
-                              <Text style={[styles.actionCountNew, { color: '#A1A1AA' }]}>{c.comments || 0}</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </BlurView>
-                    )}
-
-                    {activeDoubleTapId === c.confession_id && (
-                      <Animated.View style={[
-                        styles.doubleTapHeartContainer,
-                        {
-                          transform: [{ scale: heartScale }],
-                          opacity: heartOpacity
-                        }
-                      ]}>
-                        <Ionicons name="heart" size={72} color="#FF3366" />
-                      </Animated.View>
-                    )}
+                    <Ionicons name="share-social-outline" size={20} color="#FFF" />
+                    <Text style={styles.optionsItemText}>Share Confession</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.optionsItem, styles.optionsItemDanger]}
+                    onPress={() => {
+                      setShowOptionsModal(false);
+                      if (selectedOptionsConfession) {
+                        setSelectedReportConfession(selectedOptionsConfession);
+                        setSelectedReason('');
+                        setCustomReason('');
+                        setShowReportModal(true);
+                      }
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
+                    <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.optionsCancelBtn}
+                    onPress={() => setShowOptionsModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.optionsCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </BlurView>
+              </TouchableOpacity>
+            </Modal>
+          </SafeAreaView>
+        </Modal>
+
+        {/* MODAL 1: PICK IMAGE METHOD DIALOG */}
+        <Modal transparent={true} visible={showPickModal} animationType="fade" onRequestClose={() => setShowPickModal(false)}>
+          <TouchableOpacity style={styles.dialogBackdrop} activeOpacity={1} onPress={() => setShowPickModal(false)}>
+            <View style={styles.dialogCard}>
+              <Text style={styles.dialogTitle}>Add to your Story </Text>
+              <Text style={styles.dialogDesc}>Share a moment with campus mates, matches, or the global network.</Text>
+
+              <TouchableOpacity style={styles.dialogOptBtn} onPress={handleCameraLaunch} activeOpacity={0.8}>
+                <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(255, 27, 107, 0.1)' }]}>
+                  <Ionicons name="camera" size={22} color="#FF1B6B" />
+                </View>
+                <Text style={styles.dialogOptText}>Open Camera</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.dialogOptBtn} onPress={handleGalleryLaunch} activeOpacity={0.8}>
+                <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(6, 214, 160, 0.1)' }]}>
+                  <Ionicons name="images" size={22} color="#06D6A0" />
+                </View>
+                <Text style={styles.dialogOptText}>Open Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* MODAL 1.5: PICK IMAGE FOR CONFESSION DIALOG */}
+        <Modal transparent={true} visible={showConfessionPickModal} animationType="fade" onRequestClose={() => setShowConfessionPickModal(false)}>
+          <TouchableOpacity style={styles.dialogBackdrop} activeOpacity={1} onPress={() => setShowConfessionPickModal(false)}>
+            <View style={styles.dialogCard}>
+              <Text style={styles.dialogTitle}>Add Photo </Text>
+              <Text style={styles.dialogDesc}>Select a photo to attach to your confession.</Text>
+
+              <TouchableOpacity style={styles.dialogOptBtn} onPress={() => { setShowConfessionPickModal(false); launchConfessionCamera(); }} activeOpacity={0.8}>
+                <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(255, 27, 107, 0.1)' }]}>
+                  <Ionicons name="camera" size={22} color="#FF1B6B" />
+                </View>
+                <Text style={styles.dialogOptText}>Open Camera</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.dialogOptBtn} onPress={() => { setShowConfessionPickModal(false); launchConfessionGallery(); }} activeOpacity={0.8}>
+                <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(6, 214, 160, 0.1)' }]}>
+                  <Ionicons name="images" size={22} color="#06D6A0" />
+                </View>
+                <Text style={styles.dialogOptText}>Open Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* MODAL 2: STORY AUDIENCE PRIVACY SETTING */}
+        <Modal transparent={true} visible={showAudienceModal} animationType="none" onRequestClose={() => closeAudienceModal()}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.75)', opacity: fadeAnim }]}>
+              <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => closeAudienceModal()} />
+            </Animated.View>
+            <Animated.View style={[
+              styles.audienceSheetContainer,
+              {
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}>
+              <BlurView intensity={45} tint="dark" style={styles.audienceSheet}>
+                <View style={styles.dragHandle} />
+                <Text style={styles.sheetTitle}>Choose Story Audience 🔒</Text>
+                <Text style={styles.sheetDesc}>Select who can view your active 24h story post.</Text>
+
+                {/* College Visibility Option */}
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('college')} activeOpacity={0.8}>
+                  <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(157, 78, 221, 0.15)', borderColor: 'rgba(157, 78, 221, 0.3)' }]}>
+                    <Ionicons name="school" size={20} color="#9D4EDD" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.audienceName}>My College</Text>
+                    <Text style={styles.audienceDetail}>Only visible to campus mates at {college?.short_name || 'your college'}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
+                </TouchableOpacity>
+
+                {/* Matches Visibility Option */}
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('matches')} activeOpacity={0.8}>
+                  <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 45, 85, 0.15)', borderColor: 'rgba(255, 45, 85, 0.3)' }]}>
+                    <Ionicons name="heart" size={20} color="#FF1B6B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.audienceName}>My Matches</Text>
+                    <Text style={styles.audienceDetail}>Only visible to people you have mutually matched with</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
+                </TouchableOpacity>
+
+                {/* Global Network Visibility Option */}
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => {
+                  if (!user?.is_premium) {
+                    closeAudienceModal();
+                    setUpsellTitle('Post Global Stories 🌐');
+                    setUpsellFeature('Global Story Upload');
+                    setUpsellVisible(true);
+                    return;
+                  }
+                  handlePostStory('global');
+                }} activeOpacity={0.8}>
+                  <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 215, 0, 0.15)', borderColor: 'rgba(255, 215, 0, 0.3)' }]}>
+                    <Ionicons name="globe" size={20} color="#FFD700" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.audienceName}>Global Network</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          closeAudienceModal();
+                          setUpsellTitle('Post Global Stories 🌐');
+                          setUpsellFeature('Global Story Upload');
+                          setUpsellVisible(true);
+                        }}
+                        style={styles.premiumBadge}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.premiumBadgeText}>PREMIUM 👑</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.audienceDetail}>Visible globally to all colleges on the network</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => closeAudienceModal()} activeOpacity={0.8}>
+                  <Text style={styles.sheetCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </BlurView>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* MODAL 3: PREMIUM BUY POPUP */}
+        <Modal transparent={true} visible={showBuyPremiumPopup} animationType="fade" onRequestClose={() => setShowBuyPremiumPopup(false)}>
+          <TouchableOpacity style={styles.dialogBackdrop} activeOpacity={1} onPress={() => setShowBuyPremiumPopup(false)}>
+            <View style={styles.premiumDialog}>
+              <View style={styles.diamondWrapper}>
+                <Ionicons name="diamond" size={40} color="#FFD700" />
+              </View>
+              <Text style={styles.premiumTitle}>Unlock Global Network 🌟</Text>
+              <Text style={styles.premiumDesc}>
+                Posting stories to the Global Network is a premium feature. Upgrade now to connect with students across all campuses!
+              </Text>
+
+              <TouchableOpacity
+                style={styles.buyBtn}
+                onPress={() => {
+                  setShowBuyPremiumPopup(false);
+                  router.push('/premium');
+                }}
+                activeOpacity={0.8}
+              >
+                <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.buyBtnGradient}>
+                  <Text style={styles.buyBtnText}>Upgrade to Premium</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.premiumCloseBtn} onPress={() => setShowBuyPremiumPopup(false)} activeOpacity={0.8}>
+                <Text style={styles.premiumCloseText}>Maybe Later</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* MODAL 4: FULLSCREEN STORY VIEW OVERLAY */}
+        <Modal transparent={true} visible={showStoryModal} animationType="fade" onRequestClose={() => setShowStoryModal(false)}>
+          <View style={styles.storyViewContainer}>
+            {/* Top Indicator Bars */}
+            <View style={styles.progBarRow}>
+              {activeUserWithStories?.stories?.map((_: any, idx: number) => {
+                const isCompleted = idx < activeStoryIndex;
+                const isActive = idx === activeStoryIndex;
+                return (
+                  <View key={idx} style={styles.progBarWrapper}>
+                    <View
+                      style={[
+                        styles.progBarFill,
+                        isCompleted && { width: '100%' },
+                        isActive && { width: `${storyProgress * 100}%` }
+                      ]}
+                    />
+                  </View>
                 );
               })}
             </View>
-            <View style={{ height: 100 }} />
-          </ScrollView>
 
-          {/* REDDIT STYLE COMMENTS THREAD MODAL */}
-          <Modal
-            visible={selectedConfession !== null}
-            animationType="slide"
-            onRequestClose={() => setSelectedConfession(null)}
-          >
-            <SafeAreaView style={styles.commentsModalContainer}>
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-              >
-                {/* Top-Left Dark Purple Glow Ball */}
-                <View style={styles.glowBallContainer}>
-                  <LinearGradient
-                    colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0.8, y: 0.8 }}
-                    style={StyleSheet.absoluteFillObject}
-                  />
+            {/* Story Header */}
+            <View style={styles.storyHeader}>
+              {activeUserWithStories?.user_picture ? (
+                <Image source={{ uri: activeUserWithStories.user_picture }} style={styles.storyHeadPic} />
+              ) : (
+                <View style={[styles.storyHeadPic, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: '#FFF', fontWeight: '900' }}>{activeUserWithStories?.user_name?.[0]}</Text>
                 </View>
-
-                {/* Modal Header */}
-                <View style={styles.commentsModalHeader}>
-                  <TouchableOpacity
-                    style={styles.modalCloseBtn}
-                    onPress={() => setSelectedConfession(null)}
-                  >
-                    <Ionicons name="arrow-back" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                  <Text style={styles.modalHeaderTitle}>Confession Thread</Text>
-                  <View style={{ width: 24 }} />
-                </View>
-
-                <ScrollView
-                  style={styles.commentsScrollView}
-                  contentContainerStyle={styles.commentsContentContainer}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {selectedConfession && (
-                    <TouchableOpacity activeOpacity={1} onPress={() => handleDetailCardPress(selectedConfession)}>
-                      <View style={styles.modalConfCard}>
-                        <View style={styles.modalConfTop}>
-                          <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                            onPress={() => handleUserProfileClick(selectedConfession.user_id, selectedConfession.is_match)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.anonAvatarBadge}>
-                              {selectedConfession.user_picture ? (
-                                <Image source={{ uri: selectedConfession.user_picture }} style={styles.anonAvatarImage} />
-                              ) : (
-                                <Ionicons name="eye-off" size={14} color="#C2FF3D" />
-                              )}
-                            </View>
-                            <View>
-                              <Text style={styles.authorNameTextOnly}>
-                                {selectedConfession.user_name || 'Campus Voice'}
-                              </Text>
-                              <Text style={styles.collegeNameTextOnly}>
-                                @{selectedConfession.college_name?.toLowerCase() || 'campus'}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <Text style={styles.modalConfTime}>
-                              {selectedConfession.created_at && formatDistanceToNow(new Date(selectedConfession.created_at), { addSuffix: false })} ago
-                            </Text>
-                            <TouchableOpacity
-                              style={styles.threeDotsBtn}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                openOptions(selectedConfession);
-                              }}
-                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
-                              <Ionicons name="ellipsis-vertical" size={16} color="rgba(255,255,255,0.6)" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                        <View style={styles.modalMessageBubble}>
-                          <Text style={styles.modalConfTxt}>{selectedConfession.content}</Text>
-                          {selectedConfession.image && (
-                            <View style={styles.modalConfImageWrapper}>
-                              <Image source={{ uri: selectedConfession.image }} style={styles.modalConfImage} />
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.modalConfActions}>
-                          <TouchableOpacity style={styles.modalConfAct} onPress={() => likeC(selectedConfession.confession_id)}>
-                            <Ionicons name="heart" size={16} color={selectedConfession.has_liked ? "#FF2D55" : "#FFF"} />
-                            <Text style={[styles.modalConfActT, { color: selectedConfession.has_liked ? "#FF2D55" : "rgba(255, 255, 255, 0.75)" }]}>{selectedConfession.likes || 0}</Text>
-                          </TouchableOpacity>
-                          <View style={styles.modalConfAct}>
-                            <Ionicons name="chatbubble" size={14} color="#FFF" />
-                            <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
-                          </View>
-                        </View>
-
-                        {activeDoubleTapId === selectedConfession.confession_id && (
-                          <Animated.View style={[
-                            styles.doubleTapHeartContainer,
-                            {
-                              transform: [{ scale: heartScale }],
-                              opacity: heartOpacity
-                            }
-                          ]}>
-                            <Ionicons name="heart" size={72} color="#FF3366" />
-                          </Animated.View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  )}
-
-                  <Text style={styles.repliesTitleHeader}>Replies</Text>
-
-                  {loadingComments ? (
-                    <ActivityIndicator color="#C2FF3D" size="large" style={{ marginTop: 20 }} />
-                  ) : comments.length === 0 ? (
-                    <View style={styles.emptyCommentsBox}>
-                      <Ionicons name="chatbubbles-outline" size={48} color="rgba(255,255,255,0.15)" />
-                      <Text style={styles.emptyCommentsText}>Be the first to reply!</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.commentsTreeBox}>
-                      {buildCommentTree(comments).map(commentNode => renderCommentNode(commentNode, 0))}
-                    </View>
-                  )}
-                </ScrollView>
-
-                {/* Input container at the bottom */}
-                <View style={styles.commentInputWrapper}>
-                  {replyingTo && (
-                    <View style={styles.replyingToHeader}>
-                      <Text style={styles.replyingToText} numberOfLines={1}>
-                        Replying to Anonymous: "{replyingTo.content}"
+              )}
+              <View style={{ marginLeft: 10 }}>
+                <Text style={styles.storyHeadName}>{activeUserWithStories?.user_name}</Text>
+                {activeStory && (
+                  <>
+                    <Text style={styles.storyHeadTime}>
+                      {activeStory.createdAt ? formatViewTime(activeStory.createdAt) : ''}
+                    </Text>
+                    {activeStory.audience ? (
+                      <Text style={[styles.storyHeadTime, { marginTop: 2, fontWeight: '600', color: '#C2FF3D' }]}>
+                        {activeStory.audience.toUpperCase()}
                       </Text>
-                      <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                        <Ionicons name="close-circle" size={18} color="#ee4d4d" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  <View style={styles.commentInputRow}>
-                    <TextInput
-                      style={styles.commentTextInput}
-                      placeholder={replyingTo ? "Add a reply..." : "Add a comment..."}
-                      placeholderTextColor="#6B5B7A"
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      maxLength={250}
-                      multiline
-                    />
-                    <TouchableOpacity
-                      style={[styles.commentSendBtn, !commentText.trim() && styles.commentSendBtnDisabled]}
-                      disabled={!commentText.trim() || postingComment}
-                      onPress={postComment}
-                    >
-                      {postingComment ? (
-                        <ActivityIndicator color="#FFF" size="small" />
-                      ) : (
-                        <LinearGradient
-                          colors={['#C2FF3D', '#C2FF3D']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.sendGrad}
-                        >
-                          <Ionicons name="send" size={16} color="#000" />
-                        </LinearGradient>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </KeyboardAvoidingView>
-
-              {/* RENDER OPTIONS & REPORT MODALS INSIDE THREAD MODAL TO PREVENT IOS MULTI-MODAL CONFLICTS */}
-              {/* REPORT POPUP MODAL (INNER) */}
-              <Modal
-                visible={showReportModal && selectedConfession !== null}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowReportModal(false)}
-              >
-                <View style={styles.reportModalOverlay}>
-                  <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
-                    <View style={styles.reportModalHeader}>
-                      <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
-                      <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
-                        <Ionicons name="close" size={24} color="#FFF" />
-                      </TouchableOpacity>
-                    </View>
-
-                    <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
-                      <Text style={styles.reportModalDesc}>
-                        Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
-                      </Text>
-
-                      <Text style={styles.reasonLabel}>SELECT A REASON</Text>
-                      {reportReasons.map((reason) => {
-                        const isSelected = selectedReason === reason;
-                        return (
-                          <TouchableOpacity
-                            key={reason}
-                            style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
-                            onPress={() => setSelectedReason(reason)}
-                          >
-                            <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                              {isSelected && <View style={styles.radioInner} />}
-                            </View>
-                            <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
-                              {reason}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-
-                      <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
-                      <TextInput
-                        style={styles.reasonInput}
-                        placeholder="Enter details here..."
-                        placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                        multiline={true}
-                        numberOfLines={4}
-                        value={customReason}
-                        onChangeText={setCustomReason}
-                      />
-
-                      <View style={styles.reportModalActions}>
-                        <TouchableOpacity
-                          style={styles.reportCancelBtn}
-                          onPress={() => setShowReportModal(false)}
-                        >
-                          <Text style={styles.reportCancelBtnText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
-                          onPress={handleReportSubmit}
-                          disabled={submittingReport}
-                        >
-                          {submittingReport ? (
-                            <ActivityIndicator color="#000" />
-                          ) : (
-                            <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </ScrollView>
-                  </BlurView>
-                </View>
-              </Modal>
-
-              {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL (INNER) */}
-              <Modal
-                visible={showOptionsModal && selectedConfession !== null}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowOptionsModal(false)}
-              >
-                <TouchableOpacity 
-                  style={styles.optionsModalOverlay} 
-                  activeOpacity={1} 
-                  onPress={() => setShowOptionsModal(false)}
-                >
-                  <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
-                    <View style={styles.optionsHeader}>
-                      <View style={styles.optionsHeaderBar} />
-                      <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
-                    </View>
-
-                    <TouchableOpacity 
-                      style={styles.optionsItem} 
-                      onPress={() => {
-                        setShowOptionsModal(false);
-                        if (selectedOptionsConfession) {
-                          handleShare(selectedOptionsConfession);
-                        }
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="share-social-outline" size={20} color="#FFF" />
-                      <Text style={styles.optionsItemText}>Share Confession</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      style={[styles.optionsItem, styles.optionsItemDanger]} 
-                      onPress={() => {
-                        setShowOptionsModal(false);
-                        if (selectedOptionsConfession) {
-                          setSelectedReportConfession(selectedOptionsConfession);
-                          setSelectedReason('');
-                          setCustomReason('');
-                          setShowReportModal(true);
-                        }
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
-                      <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      style={styles.optionsCancelBtn} 
-                      onPress={() => setShowOptionsModal(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.optionsCancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                  </BlurView>
-                </TouchableOpacity>
-              </Modal>
-            </SafeAreaView>
-          </Modal>
-
-          {/* MODAL 1: PICK IMAGE METHOD DIALOG */}
-          <Modal transparent={true} visible={showPickModal} animationType="fade" onRequestClose={() => setShowPickModal(false)}>
-            <TouchableOpacity style={styles.dialogBackdrop} activeOpacity={1} onPress={() => setShowPickModal(false)}>
-              <View style={styles.dialogCard}>
-                <Text style={styles.dialogTitle}>Add to your Story 📸</Text>
-                <Text style={styles.dialogDesc}>Share a moment with campus mates, matches, or the global network.</Text>
-
-                <TouchableOpacity style={styles.dialogOptBtn} onPress={handleCameraLaunch} activeOpacity={0.8}>
-                  <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(255, 27, 107, 0.1)' }]}>
-                    <Ionicons name="camera" size={22} color="#FF1B6B" />
-                  </View>
-                  <Text style={styles.dialogOptText}>Open Camera</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.dialogOptBtn} onPress={handleGalleryLaunch} activeOpacity={0.8}>
-                  <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(6, 214, 160, 0.1)' }]}>
-                    <Ionicons name="images" size={22} color="#06D6A0" />
-                  </View>
-                  <Text style={styles.dialogOptText}>Open Gallery</Text>
-                </TouchableOpacity>
+                    ) : null}
+                  </>
+                )}
               </View>
-            </TouchableOpacity>
-          </Modal>
-
-          {/* MODAL 2: STORY AUDIENCE PRIVACY SETTING */}
-          <Modal transparent={true} visible={showAudienceModal} animationType="none" onRequestClose={() => closeAudienceModal()}>
-            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.75)', opacity: fadeAnim }]}>
-                <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => closeAudienceModal()} />
-              </Animated.View>
-              <Animated.View style={[
-                styles.audienceSheetContainer,
-                {
-                  transform: [{ translateY: slideAnim }]
-                }
-              ]}>
-                <BlurView intensity={45} tint="dark" style={styles.audienceSheet}>
-                  <View style={styles.dragHandle} />
-                  <Text style={styles.sheetTitle}>Choose Story Audience 🔒</Text>
-                  <Text style={styles.sheetDesc}>Select who can view your active 24h story post.</Text>
-
-                  {/* College Visibility Option */}
-                  <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('college')} activeOpacity={0.8}>
-                    <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(157, 78, 221, 0.15)', borderColor: 'rgba(157, 78, 221, 0.3)' }]}>
-                      <Ionicons name="school" size={20} color="#9D4EDD" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.audienceName}>My College</Text>
-                      <Text style={styles.audienceDetail}>Only visible to campus mates at {college?.short_name || 'your college'}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
-                  </TouchableOpacity>
-
-                  {/* Matches Visibility Option */}
-                  <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('matches')} activeOpacity={0.8}>
-                    <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 45, 85, 0.15)', borderColor: 'rgba(255, 45, 85, 0.3)' }]}>
-                      <Ionicons name="heart" size={20} color="#FF1B6B" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.audienceName}>My Matches</Text>
-                      <Text style={styles.audienceDetail}>Only visible to people you have mutually matched with</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
-                  </TouchableOpacity>
-
-                  {/* Global Network Visibility Option */}
-                  <TouchableOpacity style={styles.audienceOpt} onPress={() => {
-                    if (!user?.is_premium) {
-                      closeAudienceModal();
-                      setUpsellTitle('Post Global Stories 🌐');
-                      setUpsellFeature('Global Story Upload');
-                      setUpsellVisible(true);
-                      return;
-                    }
-                    handlePostStory('global');
-                  }} activeOpacity={0.8}>
-                    <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 215, 0, 0.15)', borderColor: 'rgba(255, 215, 0, 0.3)' }]}>
-                      <Ionicons name="globe" size={20} color="#FFD700" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.audienceName}>Global Network</Text>
-                        <TouchableOpacity 
-                          onPress={() => {
-                            closeAudienceModal();
-                            setUpsellTitle('Post Global Stories 🌐');
-                            setUpsellFeature('Global Story Upload');
-                            setUpsellVisible(true);
-                          }}
-                          style={styles.premiumBadge}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.premiumBadgeText}>PREMIUM 👑</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.audienceDetail}>Visible globally to all colleges on the network</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.3)" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => closeAudienceModal()} activeOpacity={0.8}>
-                    <Text style={styles.sheetCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </BlurView>
-              </Animated.View>
-            </View>
-          </Modal>
-
-          {/* MODAL 3: PREMIUM BUY POPUP */}
-          <Modal transparent={true} visible={showBuyPremiumPopup} animationType="fade" onRequestClose={() => setShowBuyPremiumPopup(false)}>
-            <TouchableOpacity style={styles.dialogBackdrop} activeOpacity={1} onPress={() => setShowBuyPremiumPopup(false)}>
-              <View style={styles.premiumDialog}>
-                <View style={styles.diamondWrapper}>
-                  <Ionicons name="diamond" size={40} color="#FFD700" />
-                </View>
-                <Text style={styles.premiumTitle}>Unlock Global Network 🌟</Text>
-                <Text style={styles.premiumDesc}>
-                  Posting stories to the Global Network is a premium feature. Upgrade now to connect with students across all campuses!
-                </Text>
-
+              {isOwnStory && (
                 <TouchableOpacity
-                  style={styles.buyBtn}
+                  style={{ marginLeft: 'auto', backgroundColor: 'rgba(255, 255, 255, 0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginRight: 14 }}
                   onPress={() => {
-                    setShowBuyPremiumPopup(false);
-                    router.push('/premium');
+                    setShowStoryModal(false);
+                    setShowPickModal(true);
                   }}
                   activeOpacity={0.8}
                 >
-                  <LinearGradient colors={['#ee4d4d', '#780505']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.buyBtnGradient}>
-                    <Text style={styles.buyBtnText}>Upgrade to Premium</Text>
-                  </LinearGradient>
+                  <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>Add story</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity style={styles.premiumCloseBtn} onPress={() => setShowBuyPremiumPopup(false)} activeOpacity={0.8}>
-                  <Text style={styles.premiumCloseText}>Maybe Later</Text>
+              )}
+              {isOwnStory && (
+                <TouchableOpacity
+                  style={[isOwnStory ? {} : { marginLeft: 'auto' }, { marginRight: 14, padding: 4 }]}
+                  onPress={handleDeleteStory}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#FF3366" />
                 </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Modal>
+              )}
+              <TouchableOpacity
+                style={isOwnStory ? { padding: 4 } : styles.storyClose}
+                onPress={() => setShowStoryModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
 
-          {/* MODAL 4: FULLSCREEN STORY VIEW OVERLAY */}
-          <Modal transparent={true} visible={showStoryModal} animationType="fade" onRequestClose={() => setShowStoryModal(false)}>
-            <View style={styles.storyViewContainer}>
-              {/* Top Indicator Bars */}
-              <View style={styles.progBarRow}>
-                {activeUserWithStories?.stories?.map((_: any, idx: number) => {
-                  const isCompleted = idx < activeStoryIndex;
-                  const isActive = idx === activeStoryIndex;
-                  return (
-                    <View key={idx} style={styles.progBarWrapper}>
-                      <View
-                        style={[
-                          styles.progBarFill,
-                          isCompleted && { width: '100%' },
-                          isActive && { width: `${storyProgress * 100}%` }
-                        ]}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
+            {/* Left/Right Press Controls */}
+            <TouchableOpacity
+              style={styles.storyLeftTap}
+              onPress={goPrevStory}
+              onPressIn={() => setIsStoryPaused(true)}
+              onPressOut={() => setIsStoryPaused(false)}
+              activeOpacity={1}
+            />
+            <TouchableOpacity
+              style={styles.storyRightTap}
+              onPress={goNextStory}
+              onPressIn={() => setIsStoryPaused(true)}
+              onPressOut={() => setIsStoryPaused(false)}
+              activeOpacity={1}
+            />
 
-              {/* Story Header */}
-              <View style={styles.storyHeader}>
-                {activeUserWithStories?.user_picture ? (
-                  <Image source={{ uri: activeUserWithStories.user_picture }} style={styles.storyHeadPic} />
-                ) : (
-                  <View style={[styles.storyHeadPic, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={{ color: '#FFF', fontWeight: '900' }}>{activeUserWithStories?.user_name?.[0]}</Text>
-                  </View>
-                )}
-                <View style={{ marginLeft: 10 }}>
-                  <Text style={styles.storyHeadName}>{activeUserWithStories?.user_name}</Text>
-                  {activeStory && (
-                    <Text style={styles.storyHeadTime}>
-                      {activeStory.createdAt ? formatViewTime(activeStory.createdAt) : ''}
-                      {activeStory.audience ? ` • ${activeStory.audience.toUpperCase()}` : ''}
-                    </Text>
-                  )}
+            {/* Story Image */}
+            {activeStory && (
+              <Image source={{ uri: activeStory.image }} style={styles.storyMainImg} />
+            )}
+
+            {/* Viewers list Drawer activator (Only visible on OWN stories) */}
+            {isOwnStory && activeStory && (
+              <TouchableOpacity style={styles.viewersIndicator} onPress={() => setShowViewersSheet(true)} activeOpacity={0.8}>
+                <Ionicons name="chevron-up" size={22} color="#FFF" style={styles.bounceUpIcon} />
+                <View style={styles.viewsCountBadge}>
+                  <Ionicons name="eye" size={14} color="#FF1B6B" />
+                  <Text style={styles.viewsCountText}>{activeStory.views?.length || 0} Views</Text>
                 </View>
-                <TouchableOpacity style={styles.storyClose} onPress={() => setShowStoryModal(false)}>
+              </TouchableOpacity>
+            )}
+
+            {/* MODAL BOTTOM SHEET (Inside Fullscreen Overlay): Story Viewers Drawer */}
+            {showViewersSheet && (
+              <Modal transparent={true} visible={showViewersSheet} animationType="slide">
+                <View style={styles.viewsDrawerBackdrop}>
+                  <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowViewersSheet(false)} />
+                  <View style={styles.viewsDrawerSheet}>
+                    <View style={styles.dragHandle} />
+
+                    <View style={styles.viewsDrawerHeader}>
+                      <Text style={styles.viewsDrawerTitle}>Viewers ({activeStory?.views?.length || 0})</Text>
+                      <TouchableOpacity style={styles.viewsDrawerClose} onPress={() => setShowViewersSheet(false)}>
+                        <Ionicons name="close" size={22} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.viewsDrawerContent}>
+                      {(!activeStory?.views || activeStory.views.length === 0) ? (
+                        <View style={styles.emptyViewers}>
+                          <Ionicons name="eye-off-outline" size={48} color="rgba(255, 255, 255, 0.2)" />
+                          <Text style={styles.emptyViewersText}>No views yet</Text>
+                          <Text style={styles.emptyViewersSub}>We'll list users here as soon as they view your story.</Text>
+                        </View>
+                      ) : (
+                        activeStory.views.map((v: any, index: number) => {
+                          const hasDetails = typeof v === 'object';
+                          const vName = hasDetails ? (v.name || v.user_name || 'Campus Mate') : 'Campus Mate';
+                          const vPic = hasDetails ? (v.picture || v.user_picture || null) : null;
+                          return (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.viewerRow}
+                              onPress={() => handleViewerClick(v)}
+                              activeOpacity={0.7}
+                            >
+                              {vPic ? (
+                                <Image source={{ uri: vPic }} style={styles.viewerPic} />
+                              ) : (
+                                <View style={[styles.viewerPic, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Text style={{ color: '#FFF', fontWeight: '800' }}>{vName[0]}</Text>
+                                </View>
+                              )}
+                              <View style={{ flex: 1, justifyContent: 'center' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Text style={styles.viewerName}>{vName}</Text>
+                                  {hasDetails && !v.is_match && (
+                                    <Text style={{ color: '#FF3366', fontSize: 11, fontWeight: '700', marginLeft: 6 }}>
+                                      (not in match list)
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })
+                      )}
+                    </ScrollView>
+                  </View>
+                </View>
+              </Modal>
+            )}
+          </View>
+        </Modal>
+
+        {/* REPORT POPUP MODAL */}
+        <Modal
+          visible={showReportModal && selectedConfession === null}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowReportModal(false)}
+        >
+          <View style={styles.reportModalOverlay}>
+            <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+              <View style={styles.reportModalHeader}>
+                <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
+                <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
                   <Ionicons name="close" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
 
-              {/* Left/Right Press Controls */}
-              <TouchableOpacity style={styles.storyLeftTap} onPress={goPrevStory} activeOpacity={1} />
-              <TouchableOpacity style={styles.storyRightTap} onPress={goNextStory} activeOpacity={1} />
+              <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                <Text style={styles.reportModalDesc}>
+                  Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                </Text>
 
-              {/* Story Image */}
-              {activeStory && (
-                <Image source={{ uri: activeStory.image }} style={styles.storyMainImg} />
-              )}
-
-              {/* Viewers list Drawer activator (Only visible on OWN stories) */}
-              {isOwnStory && activeStory && (
-                <TouchableOpacity style={styles.viewersIndicator} onPress={() => setShowViewersSheet(true)} activeOpacity={0.8}>
-                  <Ionicons name="chevron-up" size={22} color="#FFF" style={styles.bounceUpIcon} />
-                  <View style={styles.viewsCountBadge}>
-                    <Ionicons name="eye" size={14} color="#FF1B6B" />
-                    <Text style={styles.viewsCountText}>{activeStory.views?.length || 0} Views</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* MODAL BOTTOM SHEET (Inside Fullscreen Overlay): Story Viewers Drawer */}
-              {showViewersSheet && (
-                <Modal transparent={true} visible={showViewersSheet} animationType="slide">
-                  <View style={styles.viewsDrawerBackdrop}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowViewersSheet(false)} />
-                    <View style={styles.viewsDrawerSheet}>
-                      <View style={styles.dragHandle} />
-
-                      <View style={styles.viewsDrawerHeader}>
-                        <Text style={styles.viewsDrawerTitle}>Viewers ({activeStory?.views?.length || 0})</Text>
-                        <TouchableOpacity style={styles.viewsDrawerClose} onPress={() => setShowViewersSheet(false)}>
-                          <Ionicons name="close" size={22} color="#FFF" />
-                        </TouchableOpacity>
+                <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                {reportReasons.map((reason) => {
+                  const isSelected = selectedReason === reason;
+                  return (
+                    <TouchableOpacity
+                      key={reason}
+                      style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                      onPress={() => setSelectedReason(reason)}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                        {isSelected && <View style={styles.radioInner} />}
                       </View>
-
-                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.viewsDrawerContent}>
-                        {(!activeStory?.views || activeStory.views.length === 0) ? (
-                          <View style={styles.emptyViewers}>
-                            <Ionicons name="eye-off-outline" size={48} color="rgba(255, 255, 255, 0.2)" />
-                            <Text style={styles.emptyViewersText}>No views yet</Text>
-                            <Text style={styles.emptyViewersSub}>We'll list users here as soon as they view your story.</Text>
-                          </View>
-                        ) : (
-                          activeStory.views.map((v: any, index: number) => {
-                            const hasDetails = typeof v === 'object';
-                            const vName = hasDetails ? (v.name || v.user_name || 'Campus Mate') : 'Campus Mate';
-                            const vPic = hasDetails ? (v.picture || v.user_picture || null) : null;
-                            const vTime = hasDetails && v.viewed_at ? formatViewTime(v.viewed_at) : 'Some time ago';
-
-                            return (
-                              <TouchableOpacity
-                                key={index}
-                                style={styles.viewerRow}
-                                onPress={() => handleViewerClick(v)}
-                                activeOpacity={0.7}
-                              >
-                                {vPic ? (
-                                  <Image source={{ uri: vPic }} style={styles.viewerPic} />
-                                ) : (
-                                  <View style={[styles.viewerPic, { backgroundColor: '#FF1B6B', alignItems: 'center', justifyContent: 'center' }]}>
-                                    <Text style={{ color: '#FFF', fontWeight: '800' }}>{vName[0]}</Text>
-                                  </View>
-                                )}
-                                <View style={{ flex: 1 }}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Text style={styles.viewerName}>{vName}</Text>
-                                    {hasDetails && !v.is_match && (
-                                      <Text style={{ color: '#FF3366', fontSize: 11, fontWeight: '700', marginLeft: 6 }}>
-                                        (not in match list)
-                                      </Text>
-                                    )}
-                                  </View>
-                                  <Text style={styles.viewerTime}>{vTime}</Text>
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          })
-                        )}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </Modal>
-              )}
-            </View>
-          </Modal>
-
-          {/* REPORT POPUP MODAL */}
-          <Modal
-            visible={showReportModal && selectedConfession === null}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowReportModal(false)}
-          >
-            <View style={styles.reportModalOverlay}>
-              <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
-                <View style={styles.reportModalHeader}>
-                  <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
-                  <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
-                    <Ionicons name="close" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
-                  <Text style={styles.reportModalDesc}>
-                    Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
-                  </Text>
-
-                  <Text style={styles.reasonLabel}>SELECT A REASON</Text>
-                  {reportReasons.map((reason) => {
-                    const isSelected = selectedReason === reason;
-                    return (
-                      <TouchableOpacity
-                        key={reason}
-                        style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
-                        onPress={() => setSelectedReason(reason)}
-                      >
-                        <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                          {isSelected && <View style={styles.radioInner} />}
-                        </View>
-                        <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
-                          {reason}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
-                  <TextInput
-                    style={styles.reasonInput}
-                    placeholder="Enter details here..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    multiline={true}
-                    numberOfLines={4}
-                    value={customReason}
-                    onChangeText={setCustomReason}
-                  />
-
-                  <View style={styles.reportModalActions}>
-                    <TouchableOpacity
-                      style={styles.reportCancelBtn}
-                      onPress={() => setShowReportModal(false)}
-                    >
-                      <Text style={styles.reportCancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
-                      onPress={handleReportSubmit}
-                      disabled={submittingReport}
-                    >
-                      {submittingReport ? (
-                        <ActivityIndicator color="#000" />
-                      ) : (
-                        <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </ScrollView>
-              </BlurView>
-            </View>
-          </Modal>
-
-          {/* FILTER POPUP MODAL */}
-          <Modal
-            visible={showFilterModal}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowFilterModal(false)}
-          >
-            <View style={styles.filterModalOverlay}>
-              <BlurView intensity={90} tint="dark" style={styles.filterModalContainer}>
-                <View style={styles.filterModalHeader}>
-                  <Text style={styles.filterModalTitle}>Filter Confessions ⚙️</Text>
-                  <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalCloseBtn}>
-                    <Ionicons name="close" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
-                  <Text style={styles.filterSectionLabel}>POST SOURCE</Text>
-                  <View style={styles.filterButtonGroup}>
-                    <TouchableOpacity
-                      style={[styles.filterButtonOpt, tempFeedScope === 'college' && styles.filterButtonOptActive]}
-                      onPress={() => handleScopeChange('college')}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="school" size={16} color={tempFeedScope === 'college' ? '#000' : '#FFF'} />
-                      <Text style={[styles.filterButtonOptText, tempFeedScope === 'college' && styles.filterButtonOptTextActive]}>
-                        My College
+                      <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                        {reason}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.filterButtonOpt, tempFeedScope === 'global' && styles.filterButtonOptActive]}
-                      onPress={() => handleScopeChange('global')}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="globe" size={16} color={tempFeedScope === 'global' ? '#000' : '#FFF'} />
-                      <Text style={[styles.filterButtonOptText, tempFeedScope === 'global' && styles.filterButtonOptTextActive]}>
-                        Global Network
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  );
+                })}
 
-                  <Text style={styles.filterSectionLabel}>SORT BY</Text>
-                  
+                <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder="Enter details here..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  multiline={true}
+                  numberOfLines={4}
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                />
+
+                <View style={styles.reportModalActions}>
                   <TouchableOpacity
-                    style={styles.filterSortRow}
-                    onPress={() => setTempSortBy('latest')}
+                    style={styles.reportCancelBtn}
+                    onPress={() => setShowReportModal(false)}
+                  >
+                    <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                    onPress={handleReportSubmit}
+                    disabled={submittingReport}
+                  >
+                    {submittingReport ? (
+                      <ActivityIndicator color="#000" />
+                    ) : (
+                      <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </BlurView>
+          </View>
+        </Modal>
+
+        {/* FILTER POPUP MODAL */}
+        <Modal
+          visible={showFilterModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <View style={styles.filterModalOverlay}>
+            <BlurView intensity={90} tint="dark" style={styles.filterModalContainer}>
+              <View style={styles.filterModalHeader}>
+                <Text style={styles.filterModalTitle}>Filter Confessions</Text>
+                <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.filterModalCloseBtn}>
+                  <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
+                <Text style={styles.filterSectionLabel}>POST SOURCE</Text>
+                <View style={styles.filterButtonGroup}>
+                  <TouchableOpacity
+                    style={[styles.filterButtonOpt, tempFeedScope === 'college' && styles.filterButtonOptActive]}
+                    onPress={() => handleScopeChange('college')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="school" size={16} color={tempFeedScope === 'college' ? '#000' : '#FFF'} />
+                    <Text style={[styles.filterButtonOptText, tempFeedScope === 'college' && styles.filterButtonOptTextActive]}>
+                      My College
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterButtonOpt, tempFeedScope === 'global' && styles.filterButtonOptActive]}
+                    onPress={() => handleScopeChange('global')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="globe" size={16} color={tempFeedScope === 'global' ? '#000' : '#FFF'} />
+                    <Text style={[styles.filterButtonOptText, tempFeedScope === 'global' && styles.filterButtonOptTextActive]}>
+                      Global Network
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.filterSectionLabel}>SORT BY</Text>
+
+                <TouchableOpacity
+                  style={styles.filterSortRow}
+                  onPress={() => setTempSortBy('latest')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.radioCircle, tempSortBy === 'latest' && styles.radioCircleActive]}>
+                    {tempSortBy === 'latest' && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.filterSortName, tempSortBy === 'latest' && styles.filterSortNameActive]}>
+                      Latest Posts
+                    </Text>
+                    <Text style={styles.filterSortDesc}>Show newest confessions first</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.filterSortRow}
+                  onPress={() => setTempSortBy('engagement')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.radioCircle, tempSortBy === 'engagement' && styles.radioCircleActive]}>
+                    {tempSortBy === 'engagement' && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.filterSortName, tempSortBy === 'engagement' && styles.filterSortNameActive]}>
+                      Most Engaged
+                    </Text>
+                    <Text style={styles.filterSortDesc}>Sort by max engagements (likes + comments)</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.filterModalActions}>
+                  <TouchableOpacity
+                    style={styles.filterResetBtn}
+                    onPress={() => {
+                      setTempFeedScope('college');
+                      setTempSortBy('latest');
+                    }}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.radioCircle, tempSortBy === 'latest' && styles.radioCircleActive]}>
-                      {tempSortBy === 'latest' && <View style={styles.radioInner} />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.filterSortName, tempSortBy === 'latest' && styles.filterSortNameActive]}>
-                        Latest Posts
-                      </Text>
-                      <Text style={styles.filterSortDesc}>Show newest confessions first</Text>
-                    </View>
+                    <Text style={styles.filterResetBtnText}>Reset</Text>
                   </TouchableOpacity>
-
                   <TouchableOpacity
-                    style={styles.filterSortRow}
-                    onPress={() => setTempSortBy('engagement')}
+                    style={styles.filterApplyBtn}
+                    onPress={() => {
+                      setAppliedFeedScope(tempFeedScope);
+                      setAppliedSortBy(tempSortBy);
+                      setShowFilterModal(false);
+                    }}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.radioCircle, tempSortBy === 'engagement' && styles.radioCircleActive]}>
-                      {tempSortBy === 'engagement' && <View style={styles.radioInner} />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.filterSortName, tempSortBy === 'engagement' && styles.filterSortNameActive]}>
-                        Most Engaged
-                      </Text>
-                      <Text style={styles.filterSortDesc}>Sort by max engagements (likes + comments)</Text>
-                    </View>
+                    <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
                   </TouchableOpacity>
-
-                  <View style={styles.filterModalActions}>
-                    <TouchableOpacity
-                      style={styles.filterResetBtn}
-                      onPress={() => {
-                        setTempFeedScope('college');
-                        setTempSortBy('latest');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.filterResetBtnText}>Reset</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.filterApplyBtn}
-                      onPress={() => {
-                        setAppliedFeedScope(tempFeedScope);
-                        setAppliedSortBy(tempSortBy);
-                        setShowFilterModal(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
-                    </TouchableOpacity>
-                  </View>
-                </ScrollView>
-              </BlurView>
-            </View>
-          </Modal>
-
-          {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL */}
-          <Modal
-            visible={showOptionsModal && selectedConfession === null}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowOptionsModal(false)}
-          >
-            <TouchableOpacity 
-              style={styles.optionsModalOverlay} 
-              activeOpacity={1} 
-              onPress={() => setShowOptionsModal(false)}
-            >
-              <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
-                <View style={styles.optionsHeader}>
-                  <View style={styles.optionsHeaderBar} />
-                  <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
                 </View>
+              </ScrollView>
+            </BlurView>
+          </View>
+        </Modal>
 
-                <TouchableOpacity 
-                  style={styles.optionsItem} 
-                  onPress={() => {
-                    setShowOptionsModal(false);
-                    if (selectedOptionsConfession) {
-                      handleShare(selectedOptionsConfession);
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="share-social-outline" size={20} color="#FFF" />
-                  <Text style={styles.optionsItemText}>Share Confession</Text>
-                </TouchableOpacity>
+        {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL */}
+        <Modal
+          visible={showOptionsModal && selectedConfession === null}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowOptionsModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.optionsModalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowOptionsModal(false)}
+          >
+            <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
+              <View style={styles.optionsHeader}>
+                <View style={styles.optionsHeaderBar} />
+                <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+              </View>
 
-                <TouchableOpacity 
-                  style={[styles.optionsItem, styles.optionsItemDanger]} 
-                  onPress={() => {
-                    setShowOptionsModal(false);
-                    if (selectedOptionsConfession) {
-                      setSelectedReportConfession(selectedOptionsConfession);
-                      setSelectedReason('');
-                      setCustomReason('');
-                      setShowReportModal(true);
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
-                  <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.optionsItem}
+                onPress={() => {
+                  setShowOptionsModal(false);
+                  if (selectedOptionsConfession) {
+                    handleShare(selectedOptionsConfession);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="share-social-outline" size={20} color="#FFF" />
+                <Text style={styles.optionsItemText}>Share Confession</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.optionsCancelBtn} 
-                  onPress={() => setShowOptionsModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.optionsCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </BlurView>
-            </TouchableOpacity>
-          </Modal>
+              <TouchableOpacity
+                style={[styles.optionsItem, styles.optionsItemDanger]}
+                onPress={() => {
+                  setShowOptionsModal(false);
+                  if (selectedOptionsConfession) {
+                    setSelectedReportConfession(selectedOptionsConfession);
+                    setSelectedReason('');
+                    setCustomReason('');
+                    setShowReportModal(true);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="alert-circle-outline" size={20} color="#FF4B4B" />
+                <Text style={[styles.optionsItemText, styles.optionsItemTextDanger]}>Report Confession</Text>
+              </TouchableOpacity>
 
-          {/* Premium Upsell Bottom Sheet */}
-          <PremiumUpsellSheet
-            visible={upsellVisible}
-            onClose={() => setUpsellVisible(false)}
-            title={upsellTitle}
-            featureName={upsellFeature}
-          />
-        </SafeAreaView>
+              <TouchableOpacity
+                style={styles.optionsCancelBtn}
+                onPress={() => setShowOptionsModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.optionsCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </BlurView>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Premium Upsell Bottom Sheet */}
+        <PremiumUpsellSheet
+          visible={upsellVisible}
+          onClose={() => setUpsellVisible(false)}
+          title={upsellTitle}
+          featureName={upsellFeature}
+        />
+      </SafeAreaView>
     </View>
   );
 }
@@ -2399,14 +2511,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  storiesScroll: { 
-    flexGrow: 0, 
+  storiesScroll: {
+    flexGrow: 0,
     marginBottom: 16,
     paddingVertical: 4,
   },
-  storyItem: { 
-    alignItems: 'center', 
-    gap: 4, 
+  storyItem: {
+    alignItems: 'center',
+    gap: 4,
     width: 64,
   },
   addStoryCircle: {
@@ -2439,32 +2551,32 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  storyRing: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
-    padding: 2, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  storyRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  storyInner: { 
-    width: '100%', 
-    height: '100%', 
-    borderRadius: 30, 
-    backgroundColor: '#050005', 
+  storyInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+    backgroundColor: '#050005',
     padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storyImg: { 
-    width: '100%', 
-    height: '100%', 
-    borderRadius: 28 
+  storyImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28
   },
-  storyName: { 
-    color: 'rgba(255, 255, 255, 0.75)', 
-    fontSize: 10, 
-    fontWeight: '700', 
+  storyName: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 10,
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: 2,
   },
@@ -2581,8 +2693,111 @@ const styles = StyleSheet.create({
   // Confessions List (Twitter Styles)
   gridContainer: {
     flexDirection: 'column',
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 10,
+    width: '100%',
+  },
+  simpleConfessionContainer: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    position: 'relative',
+  },
+  simpleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  simpleHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  simpleAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  simpleAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  simpleHeaderText: {
+    flexDirection: 'column',
+  },
+  simpleAuthorName: {
+    color: '#FFF',
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
+  simpleCollegeName: {
+    color: '#C2FF3D',
+    fontSize: 12,
+    marginTop: 1,
+  },
+  simpleHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  simpleTimeText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+  },
+  simpleDotsBtn: {
+    padding: 4,
+  },
+  simpleBodyContainer: {
+    marginTop: 12,
+    width: '100%',
+  },
+  simpleContentText: {
+    color: '#FFF',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '400',
+  },
+  simpleImageWrapper: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  simpleAttachedImage: {
+    width: '100%',
+    height: 240,
+  },
+  simpleActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
+    marginTop: 14,
+    paddingBottom: 16,
+  },
+  simpleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  simpleActionText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  simpleDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: -16,
   },
   confessionCardWrapper: {
     marginBottom: 16,

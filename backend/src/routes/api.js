@@ -85,6 +85,7 @@ router.post('/events/:id/star', authMiddleware, eventController.toggleStar);
 
 // Confessions endpoints
 router.get('/confessions/feed', authMiddleware, confessionController.getConfessionsFeed);
+router.get('/confessions/:id', authMiddleware, confessionController.getConfessionById);
 router.post('/confessions/create', authMiddleware, confessionController.createConfession);
 router.post('/confessions/:id/like', authMiddleware, confessionController.likeConfession);
 router.get('/confessions/:id/comments', authMiddleware, confessionController.getComments);
@@ -98,6 +99,7 @@ router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
 router.get('/stories/matches-feed', authMiddleware, storyController.getMatchesStoriesFeed);
 router.post('/stories/create', authMiddleware, storyController.createStory);
 router.post('/stories/:id/view', authMiddleware, storyController.viewStory);
+router.delete('/stories/:id', authMiddleware, storyController.deleteStory);
 router.get('/stories/all', storyController.getAllStories);
 
 // Campus Ambassador endpoints

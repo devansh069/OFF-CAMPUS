@@ -425,3 +425,58 @@ exports.getAllComments = async (req, res) => {
   }
 };
 
+// 9. Get single confession by ID
+exports.getConfessionById = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { id } = req.params;
+
+    const [confession] = await sequelize.query(
+      `SELECT c.confession_id, c.user_id, c.college_id, c.content, c.image, c.likes, c.comments, c.created_at, col.short_name as college_name, u.name as user_name, u.picture as user_picture, u.photos as user_photos,
+              (cl.user_id IS NOT NULL) as has_liked 
+       FROM confessions c
+       LEFT JOIN colleges col ON c.college_id = col.college_id
+       LEFT JOIN users u ON c.user_id = u.user_id
+       LEFT JOIN confession_likes cl ON c.confession_id = cl.confession_id AND cl.user_id = ?
+       WHERE c.confession_id = ? LIMIT 1`,
+      {
+        replacements: [userId, id],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!confession) {
+      return res.status(404).json({ error: 'Confession not found' });
+    }
+
+    // Fetch user's matches to compute is_match
+    const matchesList = await sequelize.query(
+      'SELECT to_user_id FROM likes WHERE from_user_id = ? AND is_match = true',
+      { replacements: [userId], type: sequelize.QueryTypes.SELECT }
+    );
+    const matchUserSet = new Set(matchesList.map(m => m.to_user_id));
+
+    let resolvedPicture = confession.user_picture;
+    if (confession.user_photos) {
+      try {
+        const photos = typeof confession.user_photos === 'string' ? JSON.parse(confession.user_photos) : confession.user_photos;
+        if (Array.isArray(photos) && photos.length > 0) {
+          resolvedPicture = photos[0];
+        }
+      } catch (e) {}
+    }
+
+    const formattedConfession = {
+      ...confession,
+      user_picture: resolvedPicture,
+      is_match: matchUserSet.has(confession.user_id)
+    };
+
+    res.json({ confession: formattedConfession });
+  } catch (error) {
+    console.error('[getConfessionById Error]:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+

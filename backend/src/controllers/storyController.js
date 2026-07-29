@@ -498,3 +498,37 @@ exports.getMatchesStoriesFeed = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to retrieve matches stories: ' + error.message });
   }
 };
+
+// 6. Delete Story
+exports.deleteStory = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { id } = req.params;
+
+    // Check if the story exists and belongs to the user
+    const [story] = await sequelize.query(
+      'SELECT user_id FROM stories WHERE story_id = ? LIMIT 1',
+      { replacements: [id], type: sequelize.QueryTypes.SELECT }
+    );
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    if (story.user_id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this story' });
+    }
+
+    // Delete the story
+    await sequelize.query(
+      'DELETE FROM stories WHERE story_id = ?',
+      { replacements: [id] }
+    );
+
+    res.json({ success: true, message: 'Story deleted successfully' });
+  } catch (error) {
+    console.error('[deleteStory Error]:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
