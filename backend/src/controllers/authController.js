@@ -677,13 +677,22 @@ exports.getDiscoveryProfiles = async (req, res) => {
       return res.status(404).json({ detail: 'User not found' });
     }
 
-    // Find all users current user has already liked
+    // Find all users current user has already liked or passed
     const swipedLikes = await Like.findAll({
       where: { from_user_id: currentUserId },
       attributes: ['to_user_id']
     });
-    const swipedUserIds = swipedLikes.map(l => l.to_user_id);
-    swipedUserIds.push(currentUserId); // Don't show self
+
+    const passedProfiles = await PassedProfile.findAll({
+      where: { from_user_id: currentUserId },
+      attributes: ['to_user_id']
+    });
+
+    const swipedUserIds = [
+      ...swipedLikes.map(l => l.to_user_id),
+      ...passedProfiles.map(p => p.to_user_id),
+      currentUserId
+    ];
 
     const whereClause = {
       user_id: { [Op.notIn]: swipedUserIds },
@@ -828,6 +837,48 @@ exports.passUser = async (req, res) => {
   } catch (error) {
     console.error('[passUser Error]:', error);
     return res.status(500).json({ detail: 'Failed to pass user: ' + error.message });
+  }
+};
+
+// 8a. Revert last rejected profile for Premium users (1-revert limit)
+exports.revertPassUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const currentUser = await User.findOne({ where: { user_id: currentUserId } });
+
+    if (!currentUser || !currentUser.is_premium) {
+      return res.status(403).json({
+        error: 'premium_required',
+        detail: 'Reverting a rejected profile is a Premium feature. Upgrade to Premium!'
+      });
+    }
+
+    // Find the latest passed record for this user
+    const lastPass = await PassedProfile.findOne({
+      where: { from_user_id: currentUserId },
+      order: [['created_at', 'DESC']]
+    });
+
+    if (!lastPass) {
+      return res.status(404).json({ detail: 'No rejected profile available to revert.' });
+    }
+
+    const revertedUserId = lastPass.to_user_id;
+    await lastPass.destroy(); // Remove from PassedProfile so they can be suggested again once
+
+    const revertedProfile = await User.findOne({
+      where: { user_id: revertedUserId },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    return res.status(200).json({
+      success: true,
+      profile: revertedProfile,
+      detail: 'Last rejected profile reverted successfully.'
+    });
+  } catch (error) {
+    console.error('[revertPassUser Error]:', error);
+    return res.status(500).json({ detail: 'Failed to revert pass: ' + error.message });
   }
 };
 

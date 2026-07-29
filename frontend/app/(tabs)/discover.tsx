@@ -805,6 +805,13 @@ export default function Discover() {
     }
 
     try {
+      if (sessionToken && sessionToken !== 'dummy_token') {
+        await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/revert-pass`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+      }
+
       if (currentIndex > 0) {
         setCurrentIndex(prev => prev - 1);
         setCanRewind(false);

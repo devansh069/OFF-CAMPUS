@@ -1,6 +1,9 @@
 const { sequelize } = require('../config/db');
 const Sequelize = require('sequelize');
 const cloudinary = require('cloudinary').v2;
+const User = require('../models/User');
+const Report = require('../models/Report');
+const VibeScoreLog = require('../models/VibeScoreLog');
 
 // Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
@@ -476,6 +479,72 @@ exports.getConfessionById = async (req, res) => {
   } catch (error) {
     console.error('[getConfessionById Error]:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 10. Report a confession (Penalize Author's Vibe Score WITHOUT Unmatching)
+exports.reportConfession = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { confession_id, target_user_id, reason } = req.body;
+
+    if (!target_user_id || !reason) {
+      return res.status(400).json({ detail: 'target_user_id and reason are required' });
+    }
+
+    // Check if user has already reported this specific confession
+    if (confession_id) {
+      const existingReport = await Report.findOne({
+        where: {
+          from_user_id: currentUserId,
+          reason: {
+            [Sequelize.Op.like]: `%Confession Report (ID: ${confession_id}%)`
+          }
+        }
+      });
+
+      if (existingReport) {
+        return res.status(400).json({ detail: 'You have already reported this confession.' });
+      }
+    }
+
+    const reportId = `rep_conf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    await Report.create({
+      report_id: reportId,
+      from_user_id: currentUserId,
+      to_user_id: target_user_id,
+      reason: `Confession Report (ID: ${confession_id || 'N/A'}): ${reason}`
+    });
+
+    // Calculate total reports against this user
+    const totalReports = await Report.count({ where: { to_user_id: target_user_id } });
+
+    // Apply progressive penalty to vibe score
+    const targetUser = await User.findOne({ where: { user_id: target_user_id } });
+    if (targetUser) {
+      let currentVibeScore = targetUser.vibe_score || 10;
+      let newVibeScore = Math.max(0, currentVibeScore - totalReports);
+
+      targetUser.vibe_score = newVibeScore;
+      await targetUser.save();
+
+      await VibeScoreLog.create({
+        user_id: target_user_id,
+        reason: `Confession reported by user (Total reports: ${totalReports})`,
+        change_amount: -(totalReports),
+        new_score: newVibeScore
+      });
+    }
+
+    // NOTE: Confession reports decrease the author's Vibe Score but preserve existing matches!
+    return res.status(200).json({
+      success: true,
+      detail: 'Confession report submitted successfully. Vibe score penalized.'
+    });
+  } catch (error) {
+    console.error('[reportConfession Error]:', error);
+    return res.status(500).json({ detail: 'Failed to report confession: ' + error.message });
   }
 };
 

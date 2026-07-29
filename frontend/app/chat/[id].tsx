@@ -28,6 +28,84 @@ import * as FileSystem from 'expo-file-system/legacy';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+const getScrollableItems = (profile: any) => {
+  let height = profile?.height;
+  let religion = profile?.religion;
+  let drink = profile?.drink;
+  let smoke = profile?.smoke;
+  let weed = profile?.weed;
+
+  const hash = (profile?.name || '').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+
+  if (!height) {
+    height = profile?.gender === 'female' ? 155 + (hash % 15) : 170 + (hash % 18);
+  }
+  if (!religion) {
+    const religions = ['Hindu', 'Sikh', 'Christian', 'Muslim', 'Jain'];
+    religion = religions[hash % religions.length];
+  }
+  if (!drink) drink = (hash % 3 === 0) ? 'yes' : 'no';
+  if (!smoke) smoke = (hash % 4 === 0) ? 'yes' : 'no';
+  if (!weed) weed = (hash % 5 === 0) ? 'yes' : 'no';
+
+  const items = [
+    { icon: 'person-outline', text: (profile?.gender || 'Student').toUpperCase() },
+    { icon: 'resize-outline', text: `${height} cm` },
+    { icon: 'sparkles-outline', text: religion },
+    { icon: 'wine-outline', text: `Drink: ${drink}` },
+    { icon: 'flame-outline', text: `Smoke: ${smoke}` },
+    { icon: 'leaf-outline', text: `Weed: ${weed}` },
+  ];
+  if (profile?.looking_for) {
+    items.push({ icon: 'heart-outline', text: profile.looking_for });
+  }
+  return items;
+};
+
+const getProfilePhotos = (profile: any) => {
+  if (!profile) return [];
+  let photos: string[] = [];
+
+  if (Array.isArray(profile.photos)) {
+    photos = [...profile.photos];
+  } else if (typeof profile.photos === 'string') {
+    try {
+      const parsed = JSON.parse(profile.photos);
+      if (Array.isArray(parsed)) photos = parsed;
+    } catch (e) {}
+  }
+
+  if (photos.length === 0 && profile.picture) {
+    photos = [profile.picture];
+  }
+
+  const mockFemalePhotos = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600&auto=format&fit=crop',
+  ];
+
+  const mockMalePhotos = [
+    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=600&auto=format&fit=crop',
+  ];
+
+  const fallbackPool = profile?.gender === 'female' ? mockFemalePhotos : mockMalePhotos;
+
+  while (photos.length < 5) {
+    const nextIdx = (photos.length - 1) % fallbackPool.length;
+    const photoToPush = fallbackPool[nextIdx >= 0 ? nextIdx : 0];
+    photos.push(photoToPush);
+  }
+
+  return photos;
+};
+
 function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: boolean }) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -716,22 +794,44 @@ export default function ChatScreen() {
     }
 
     try {
+      // 1. Fetch conversation partner basic info
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/conversations`, {
         headers: { 'Authorization': `Bearer ${sessionToken}` },
       });
-      if (!response.ok) throw new Error('Failed to fetch conversations');
-      const data = await response.json();
-      const conv = data.conversations.find((c: any) => c.user.user_id === id);
-      if (conv) {
-        setOtherUser(conv.user);
-      } else {
-        const fb = fallbackUsers.find(u => u.user_id === id);
-        if (fb) setOtherUser(fb);
+      if (response.ok) {
+        const data = await response.json();
+        const conv = data.conversations.find((c: any) => c.user.user_id === id);
+        if (conv) {
+          setOtherUser(conv.user);
+        }
+      }
+
+      // 2. Fetch target user's full Vibe profile details
+      const profileRes = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/profiles?targetUserId=${id}`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` },
+      });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData.profiles && profileData.profiles.length > 0) {
+          const targetProf = profileData.profiles.find((p: any) => p.user_id === id) || profileData.profiles[0];
+          setOtherUser(prev => {
+            let photosList = targetProf.photos;
+            if (typeof photosList === 'string') {
+              try { photosList = JSON.parse(photosList); } catch (e) {}
+            }
+            if (!Array.isArray(photosList) || photosList.length === 0) {
+              photosList = prev?.photos || [targetProf.picture || prev?.picture];
+            }
+            return {
+              ...prev,
+              ...targetProf,
+              photos: photosList
+            };
+          });
+        }
       }
     } catch (error: any) {
-      console.warn('Error fetching user, using mock fallback:', error.message);
-      const fb = fallbackUsers.find(u => u.user_id === id);
-      if (fb) setOtherUser(fb);
+      console.warn('Error fetching user profile:', error.message);
     }
   };
 
@@ -899,6 +999,58 @@ export default function ChatScreen() {
       setSending(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
+  };
+
+  const getOtherUserCards = () => {
+    if (!otherUser) return [];
+    const list: any[] = [];
+    const photosList = getProfilePhotos(otherUser);
+
+    // 1. Main card (index 0)
+    list.push({
+      type: 'main',
+      photo: photosList[0]
+    });
+
+    // 2. Spotify card
+    let topTracks: any[] = [];
+    try {
+      if (otherUser?.spotify_data) {
+        const sData = typeof otherUser.spotify_data === 'string'
+          ? JSON.parse(otherUser.spotify_data)
+          : otherUser.spotify_data;
+        if (sData && sData.top_tracks) {
+          topTracks = sData.top_tracks;
+        }
+      }
+    } catch (e) {}
+
+    if (topTracks.length > 0) {
+      list.push({
+        type: 'spotify',
+        tracks: topTracks
+      });
+    }
+
+    // 3. Secondary photo cards
+    const MOCK_PROMPTS = [
+      { index: 1, title: "A non-negotiable for my college squad...", answer: "Post-exam chai & deep midnight conversations!" },
+      { index: 2, title: "The secret to winning my heart...", answer: "Spontaneous night drives and sending wholesome memes." },
+      { index: 3, title: "Worst habit I can't seem to break...", answer: "Studying only 2 hours before the semester exam." }
+    ];
+
+    photosList.slice(1).forEach((photoUri: string, index: number) => {
+      const photoIndex = index + 1;
+      const prompt = MOCK_PROMPTS.find(p => p.index === photoIndex);
+      list.push({
+        type: 'secondary',
+        photo: photoUri,
+        prompt: prompt,
+        index: photoIndex
+      });
+    });
+
+    return list;
   };
 
   return (
@@ -1143,7 +1295,7 @@ export default function ChatScreen() {
         )}
       </KeyboardAvoidingView>
 
-      {/* 100% Exact Vibe Card Profile Preview Modal */}
+      {/* 100% Exact Vibe Card Profile Preview Modal (Identical Snap-Paging Layout to discover.tsx) */}
       <Modal
         visible={showProfileModal}
         transparent={false}
@@ -1151,6 +1303,16 @@ export default function ChatScreen() {
         onRequestClose={() => setShowProfileModal(false)}
       >
         <View style={styles.vibeCardModalContainer}>
+          {/* Top-Left Dark Purple Glow Ball */}
+          <View style={styles.glowBallContainer} pointerEvents="none">
+            <LinearGradient
+              colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.8, y: 0.8 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </View>
+
           {/* Floating Header Bar */}
           <View style={styles.vibeModalFloatingHeader}>
             <TouchableOpacity
@@ -1164,141 +1326,157 @@ export default function ChatScreen() {
             <View style={{ width: 40 }} />
           </View>
 
-          <ScrollView contentContainerStyle={styles.vibeModalScrollContent} showsVerticalScrollIndicator={false}>
-            {/* 1. Main Photo Card (Full Portrait 9:16) */}
-            <View style={styles.vibeMainPhotoCard}>
-              <Image
-                source={{ uri: otherUser?.photos?.[0] || otherUser?.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop' }}
-                style={styles.vibeProfilePhoto}
-                resizeMode="cover"
-              />
-              {/* Glass Shine Reflection Overlay */}
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
-                locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
+          {/* Vertical Card Stack Scroll View */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingTop: Platform.OS === 'ios' ? 90 : 70,
+              paddingHorizontal: 16,
+              paddingBottom: 40
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            {getOtherUserCards().map((card: any, i: number) => (
+              <View key={i} style={[styles.vibeAnimatedCardItem, { height: screenHeight * 0.78, marginBottom: 20 }]}>
+                {card.type === 'main' && (
+                  <View style={styles.vibeMainCardInner}>
+                    <Image
+                      source={{ uri: card.photo }}
+                      style={StyleSheet.absoluteFillObject}
+                      resizeMode="cover"
+                    />
+                    {/* Glass Shine Overlay */}
+                    <LinearGradient
+                      colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
+                      locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                      pointerEvents="none"
+                    />
 
-              {/* Glass Details Card */}
-              <BlurView intensity={35} tint="dark" style={styles.vibeGlassDetailsCard}>
-                <View style={styles.vibeCardDetailsContent}>
-                  <View style={styles.vibeCardNameRow}>
-                    <Text style={styles.vibeCardNameText}>
-                      {otherUser?.name || 'Student'}{otherUser?.age ? `, ${otherUser.age}` : ''}
-                    </Text>
-                    {otherUser?.verification_status === 'verified' && (
-                      <Ionicons name="checkmark-circle" size={22} color="#00D2FF" />
-                    )}
-                    {otherUser?.is_premium && (
-                      <Ionicons name="crown" size={20} color="#FFD700" />
-                    )}
-                  </View>
-
-                  <View style={styles.vibeCardCollegeRow}>
-                    <Text style={styles.vibeCardCollegeText} numberOfLines={1}>
-                      🎓 {otherUser?.college?.name || 'College Network'}
-                      {[otherUser?.course, otherUser?.year].filter(Boolean).length > 0
-                        ? ` • ${[otherUser?.course, otherUser?.year].filter(Boolean).join(' • ')}`
-                        : ''}
-                    </Text>
-                  </View>
-
-                  {otherUser?.bio ? <Text style={styles.vibeCardBioText}>{otherUser.bio}</Text> : null}
-
-                  {/* Characteristics Scrollable Row */}
-                  <View style={styles.vibeScrollWrapper}>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.vibeScrollContentContainer}
-                    >
-                      {[
-                        otherUser?.gender && { icon: 'person-outline', text: otherUser.gender.toUpperCase() },
-                        otherUser?.height && { icon: 'resize-outline', text: `${otherUser.height} cm` },
-                        otherUser?.religion && { icon: 'sparkles-outline', text: otherUser.religion },
-                        otherUser?.looking_for && { icon: 'heart-outline', text: otherUser.looking_for },
-                        otherUser?.drink && { icon: 'wine-outline', text: otherUser.drink },
-                        otherUser?.smoke && { icon: 'flame-outline', text: otherUser.smoke },
-                      ].filter(Boolean).map((item: any, idx: number, arr: any[]) => (
-                        <React.Fragment key={idx}>
-                          <View style={styles.vibeScrollItem}>
-                            <Ionicons name={item.icon} size={15} color="rgba(255, 255, 255, 0.7)" />
-                            <Text style={styles.vibeScrollItemText}>{item.text}</Text>
+                    {/* Glass Details Card Overlay */}
+                    <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.vibeGlassDetailsCard}>
+                      <View style={styles.vibeCardDetailsContent}>
+                        {/* Name & Age */}
+                        <View style={styles.vibeCardNameRow}>
+                          <Text style={styles.vibeCardNameText}>
+                            {otherUser?.name || 'Student'}{otherUser?.age ? `, ${otherUser.age}` : ''}
+                          </Text>
+                          {otherUser?.verification_status === 'verified' && (
+                            <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6 }} />
+                          )}
+                          {otherUser?.is_premium && (
+                            <Ionicons name="crown" size={18} color="#FFD700" style={{ marginLeft: 4 }} />
+                          )}
+                          <View style={{ flex: 1 }} />
+                          <View style={styles.innovativeVibeBadge}>
+                            <Ionicons name="sparkles" size={13} color="#FFD700" />
+                            <Text style={styles.innovativeVibeText}>{(otherUser?.vibe_score || 8.5).toFixed(1)}</Text>
                           </View>
-                          {idx < arr.length - 1 && <View style={styles.vibeScrollSeparator} />}
-                        </React.Fragment>
-                      ))}
-                    </ScrollView>
-                  </View>
-
-                  {/* Interests / Tags */}
-                  {Array.isArray(otherUser?.interests) && otherUser.interests.length > 0 && (
-                    <View style={styles.vibeCardTagsRow}>
-                      {otherUser.interests.map((tag: string, idx: number) => (
-                        <View key={idx} style={styles.vibeCardTagPill}>
-                          <Text style={styles.vibeCardTagText}>#{tag}</Text>
                         </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </BlurView>
-            </View>
 
-            {/* 2. Standalone Spotify Card */}
-            {otherUser?.spotify_data?.top_tracks?.length > 0 && (
-              <View style={styles.vibeSpotifyCard}>
-                <Text style={styles.vibeSectionTitle}>Top Spotify Tracks 🎵</Text>
-                {otherUser.spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => {
-                  const title = typeof track === 'string' ? track.split(' - ')[0] : track.name;
-                  const artist = typeof track === 'string' ? (track.split(' - ')[1] || 'Spotify Vibe') : track.artist;
-                  return (
-                    <View key={idx} style={styles.vibeSpotifyTrackRow}>
-                      <Ionicons name="play" size={16} color="#1DB954" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.vibeSpotifyTrackName} numberOfLines={1}>{title}</Text>
-                        <Text style={styles.vibeSpotifyArtistName} numberOfLines={1}>{artist}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* 3. Secondary Photos & Q&A Prompts */}
-            {Array.isArray(otherUser?.photos) && otherUser.photos.length > 1 && (
-              <View style={styles.vibeSecondaryPhotosSection}>
-                {otherUser.photos.slice(1).map((photoUri: string, idx: number) => {
-                  const promptEntries = otherUser?.prompts ? Object.entries(otherUser.prompts) : [];
-                  const prompt = promptEntries[idx];
-
-                  return (
-                    <BlurView intensity={35} tint="dark" key={idx} style={styles.vibeSecondaryPhotoCard}>
-                      {prompt && (
-                        <View style={styles.vibePromptHeader}>
-                          <Text style={styles.vibePromptQuestion}>{prompt[0]}</Text>
-                          <Text style={styles.vibePromptAnswer}>{prompt[1] as string}</Text>
+                        {/* College / Course / Year */}
+                        <View style={styles.vibeCardCollegeRow}>
+                          <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
+                          <Text style={styles.vibeCardCollegeText}>
+                            {[
+                              otherUser?.college?.short_name || otherUser?.college?.name || 'Campus',
+                              otherUser?.course,
+                              otherUser?.year
+                            ].filter(Boolean).join(' • ')}
+                          </Text>
                         </View>
-                      )}
-                      <View style={styles.vibeSecondaryPhotoContainer}>
-                        <Image source={{ uri: photoUri }} style={styles.vibeProfileSecondaryPhoto} resizeMode="cover" />
-                        <LinearGradient
-                          colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
-                          locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={StyleSheet.absoluteFillObject}
-                          pointerEvents="none"
-                        />
+
+                        {/* Bio */}
+                        {otherUser?.bio ? <Text style={styles.vibeCardBioText}>{otherUser.bio}</Text> : null}
+
+                        {/* Characteristics Scrollable Row */}
+                        <View style={styles.vibeScrollWrapper}>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.vibeScrollContentContainer}
+                          >
+                            {getScrollableItems(otherUser).map((item, idx) => (
+                              <React.Fragment key={idx}>
+                                <View style={styles.vibeScrollItem}>
+                                  <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
+                                  <Text style={styles.vibeScrollItemText}>{item.text}</Text>
+                                </View>
+                                {idx < getScrollableItems(otherUser).length - 1 && (
+                                  <View style={styles.vibeScrollSeparator} />
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </ScrollView>
+                        </View>
+
+                        {/* Interests / Tags - Translucent Glass Style from discover.tsx */}
+                        {Array.isArray(otherUser?.interests) && otherUser.interests.length > 0 && (
+                          <View style={styles.vibeCardTagsRow}>
+                            {otherUser.interests.map((interest: string) => (
+                              <View key={interest} style={styles.vibeCardTagPill}>
+                                <Text style={styles.vibeCardTagText}>{interest}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     </BlurView>
-                  );
-                })}
+                  </View>
+                )}
+
+                {card.type === 'spotify' && (
+                  <BlurView intensity={25} tint="dark" style={[styles.vibeSecondaryPhotoCard, { height: screenHeight * 0.78, padding: 24 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                      <MaterialCommunityIcons name="spotify" size={26} color="#1DB954" style={{ marginRight: 8 }} />
+                      <Text style={[styles.vibeSectionTitle, { marginBottom: 0 }]}>My Spotify Vibe</Text>
+                    </View>
+                    <View style={{ gap: 16, flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
+                      {card.tracks.slice(0, 3).map((track: any, idx: number) => {
+                        const name = typeof track === 'string' ? track.split(' - ')[0] : track.name;
+                        const artist = typeof track === 'string' ? (track.split(' - ')[1] || 'Spotify Vibe') : track.artist;
+                        return (
+                          <View key={idx} style={styles.vibeSpotifyTrackRow}>
+                            <Text style={styles.vibeTrackIndex}>{idx + 1}</Text>
+                            <View style={styles.vibeTrackArt}>
+                              <Ionicons name="musical-note" size={14} color="#1DB954" />
+                            </View>
+                            <View style={styles.vibeSpotifyTrackInfo}>
+                              <Text style={styles.vibeSpotifyTrackName} numberOfLines={1}>{name}</Text>
+                              <Text style={styles.vibeSpotifyArtistName} numberOfLines={1}>{artist}</Text>
+                            </View>
+                            <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </BlurView>
+                )}
+
+                {card.type === 'secondary' && (
+                  <BlurView intensity={25} tint="dark" style={[styles.vibeSecondaryPhotoCard, { height: screenHeight * 0.78 }]}>
+                    {card.prompt ? (
+                      <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
+                        <View style={{ marginTop: 10 }}>
+                          <Text style={styles.vibePromptQuestion}>My Answer to</Text>
+                          <Text style={styles.vibePromptTitle}>{card.prompt.title}</Text>
+                        </View>
+
+                        <View style={styles.vibeHingePhotoContainer}>
+                          <Image source={{ uri: card.photo }} style={styles.vibeHingePhoto} />
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={{ flex: 1 }}>
+                        <Image source={{ uri: card.photo }} style={styles.vibeProfilePhoto} />
+                      </View>
+                    )}
+                  </BlurView>
+                )}
               </View>
-            )}
+            ))}
           </ScrollView>
         </View>
       </Modal>
@@ -1774,14 +1952,22 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
   },
-  vibeModalScrollContent: {
-    paddingBottom: 40,
+  vibeCardWrapper: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 90 : 60,
   },
-  vibeMainPhotoCard: {
+  vibeProfileScrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  vibeAnimatedCardItem: {
     width: screenWidth,
-    height: screenHeight * 0.82,
     position: 'relative',
-    backgroundColor: '#0A000F',
+    overflow: 'hidden',
+  },
+  vibeMainCardInner: {
+    flex: 1,
+    position: 'relative',
   },
   vibeProfilePhoto: {
     width: '100%',
@@ -1790,13 +1976,14 @@ const styles = StyleSheet.create({
   vibeGlassDetailsCard: {
     position: 'absolute',
     bottom: 20,
-    left: 14,
-    right: 14,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    left: 16,
+    right: 16,
+    borderRadius: 28,
+    padding: 20,
+    backgroundColor: 'rgba(10, 11, 20, 0.65)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     overflow: 'hidden',
-    padding: 16,
   },
   vibeCardDetailsContent: {
     gap: 8,
@@ -1804,71 +1991,92 @@ const styles = StyleSheet.create({
   vibeCardNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   vibeCardNameText: {
     color: '#FFF',
     fontSize: 26,
     fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  innovativeVibeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 215, 0, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  innovativeVibeText: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '800',
   },
   vibeCardCollegeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  vibeCardCollegeText: {
-    color: '#C2FF3D',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  vibeCardBioText: {
-    color: '#FFF',
-    fontSize: 14,
-    lineHeight: 20,
+    gap: 6,
     marginTop: 2,
   },
+  vibeCardCollegeText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vibeCardBioText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
   vibeScrollWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginTop: 6,
+    overflow: 'hidden',
   },
   vibeScrollContentContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
   vibeScrollItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    gap: 8,
   },
   vibeScrollItemText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   vibeScrollSeparator: {
     width: 1,
-    height: 14,
+    height: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 12,
   },
   vibeCardTagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     marginTop: 6,
   },
   vibeCardTagPill: {
-    backgroundColor: 'rgba(255, 27, 107, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 27, 107, 0.3)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   vibeCardTagText: {
-    color: '#FF6CD2',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1911,9 +2119,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   vibeSecondaryPhotoCard: {
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: '#10061A',
   },

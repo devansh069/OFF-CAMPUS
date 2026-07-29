@@ -44,6 +44,7 @@ router.get('/payment/status', authMiddleware, paymentController.getPremiumStatus
 router.get('/discovery/profiles', authMiddleware, authController.getDiscoveryProfiles);
 router.post('/discovery/like', authMiddleware, authController.likeUser);
 router.post('/discovery/pass', authMiddleware, authController.passUser);
+router.post('/discovery/revert-pass', authMiddleware, authController.revertPassUser);
 router.get('/discovery/daily-likes', authMiddleware, authController.getDailyLikesStatus);
 router.get('/discovery/skipped', authMiddleware, authController.getSkippedProfiles);
 router.get('/discovery/likes-received', authMiddleware, authController.getLikesReceived);
@@ -90,6 +91,7 @@ router.post('/confessions/create', authMiddleware, confessionController.createCo
 router.post('/confessions/:id/like', authMiddleware, confessionController.likeConfession);
 router.get('/confessions/:id/comments', authMiddleware, confessionController.getComments);
 router.post('/confessions/:id/comment', authMiddleware, confessionController.createComment);
+router.post('/confessions/report', authMiddleware, confessionController.reportConfession);
 router.get('/confessions/all', confessionController.getAllConfessions);
 router.get('/confessions/likes/all', confessionController.getAllConfessionLikes);
 router.get('/confessions/comments/all', confessionController.getAllComments);

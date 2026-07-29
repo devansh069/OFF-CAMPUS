@@ -1037,15 +1037,16 @@ export default function CampusLive() {
     const finalReason = selectedReason ? `${selectedReason}. ${customReason.trim()}` : customReason.trim();
 
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/report`, {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`
         },
         body: JSON.stringify({
+          confession_id: selectedReportConfession.confession_id,
           target_user_id: selectedReportConfession.user_id,
-          reason: `Confession Report: ${finalReason} (Confession ID: ${selectedReportConfession.confession_id})`
+          reason: finalReason
         })
       });
 
