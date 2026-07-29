@@ -94,6 +94,11 @@ export default function CampusLive() {
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
   const [expandedConfessions, setExpandedConfessions] = useState<{ [key: string]: boolean }>({});
+  
+  // Notification states
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const unreadNotifCount = notifications.filter(n => !n.is_read).length;
 
   const toggleExpand = (id: string) => {
     setExpandedConfessions(prev => ({
@@ -409,10 +414,11 @@ export default function CampusLive() {
 
     try {
       const headers = { 'Authorization': `Bearer ${sessionToken}` };
-      const [c, s, liveCountsRes] = await Promise.all([
+      const [c, s, liveCountsRes, notifsRes] = await Promise.all([
         fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/feed`, { headers }).then(r => r.json()),
         fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/stories/feed`, { headers }).then(r => r.json()),
         fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/live-count`, { headers }).then(r => r.json()),
+        fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/notifications`, { headers }).then(r => r.json()),
       ]);
 
       if (c.confessions) {
@@ -431,6 +437,10 @@ export default function CampusLive() {
         setLiveCountGlobal(liveCountsRes.global || 0);
         setLiveCountCollege(liveCountsRes.college || 0);
       }
+
+      if (notifsRes && notifsRes.notifications) {
+        setNotifications(notifsRes.notifications);
+      }
     } catch (e) {
       console.warn('fetchLive failed, using mock live data instead:', e);
       setConfessions(MOCK_CONFESSIONS);
@@ -438,6 +448,34 @@ export default function CampusLive() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleMarkNotifRead = async (id: string) => {
+    // Optimistic UI update
+    setNotifications(prev => prev.map(n => n.notification_id === id ? { ...n, is_read: true } : n));
+    if (sessionToken === 'dummy_token') return;
+    try {
+      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+    } catch (e) {
+      console.warn('[handleMarkNotifRead Error]:', e);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    // Optimistic UI update
+    setNotifications(prev => prev.filter(n => n.notification_id !== id));
+    if (sessionToken === 'dummy_token') return;
+    try {
+      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/notifications/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+    } catch (e) {
+      console.warn('[handleDeleteNotif Error]:', e);
     }
   };
 
@@ -1296,6 +1334,19 @@ export default function CampusLive() {
             </View>
 
             <View style={styles.newHeaderRight}>
+              <TouchableOpacity 
+                style={styles.bellBtn} 
+                onPress={() => setShowNotificationsModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                {unreadNotifCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>{unreadNotifCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
               <Image
                 source={require('../../assets/images/logo_off.png')}
                 style={styles.headerLogo}
@@ -2497,13 +2548,340 @@ export default function CampusLive() {
           title={upsellTitle}
           featureName={upsellFeature}
         />
+
+        {/* Notifications Modal */}
+        <Modal
+          visible={showNotificationsModal}
+          animationType="slide"
+          onRequestClose={() => setShowNotificationsModal(false)}
+        >
+          <SafeAreaView style={styles.notifModalContainer}>
+            <BlurView intensity={70} tint="dark" style={styles.notifModalHeaderBar}>
+              <TouchableOpacity onPress={() => setShowNotificationsModal(false)} activeOpacity={0.8} style={styles.notifBackBtn}>
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.notifModalTitle}>Notifications</Text>
+              {unreadNotifCount > 0 && (
+                <View style={styles.notifHeaderBadge}>
+                  <Text style={styles.notifHeaderBadgeText}>{unreadNotifCount} New</Text>
+                </View>
+              )}
+              <View style={{ width: 40 }} />
+            </BlurView>
+
+            {notifications.length === 0 ? (
+              <View style={styles.notifEmptyState}>
+                <Ionicons name="notifications-off-outline" size={60} color="rgba(255,255,255,0.15)" />
+                <Text style={styles.notifEmptyTitle}>No notifications yet</Text>
+                <Text style={styles.notifEmptySub}>Likes and replies on your confessions will appear here</Text>
+              </View>
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 10 }}
+              >
+                {notifications.map((item) => (
+                  <NotificationRow
+                    key={item.notification_id}
+                    item={item}
+                    onRead={handleMarkNotifRead}
+                    onDelete={handleDeleteNotif}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </SafeAreaView>
+        </Modal>
+
       </SafeAreaView>
+    </View>
+  );
+}
+
+// Swipeable Notification Item Row
+const NotificationRow = ({ item, onRead, onDelete }) => {
+  const panX = useRef(new Animated.Value(0)).current;
+  const currentTranslateX = useRef(0);
+
+  useEffect(() => {
+    const listenerId = panX.addListener(({ value }) => {
+      currentTranslateX.current = value;
+    });
+    return () => {
+      panX.removeListener(listenerId);
+    };
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 8;
+      },
+      onPanResponderGrant: () => {
+        // start
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        let newX = currentTranslateX.current + gestureState.dx;
+        if (newX > 0) newX = 0;
+        if (newX < -150) newX = -150;
+        panX.setValue(newX);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx < -50) {
+          Animated.spring(panX, {
+            toValue: -140,
+            useNativeDriver: true,
+            bounciness: 4
+          }).start(() => {
+            currentTranslateX.current = -140;
+          });
+        } else {
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 4
+          }).start(() => {
+            currentTranslateX.current = 0;
+          });
+        }
+      }
+    })
+  ).current;
+
+  const isLike = item.type === 'like';
+
+  return (
+    <View style={styles.notifRowContainer}>
+      {/* Action Buttons underneath */}
+      <View style={styles.notifActionsBack}>
+        {!item.is_read && (
+          <TouchableOpacity
+            style={[styles.notifActionBtn, { backgroundColor: '#007AFF' }]}
+            onPress={() => {
+              Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
+              currentTranslateX.current = 0;
+              onRead(item.notification_id);
+            }}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color="#FFF" />
+            <Text style={styles.notifActionText}>Read</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.notifActionBtn, { backgroundColor: '#FF3B30' }]}
+          onPress={() => {
+            Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
+            currentTranslateX.current = 0;
+            onDelete(item.notification_id);
+          }}
+        >
+          <Ionicons name="trash-outline" size={18} color="#FFF" />
+          <Text style={styles.notifActionText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Swipeable foreground card */}
+      <Animated.View
+        style={[
+          styles.notifFront,
+          { transform: [{ translateX: panX }] }
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <View style={styles.notifContentWrapper}>
+          <Image
+            source={{ uri: item.sender_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
+            style={styles.notifPfp}
+          />
+          
+          <View style={styles.notifTextContainer}>
+            <Text style={styles.notifBodyText}>
+              <Text style={styles.notifBoldText}>{item.sender_name} </Text>
+              {isLike ? 'liked your confession: ' : 'replied on your confession: '}
+              <Text style={styles.notifSnippetText} numberOfLines={1}>
+                "{item.content}"
+              </Text>
+            </Text>
+          </View>
+
+          <View style={styles.notifIndicator}>
+            {isLike ? (
+              <Text style={{ fontSize: 16 }}>❤️</Text>
+            ) : (
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color="#C2FF3D" />
+            )}
+          </View>
+        </View>
+
+        {!item.is_read && <View style={styles.unreadDot} />}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  bellBtn: {
+    position: 'relative',
+    marginRight: 12,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF2D55',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  notifModalContainer: {
+    flex: 1,
+    backgroundColor: '#0F0E17',
+  },
+  notifModalHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  notifBackBtn: {
+    padding: 4,
+  },
+  notifModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  notifHeaderBadge: {
+    backgroundColor: '#FF2D55',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  notifHeaderBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  notifEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    gap: 12,
+  },
+  notifEmptyTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  notifEmptySub: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  notifRowContainer: {
+    width: '100%',
+    height: 72,
+    backgroundColor: '#0F0E17',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  notifActionsBack: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 140,
+    flexDirection: 'row',
+    zIndex: 1,
+  },
+  notifActionBtn: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%',
+  },
+  notifActionText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  notifFront: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0F0E17',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 2,
+  },
+  notifContentWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  notifPfp: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  notifTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  notifBodyText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  notifBoldText: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  notifSnippetText: {
+    color: 'rgba(255,255,255,0.45)',
+    fontStyle: 'italic',
+  },
+  notifIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF2D55',
+    marginLeft: 8,
+  },
   glowBallContainer: {
     position: 'absolute',
     top: -450,

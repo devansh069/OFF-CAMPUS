@@ -1655,3 +1655,87 @@ exports.sendHandshake = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to send handshake: ' + error.message });
   }
 };
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const Notification = require('../models/Notification');
+
+    const list = await Notification.findAll({
+      where: { user_id: currentUserId },
+      order: [['created_at', 'DESC']]
+    });
+
+    const senderIds = [...new Set(list.map(n => n.sender_id))];
+
+    const senders = await User.findAll({
+      where: { user_id: senderIds },
+      attributes: ['user_id', 'name', 'picture', 'photos']
+    });
+
+    const senderMap = senders.reduce((acc, u) => {
+      acc[u.user_id] = u;
+      return acc;
+    }, {});
+
+    const formattedList = list.map(n => {
+      const json = n.toJSON();
+      const sender = senderMap[n.sender_id];
+      json.sender_name = sender ? sender.name : 'Someone';
+      json.sender_picture = sender ? (sender.picture || (sender.photos && sender.photos[0]) || null) : null;
+      return json;
+    });
+
+    return res.status(200).json({ notifications: formattedList });
+  } catch (error) {
+    console.error('[getNotifications Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch notifications: ' + error.message });
+  }
+};
+
+exports.markNotificationRead = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { id } = req.params;
+    const Notification = require('../models/Notification');
+
+    const notif = await Notification.findOne({
+      where: { notification_id: id, user_id: currentUserId }
+    });
+
+    if (!notif) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    notif.is_read = true;
+    await notif.save();
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[markNotificationRead Error]:', error);
+    return res.status(500).json({ detail: 'Failed to mark notification read: ' + error.message });
+  }
+};
+
+exports.deleteNotification = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { id } = req.params;
+    const Notification = require('../models/Notification');
+
+    const notif = await Notification.findOne({
+      where: { notification_id: id, user_id: currentUserId }
+    });
+
+    if (!notif) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    await notif.destroy();
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[deleteNotification Error]:', error);
+    return res.status(500).json({ detail: 'Failed to delete notification: ' + error.message });
+  }
+};

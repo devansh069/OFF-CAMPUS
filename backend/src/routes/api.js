@@ -56,6 +56,11 @@ router.post('/discovery/update-current-location', authMiddleware, authController
 router.get('/discovery/nearby', authMiddleware, authController.getNearbyUsers);
 router.post('/discovery/handshake', authMiddleware, authController.sendHandshake);
 
+// Notifications routes
+router.get('/notifications', authMiddleware, authController.getNotifications);
+router.patch('/notifications/:id/read', authMiddleware, authController.markNotificationRead);
+router.delete('/notifications/:id', authMiddleware, authController.deleteNotification);
+
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);
 router.post('/messages/send', authMiddleware, authController.sendMessage);

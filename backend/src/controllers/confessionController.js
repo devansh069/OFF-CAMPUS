@@ -254,6 +254,32 @@ exports.likeConfession = async (req, res) => {
 
     await transaction.commit();
 
+    if (liked) {
+      try {
+        const [confOwner] = await sequelize.query(
+          'SELECT user_id, content FROM confessions WHERE confession_id = ? LIMIT 1',
+          {
+            replacements: [id],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        if (confOwner && confOwner.user_id !== userId) {
+          const Notification = require('../models/Notification');
+          const notificationId = 'notif_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+          await Notification.create({
+            notification_id: notificationId,
+            user_id: confOwner.user_id,
+            sender_id: userId,
+            type: 'like',
+            confession_id: id,
+            content: confOwner.content
+          });
+        }
+      } catch (notifErr) {
+        console.error('[Confession Like Notification Error]:', notifErr);
+      }
+    }
+
     const [conf] = await sequelize.query(
       'SELECT likes FROM confessions WHERE confession_id = ? LIMIT 1',
       {
@@ -356,6 +382,30 @@ exports.createComment = async (req, res) => {
     );
 
     await transaction.commit();
+
+    try {
+      const [confOwner] = await sequelize.query(
+        'SELECT user_id FROM confessions WHERE confession_id = ? LIMIT 1',
+        {
+          replacements: [confessionId],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      if (confOwner && confOwner.user_id !== userId) {
+        const Notification = require('../models/Notification');
+        const notificationId = 'notif_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+        await Notification.create({
+          notification_id: notificationId,
+          user_id: confOwner.user_id,
+          sender_id: userId,
+          type: 'reply',
+          confession_id: confessionId,
+          content: content.trim()
+        });
+      }
+    } catch (notifErr) {
+      console.error('[Confession Comment Notification Error]:', notifErr);
+    }
 
     const collegeName = await getCollegeShortName(req.user.college_id);
 
