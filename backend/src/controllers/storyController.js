@@ -45,10 +45,11 @@ exports.getStoriesFeed = async (req, res) => {
     const matchUserIds = matchesList.map(m => m.to_user_id);
 
     const filteredStories = activeStories.filter(story => {
-      // Confessions feed only shows global and college stories!
+      if (story.user_id === userId) return true; // always see own stories (global, college, matches)
+      
+      // Confessions feed only shows global and college stories for others!
       if (story.audience === 'matches') return false;
 
-      if (story.user_id === userId) return true; // always see own stories
       if (story.audience === 'global') return true;
       if (story.audience === 'college' && story.college_id === userCollegeId) return true;
       return false; // hide otherwise
