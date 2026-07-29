@@ -494,14 +494,13 @@ exports.reportConfession = async (req, res) => {
 
     // Check if user has already reported this specific confession
     if (confession_id) {
-      const existingReport = await Report.findOne({
-        where: {
-          from_user_id: currentUserId,
-          reason: {
-            [Sequelize.Op.like]: `%Confession Report (ID: ${confession_id}%)`
-          }
+      const [existingReport] = await sequelize.query(
+        'SELECT report_id FROM reports WHERE from_user_id = ? AND reason LIKE ? LIMIT 1',
+        {
+          replacements: [currentUserId, `%Confession Report (ID: ${confession_id}%`],
+          type: sequelize.QueryTypes.SELECT
         }
-      });
+      );
 
       if (existingReport) {
         return res.status(400).json({ detail: 'You have already reported this confession.' });
