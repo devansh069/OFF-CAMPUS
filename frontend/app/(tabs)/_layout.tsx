@@ -96,7 +96,7 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
       <BlurView intensity={75} tint="dark" style={styles.blurWrapper}>
         <View style={styles.tabItemsContainer}>
           {state.routes.map((route: any, index: number) => {
-            if (route.name === 'campus') return null;
+            if (route.name === 'campus' || route.name === 'likes') return null;
             const { options } = descriptors[route.key];
             if (options.href === null) return null;
 
@@ -115,31 +115,34 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
             };
 
             // Icon selection based on tab name
-            let iconName: any = 'flame';
-            let label = 'Vibe';
-            let badgeCount = 0;
-
-            if (route.name === 'discover') {
-              iconName = 'flame';
-              label = 'Vibe';
-            } else if (route.name === 'likes') {
-              iconName = 'heart';
-              label = 'Likes';
-              badgeCount = likesCount;
-            } else if (route.name === 'events') {
-              iconName = 'calendar';
-              label = 'Events';
-            } else if (route.name === 'confessions') {
-              iconName = 'planet';
-              label = 'Live';
-            } else if (route.name === 'messages') {
-              iconName = 'chatbubble-ellipses';
-              label = 'Chats';
-              badgeCount = unreadCount;
-            } else if (route.name === 'profile') {
-              iconName = 'person-circle';
-              label = 'You';
-            }
+             let iconName: any = 'flame';
+             let label = 'Vibe';
+             let badgeCount = 0;
+ 
+             if (route.name === 'discover') {
+               iconName = 'flame';
+               label = 'Vibe';
+             } else if (route.name === 'likes') {
+               iconName = 'heart';
+               label = 'Likes';
+               badgeCount = likesCount;
+             } else if (route.name === 'nearby') {
+               iconName = 'location';
+               label = 'Nearby';
+             } else if (route.name === 'events') {
+               iconName = 'calendar';
+               label = 'Events';
+             } else if (route.name === 'confessions') {
+               iconName = 'planet';
+               label = 'Live';
+             } else if (route.name === 'messages') {
+               iconName = 'chatbubble-ellipses';
+               label = 'Chats';
+               badgeCount = unreadCount;
+             } else if (route.name === 'profile') {
+               iconName = 'person-circle';
+               label = 'You';
+             }
 
             const activeColor = '#FFFFFF';
             const inactiveColor = 'rgba(255, 255, 255, 0.6)';
@@ -250,7 +253,8 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="discover" options={{ title: 'Vibe' }} />
-      <Tabs.Screen name="likes" options={{ title: 'Likes' }} />
+      <Tabs.Screen name="likes" options={{ href: null }} />
+      <Tabs.Screen name="nearby" options={{ title: 'Nearby' }} />
       <Tabs.Screen name="events" options={{ title: 'Events' }} />
       <Tabs.Screen name="confessions" options={{ title: 'Live' }} />
       <Tabs.Screen name="messages" options={{ title: 'Chats' }} />

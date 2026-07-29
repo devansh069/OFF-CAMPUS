@@ -546,10 +546,30 @@ export default function Discover() {
   const [upsellTitle, setUpsellTitle] = useState("Unlock Premium Access 👑");
   const [upsellFeature, setUpsellFeature] = useState("6 Likes Daily Limit");
   const [canRewind, setCanRewind] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+
+  const fetchLikesCount = async () => {
+    if (sessionToken === 'dummy_token' || !sessionToken) {
+      setLikesCount(3); // Mock
+      return;
+    }
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/likes-received`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLikesCount(data.likes ? data.likes.length : 0);
+      }
+    } catch (e) {
+      console.warn('fetchLikesCount failed:', e);
+    }
+  };
 
   useEffect(() => {
     fetchProfiles();
     fetchDailyLikesStatus();
+    fetchLikesCount();
     setCurrentIndex(0);
     scrollY.setValue(0);
     if (scrollViewRef.current) {
@@ -1260,6 +1280,25 @@ export default function Discover() {
             <View style={styles.logoContainer}>
               <Text style={styles.logoText}>off campus</Text>
             </View>
+            <TouchableOpacity
+              style={styles.likesTriggerBtn}
+              onPress={() => router.push('/(tabs)/likes')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="heart-outline" size={24} color="#FFF" />
+              {likesCount > 0 && (
+                <View style={styles.likesBadgeContainer}>
+                  <LinearGradient
+                    colors={['#C2FF3D', '#A5D62B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.likesBadgeGradient}
+                  >
+                    <Text style={styles.likesBadgeText}>{likesCount}</Text>
+                  </LinearGradient>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Verification Status Warning Banner */}
@@ -1592,6 +1631,42 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -1,
     textTransform: 'lowercase',
+  },
+  likesTriggerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  likesBadgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  likesBadgeGradient: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  likesBadgeText: {
+    color: '#000000',
+    fontSize: 8,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   modeBtn: {
     flexDirection: 'row',

@@ -111,6 +111,16 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN current_latitude DOUBLE NULL;");
+      console.log('[Patch] Added current_latitude column to users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN current_longitude DOUBLE NULL;");
+      console.log('[Patch] Added current_longitude column to users table');
+    } catch (e) {}
+
+    try {
       // Reset ALL users to non-premium (undo previous auto-premium patch damage)
       // Only real Razorpay payments will re-activate premium going forward
       await sequelize.query("UPDATE users SET is_premium = FALSE, premium_until = NULL, profile_visibility = 1.0;");

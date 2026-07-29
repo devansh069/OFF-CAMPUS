@@ -1415,3 +1415,103 @@ exports.assignTagToMatch = async (req, res) => {
     return res.status(500).json({ detail: 'Failed to assign tag: ' + error.message });
   }
 };
+
+// Nearby location matching controllers
+
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+exports.updateCurrentLocation = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    await User.update(
+      { current_latitude: latitude, current_longitude: longitude },
+      { where: { user_id: currentUserId } }
+    );
+
+    return res.status(200).json({ success: true, message: 'Current location updated successfully' });
+  } catch (e) {
+    console.error('[updateCurrentLocation Error]:', e);
+    return res.status(500).json({ detail: 'Failed to update location: ' + e.message });
+  }
+};
+
+exports.getNearbyUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const range = parseFloat(req.query.range) || 50; // default 50km
+
+    // Fetch current user
+    const currentUser = await User.findOne({
+      where: { user_id: currentUserId }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const myLat = currentUser.current_latitude !== null ? currentUser.current_latitude : currentUser.latitude;
+    const myLon = currentUser.current_longitude !== null ? currentUser.current_longitude : currentUser.longitude;
+
+    if (myLat === null || myLon === null) {
+      return res.status(400).json({ error: 'Location coordinates not set for current user. Please update location first.' });
+    }
+
+    // Fetch matches list to see connections
+    const matches = await Like.findAll({
+      where: { from_user_id: currentUserId, is_match: true },
+      attributes: ['to_user_id']
+    });
+    const matchUserIds = new Set(matches.map(m => m.to_user_id));
+
+    // Fetch all onboarded and verified other users
+    const allUsers = await User.findAll({
+      where: {
+        user_id: { [Op.ne]: currentUserId },
+        name: { [Op.ne]: null },
+        verification_status: 'verified'
+      },
+      include: [{ model: College, as: 'college' }]
+    });
+
+    const nearbyProfiles = [];
+
+    for (const u of allUsers) {
+      const uLat = u.current_latitude !== null ? u.current_latitude : u.latitude;
+      const uLon = u.current_longitude !== null ? u.current_longitude : u.longitude;
+
+      if (uLat !== null && uLon !== null) {
+        const dist = getDistanceKm(myLat, myLon, uLat, uLon);
+        if (dist <= range) {
+          const userJSON = u.toJSON();
+          userJSON.distance = parseFloat(dist.toFixed(1));
+          userJSON.is_connected = matchUserIds.has(u.user_id);
+          nearbyProfiles.push(userJSON);
+        }
+      }
+    }
+
+    // Sort by distance (closest first)
+    nearbyProfiles.sort((a, b) => a.distance - b.distance);
+
+    return res.status(200).json({ profiles: nearbyProfiles });
+  } catch (error) {
+    console.error('[getNearbyUsers Error]:', error);
+    return res.status(500).json({ detail: 'Failed to fetch nearby users: ' + error.message });
+  }
+};

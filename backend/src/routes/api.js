@@ -52,6 +52,8 @@ router.get('/discovery/matches', authMiddleware, authController.getMatches);
 router.post('/discovery/unmatch', authMiddleware, authController.unmatchUser);
 router.post('/discovery/report', authMiddleware, authController.reportUser);
 router.get('/discovery/live-count', authMiddleware, authController.getLiveCounts);
+router.post('/discovery/update-current-location', authMiddleware, authController.updateCurrentLocation);
+router.get('/discovery/nearby', authMiddleware, authController.getNearbyUsers);
 
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);

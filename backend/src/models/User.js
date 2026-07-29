@@ -87,6 +87,16 @@ const User = sequelize.define('User', {
     type: DataTypes.DOUBLE,
     allowNull: true
   },
+  current_latitude: {
+    type: DataTypes.DOUBLE,
+    allowNull: true,
+    field: 'current_latitude'
+  },
+  current_longitude: {
+    type: DataTypes.DOUBLE,
+    allowNull: true,
+    field: 'current_longitude'
+  },
   height: {
     type: DataTypes.INTEGER,
     allowNull: true
