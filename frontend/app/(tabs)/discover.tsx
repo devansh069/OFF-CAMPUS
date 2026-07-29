@@ -1425,6 +1425,7 @@ export default function Discover() {
                   styles.globalToggleText,
                   globalMode && styles.globalToggleTextActive
                 ]}>Go Global</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
