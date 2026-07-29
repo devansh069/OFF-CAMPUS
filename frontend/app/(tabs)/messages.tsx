@@ -471,25 +471,20 @@ export default function Messages() {
         {/* Horizontal Stories Carousel */}
         <View style={styles.storiesContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScrollContent}>
-            {/* Own story bubble */}
             {(() => {
-              const ownGroup = storiesFeed.find(g => g.user_id === user?.user_id);
-              const hasOwnStories = ownGroup && ownGroup.stories && ownGroup.stories.length > 0;
               const userMainPhoto = user?.photos?.[0] || user?.picture;
               return (
                 <TouchableOpacity
                   style={styles.storyItem}
                   onPress={() => {
-                    if (hasOwnStories) {
-                      const idx = storiesFeed.findIndex(g => g.user_id === user?.user_id);
-                      if (idx !== -1) openStoryViewer(idx);
-                    } else {
-                      Alert.alert(
-                        'Post Story 📸',
-                        'To share a story with your matches or college network, visit the Confessions screen!',
-                        [{ text: 'Go to Confessions', onPress: () => router.push('/(tabs)/confessions') }, { text: 'Cancel', style: 'cancel' }]
-                      );
-                    }
+                    Alert.alert(
+                      'Post Story 📸',
+                      'Story can only be uploaded from the Feed page. Please go to the Feed page and select the appropriate audience.',
+                      [
+                        { text: 'Go to Feed', onPress: () => router.push('/(tabs)/confessions') },
+                        { text: 'Cancel', style: 'cancel' }
+                      ]
+                    );
                   }}
                 >
                   <View style={styles.storyAvatarWrapper}>
@@ -500,11 +495,9 @@ export default function Messages() {
                         <Text style={{ color: '#FFF', fontWeight: '800' }}>Y</Text>
                       </View>
                     )}
-                    {!hasOwnStories && (
-                      <View style={styles.storyPlusBadge}>
-                        <Ionicons name="add" size={12} color="#000" />
-                      </View>
-                    )}
+                    <View style={styles.storyPlusBadge}>
+                      <Ionicons name="add" size={12} color="#000" />
+                    </View>
                   </View>
                   <Text style={styles.storyUsername} numberOfLines={1}>Your Story</Text>
                 </TouchableOpacity>
@@ -522,8 +515,10 @@ export default function Messages() {
                 >
                   <View style={styles.storyAvatarWrapper}>
                     <Image source={{ uri: group.user_picture }} style={styles.storyAvatar} />
-                    {group.has_unviewed && (
+                    {group.has_unviewed ? (
                       <View style={styles.storyRingUnviewed} />
+                    ) : (
+                      <View style={styles.storyRingViewed} />
                     )}
                   </View>
                   <Text style={styles.storyUsername} numberOfLines={1}>
@@ -1194,6 +1189,17 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 2.5,
     borderColor: '#C2FF3D',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -1,
+  },
+  storyRingViewed: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2.5,
+    borderColor: '#71717A',
     position: 'absolute',
     top: 0,
     left: 0,

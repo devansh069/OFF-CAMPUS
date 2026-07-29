@@ -14,6 +14,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -267,18 +268,18 @@ function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: bo
 }
 
 function RecordingWaveformBar({ levels }: { levels: number[] }) {
-  const displayLevels = levels.length > 0 ? levels : [6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 8];
+  const displayLevels = levels.length > 0 ? levels.slice(-20) : [6, 12, 8, 16, 24, 18, 10, 14, 22, 28, 16, 8, 14, 20, 12, 6, 10, 18, 12, 8];
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, flex: 1, paddingHorizontal: 8, height: 36, overflow: 'hidden' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, flex: 1, paddingHorizontal: 8, height: 36, overflow: 'hidden', justifyContent: 'center' }}>
       {displayLevels.map((h, i) => (
         <View
           key={i}
           style={{
-            flex: 1,
-            height: Math.max(6, Math.min(34, h)),
-            backgroundColor: '#FF4B4B',
-            borderRadius: 3,
+            width: 3,
+            height: Math.max(4, Math.min(28, h)),
+            backgroundColor: '#C2FF3D',
+            borderRadius: 1.5,
           }}
         />
       ))}
@@ -373,41 +374,70 @@ function WhatsAppVoicePreviewBar({
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <BlurView intensity={95} tint="dark" style={styles.previewContainer}>
-      {/* Delete / Trash Button */}
-      <TouchableOpacity onPress={onCancel} style={styles.trashBtn} activeOpacity={0.7}>
-        <Ionicons name="trash-outline" size={22} color="#FF4B4B" />
-      </TouchableOpacity>
+    <View style={styles.inputContainer}>
+      {/* Left Button: Cancel/Trash */}
+      <BlurView intensity={65} tint="dark" style={styles.micBtnGlass}>
+        <TouchableOpacity
+          style={styles.micBtnInner}
+          onPress={onCancel}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={20} color="#FF4B4B" />
+        </TouchableOpacity>
+      </BlurView>
 
-      {/* Play / Pause Button */}
-      <TouchableOpacity onPress={togglePlayback} style={styles.previewPlayBtn} activeOpacity={0.8}>
-        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color="#000" style={{ marginLeft: isPlaying ? 0 : 2 }} />
-      </TouchableOpacity>
+      {/* Middle Pill: Play/Pause & Track Progress */}
+      <BlurView intensity={65} tint="dark" style={styles.inputGlassWrapper}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 12, gap: 10 }}>
+          {/* Play/Pause Button inside Pill */}
+          <TouchableOpacity
+            onPress={togglePlayback}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={isPlaying ? "pause" : "play"} size={14} color="#FFF" style={{ marginLeft: isPlaying ? 0 : 2 }} />
+          </TouchableOpacity>
 
-      {/* Track Visualizer */}
-      <View style={styles.previewTrackWrapper}>
-        <View style={styles.previewTrackBackground}>
-          <View style={[styles.previewTrackFill, { width: `${progressPercent}%` }]} />
+          {/* Track Visualizer */}
+          <View style={styles.previewTrackWrapper}>
+            <View style={styles.previewTrackBackground}>
+              <View style={[styles.previewTrackFill, { width: `${progressPercent}%` }]} />
+            </View>
+            <Text style={styles.previewTimerText}>
+              {formatTime(position)} / {formatTime(duration)}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.previewTimerText}>
-          {formatTime(position)} / {formatTime(duration)}
-        </Text>
-      </View>
+      </BlurView>
 
-      {/* Send Button */}
+      {/* Right Button: Send */}
       <TouchableOpacity
         onPress={onSend}
         disabled={sending}
-        style={styles.previewSendBtn}
         activeOpacity={0.8}
+        style={styles.sendBtnTouch}
       >
-        {sending ? (
-          <ActivityIndicator size="small" color="#000" />
-        ) : (
-          <Ionicons name="send" size={18} color="#000" style={{ marginLeft: 2 }} />
-        )}
+        <LinearGradient
+          colors={['#D2FF52', '#8BE000']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sendBtnActive}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Ionicons name="send" size={17} color="#000" style={{ marginLeft: 2 }} />
+          )}
+        </LinearGradient>
       </TouchableOpacity>
-    </BlurView>
+    </View>
   );
 }
 
@@ -437,6 +467,37 @@ export default function ChatScreen() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [previewAudioUri, setPreviewAudioUri] = useState<string | null>(null);
   const [audioLevels, setAudioLevels] = useState<number[]>([]);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let animation: Animated.CompositeAnimation | null = null;
+    if (isRecording) {
+      pulseAnim.setValue(1);
+      animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.3,
+            duration: 600,
+            useNativeDriver: true
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true
+          })
+        ])
+      );
+      animation.start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    return () => {
+      if (animation) {
+        animation.stop();
+      }
+    };
+  }, [isRecording]);
 
   // Start Audio Recording
   const startRecording = async () => {
@@ -1217,33 +1278,66 @@ export default function ChatScreen() {
             sending={sending}
           />
         ) : isRecording ? (
-          <BlurView intensity={95} tint="dark" style={styles.liveRecordingContainer}>
-            {/* Red Pulsing Record Indicator & Timer */}
-            <View style={styles.recordingTimerBox}>
-              <View style={styles.redPulsingDot} />
-              <Text style={styles.recordingTimerText}>
-                {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60) < 10 ? '0' : ''}{recordingDuration % 60}
-              </Text>
-            </View>
+          <View style={styles.inputContainer}>
+            {/* Left Button: Cancel/Trash */}
+            <BlurView intensity={65} tint="dark" style={styles.micBtnGlass}>
+              <TouchableOpacity
+                style={styles.micBtnInner}
+                onPress={cancelRecording}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF4B4B" />
+              </TouchableOpacity>
+            </BlurView>
 
-            {/* Dynamic Real-time Audio Input Frequency Visualizer */}
-            <RecordingWaveformBar levels={audioLevels} />
+            {/* Middle Pill: Waveform & Timer & Stop */}
+            <BlurView intensity={65} tint="dark" style={styles.inputGlassWrapper}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 12, gap: 8 }}>
+                {/* Timer Indicator */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Animated.View style={[styles.redPulsingDot, { opacity: pulseAnim }]} />
+                  <Text style={[styles.recordingTimerText, { fontSize: 13 }]}>
+                    {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60) < 10 ? '0' : ''}{recordingDuration % 60}
+                  </Text>
+                </View>
 
-            {/* Cancel/Trash Button */}
-            <TouchableOpacity onPress={cancelRecording} style={styles.recordingActionIcon} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={22} color="#FF4B4B" />
+                {/* Waveform visualizer */}
+                <RecordingWaveformBar levels={audioLevels} />
+
+                {/* Stop & Preview button inside pill */}
+                <TouchableOpacity
+                  onPress={stopRecordingToPreview}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="stop" size={12} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+
+            {/* Right Button: Direct Send */}
+            <TouchableOpacity
+              onPress={stopAndDirectSend}
+              activeOpacity={0.8}
+              style={styles.sendBtnTouch}
+            >
+              <LinearGradient
+                colors={['#D2FF52', '#8BE000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sendBtnActive}
+              >
+                <Ionicons name="send" size={17} color="#000" style={{ marginLeft: 2 }} />
+              </LinearGradient>
             </TouchableOpacity>
-
-            {/* Stop & Preview Button */}
-            <TouchableOpacity onPress={stopRecordingToPreview} style={styles.stopPreviewBtn} activeOpacity={0.8}>
-              <Ionicons name="stop" size={16} color="#000" />
-            </TouchableOpacity>
-
-            {/* Direct Send Button */}
-            <TouchableOpacity onPress={stopAndDirectSend} style={styles.directSendBtn} activeOpacity={0.8}>
-              <Ionicons name="send" size={16} color="#000" style={{ marginLeft: 2 }} />
-            </TouchableOpacity>
-          </BlurView>
+          </View>
         ) : (
           <View style={styles.inputContainer}>
             <BlurView intensity={65} tint="dark" style={styles.micBtnGlass}>
@@ -1763,49 +1857,61 @@ const styles = StyleSheet.create({
   liveRecordingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(10, 10, 12, 0.9)', // Rich dark translucent background
     marginHorizontal: 12,
-    marginBottom: Platform.OS === 'ios' ? 20 : 10,
+    marginBottom: Platform.OS === 'ios' ? 24 : 14,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 8,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   recordingTimerBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   redPulsingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#FF4B4B',
   },
   recordingTimerText: {
     color: '#FFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   recordingActionIcon: {
-    padding: 6,
+    backgroundColor: 'rgba(255, 75, 75, 0.12)', // Subtle circular red background
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stopPreviewBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFD700',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Premium glass stop button
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   directSendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#C2FF3D',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#C2FF3D', // Premium neon green
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1814,18 +1920,28 @@ const styles = StyleSheet.create({
   previewContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(10, 10, 12, 0.9)', // Matching rich dark background
     marginHorizontal: 12,
-    marginBottom: Platform.OS === 'ios' ? 20 : 10,
+    marginBottom: Platform.OS === 'ios' ? 24 : 14,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 10,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   trashBtn: {
-    padding: 6,
+    backgroundColor: 'rgba(255, 75, 75, 0.12)', // Subtle circular red background
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewPlayBtn: {
     width: 38,
@@ -1858,9 +1974,9 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   previewSendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#C2FF3D',
     alignItems: 'center',
     justifyContent: 'center',
