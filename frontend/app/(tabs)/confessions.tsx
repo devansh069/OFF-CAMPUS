@@ -110,6 +110,7 @@ export default function CampusLive() {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
@@ -118,6 +119,7 @@ export default function CampusLive() {
       if (result.canceled) return;
       if (result.assets?.[0]?.base64) {
         setConfessionImage(result.assets[0].base64);
+        setShowConfessionPickModal(false);
       }
     } catch (e) {
       console.warn(e);
@@ -133,7 +135,7 @@ export default function CampusLive() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
@@ -142,6 +144,7 @@ export default function CampusLive() {
       if (result.canceled) return;
       if (result.assets?.[0]?.base64) {
         setConfessionImage(result.assets[0].base64);
+        setShowConfessionPickModal(false);
       }
     } catch (e) {
       console.warn(e);
@@ -268,7 +271,7 @@ export default function CampusLive() {
     }
   }, [showAudienceModal]);
 
-  const closeAudienceModal = (callback?: () => void) => {
+  const closeAudienceModal = (callback?: () => void, clearImage = true) => {
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: 500,
@@ -282,7 +285,9 @@ export default function CampusLive() {
       })
     ]).start(() => {
       setShowAudienceModal(false);
-      setStoryImage(null);
+      if (clearImage) {
+        setStoryImage(null);
+      }
       if (callback) callback();
     });
   };
@@ -588,6 +593,7 @@ export default function CampusLive() {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: 'images',
         allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
       });
       if (result.canceled) return;
@@ -596,7 +602,7 @@ export default function CampusLive() {
         setShowPickModal(false);
         setTimeout(() => {
           setShowAudienceModal(true);
-        }, 500);
+        }, 800);
       } else {
         showSimulatorModeAlert('Could not read camera photo data.');
       }
@@ -614,7 +620,7 @@ export default function CampusLive() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true, aspect: [9, 16], quality: 0.5, base64: true,
       });
       if (result.canceled) return;
@@ -623,7 +629,7 @@ export default function CampusLive() {
         setShowPickModal(false);
         setTimeout(() => {
           setShowAudienceModal(true);
-        }, 500);
+        }, 800);
       } else {
         showSimulatorModeAlert('Could not read gallery photo data.');
       }
@@ -646,7 +652,7 @@ export default function CampusLive() {
             setShowPickModal(false);
             setTimeout(() => {
               setShowAudienceModal(true);
-            }, 500);
+            }, 800);
           }
         },
         { text: 'Cancel', style: 'cancel' }
@@ -663,10 +669,9 @@ export default function CampusLive() {
     }
 
     if (audience === 'global' && !user?.is_premium) {
-      closeAudienceModal();
-      setUpsellTitle('Post Global Stories 🌐');
-      setUpsellFeature('Global Story Upload');
-      setUpsellVisible(true);
+      closeAudienceModal(() => {
+        setShowBuyPremiumPopup(true);
+      }, false);
       return;
     }
 
@@ -725,10 +730,9 @@ export default function CampusLive() {
       if (response.status === 403) {
         const errData = await response.json();
         if (errData.error === 'premium_required') {
-          closeAudienceModal();
-          setUpsellTitle('Post Global Stories 🌐');
-          setUpsellFeature('Global Story Upload');
-          setUpsellVisible(true);
+          closeAudienceModal(() => {
+            setShowBuyPremiumPopup(true);
+          }, false);
           return;
         }
       }
@@ -740,6 +744,7 @@ export default function CampusLive() {
       });
     } catch (e) {
       console.error(e);
+      closeAudienceModal();
       Alert.alert('Error', 'Failed to upload story');
     } finally {
       setPosting(false);
@@ -1875,14 +1880,32 @@ export default function CampusLive() {
               <Text style={styles.dialogTitle}>Add to your Story </Text>
               <Text style={styles.dialogDesc}>Share a moment with campus mates, matches, or the global network.</Text>
 
-              <TouchableOpacity style={styles.dialogOptBtn} onPress={handleCameraLaunch} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.dialogOptBtn}
+                onPress={() => {
+                  setShowPickModal(false);
+                  setTimeout(() => {
+                    handleCameraLaunch();
+                  }, 350);
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(255, 27, 107, 0.1)' }]}>
                   <Ionicons name="camera" size={22} color="#FF1B6B" />
                 </View>
                 <Text style={styles.dialogOptText}>Open Camera</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.dialogOptBtn} onPress={handleGalleryLaunch} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.dialogOptBtn}
+                onPress={() => {
+                  setShowPickModal(false);
+                  setTimeout(() => {
+                    handleGalleryLaunch();
+                  }, 350);
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(6, 214, 160, 0.1)' }]}>
                   <Ionicons name="images" size={22} color="#06D6A0" />
                 </View>
@@ -1899,14 +1922,32 @@ export default function CampusLive() {
               <Text style={styles.dialogTitle}>Add Photo </Text>
               <Text style={styles.dialogDesc}>Select a photo to attach to your confession.</Text>
 
-              <TouchableOpacity style={styles.dialogOptBtn} onPress={() => { setShowConfessionPickModal(false); launchConfessionCamera(); }} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.dialogOptBtn}
+                onPress={() => {
+                  setShowConfessionPickModal(false);
+                  setTimeout(() => {
+                    launchConfessionCamera();
+                  }, 350);
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(255, 27, 107, 0.1)' }]}>
                   <Ionicons name="camera" size={22} color="#FF1B6B" />
                 </View>
                 <Text style={styles.dialogOptText}>Open Camera</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.dialogOptBtn} onPress={() => { setShowConfessionPickModal(false); launchConfessionGallery(); }} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.dialogOptBtn}
+                onPress={() => {
+                  setShowConfessionPickModal(false);
+                  setTimeout(() => {
+                    launchConfessionGallery();
+                  }, 350);
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.dialogOptIcon, { backgroundColor: 'rgba(6, 214, 160, 0.1)' }]}>
                   <Ionicons name="images" size={22} color="#06D6A0" />
                 </View>
@@ -1960,10 +2001,9 @@ export default function CampusLive() {
                 {/* Global Network Visibility Option */}
                 <TouchableOpacity style={styles.audienceOpt} onPress={() => {
                   if (!user?.is_premium) {
-                    closeAudienceModal();
-                    setUpsellTitle('Post Global Stories 🌐');
-                    setUpsellFeature('Global Story Upload');
-                    setUpsellVisible(true);
+                    closeAudienceModal(() => {
+                      setShowBuyPremiumPopup(true);
+                    }, false);
                     return;
                   }
                   handlePostStory('global');
@@ -1976,10 +2016,9 @@ export default function CampusLive() {
                       <Text style={styles.audienceName}>Global Network</Text>
                       <TouchableOpacity
                         onPress={() => {
-                          closeAudienceModal();
-                          setUpsellTitle('Post Global Stories 🌐');
-                          setUpsellFeature('Global Story Upload');
-                          setUpsellVisible(true);
+                          closeAudienceModal(() => {
+                            setShowBuyPremiumPopup(true);
+                          }, false);
                         }}
                         style={styles.premiumBadge}
                         activeOpacity={0.7}
@@ -2025,7 +2064,16 @@ export default function CampusLive() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.premiumCloseBtn} onPress={() => setShowBuyPremiumPopup(false)} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.premiumCloseBtn}
+                onPress={() => {
+                  setShowBuyPremiumPopup(false);
+                  setTimeout(() => {
+                    setShowAudienceModal(true);
+                  }, 300);
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.premiumCloseText}>Maybe Later</Text>
               </TouchableOpacity>
             </View>

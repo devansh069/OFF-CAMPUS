@@ -534,32 +534,58 @@ export default function ChatScreen() {
         isMeteringEnabled: true,
       };
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        customOptions,
-        (status: any) => {
-          if (status.isRecording && status.metering !== undefined) {
-            const db = status.metering; // dB from -160 to 0 (silence around -60)
-            const norm = Math.max(0, Math.min(1, (db + 60) / 60)); // normalized 0..1
-            const barHeight = Math.max(6, Math.floor(norm * 32));
+      let attempt = 0;
+      let newRecording = null;
+      while (attempt < 3) {
+        try {
+          const result = await Audio.Recording.createAsync(
+            customOptions,
+            (status: any) => {
+              if (status.isRecording && status.metering !== undefined) {
+                const db = status.metering; // dB from -160 to 0 (silence around -60)
+                const norm = Math.max(0, Math.min(1, (db + 60) / 60)); // normalized 0..1
+                const barHeight = Math.max(6, Math.floor(norm * 32));
 
-            setAudioLevels(prev => {
-              const updated = [...prev, barHeight];
-              if (updated.length > 20) updated.shift();
-              return updated;
-            });
+                setAudioLevels(prev => {
+                  const updated = [...prev, barHeight];
+                  if (updated.length > 20) updated.shift();
+                  return updated;
+                });
+              }
+            },
+            80
+          );
+          newRecording = result.recording;
+          break; // Success! Break retry loop
+        } catch (err: any) {
+          attempt++;
+          console.warn(`[VoiceNote] Recording start attempt ${attempt} failed:`, err);
+          if (attempt >= 3) {
+            throw err; // Throw after all retries fail
           }
-        },
-        80
-      );
-      
-      recordingRef.current = newRecording;
-      setIsRecording(true);
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-      }, 1000);
-      console.log('[VoiceNote] Recording started with live audio metering successfully!');
+          // Wait 350ms before retrying
+          await new Promise(resolve => setTimeout(resolve, 350));
+          
+          // Re-set audio mode to try to force reset session category on iOS
+          try {
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+            });
+          } catch (e) {}
+        }
+      }
+
+      if (newRecording) {
+        recordingRef.current = newRecording;
+        setIsRecording(true);
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingDuration(prev => prev + 1);
+        }, 1000);
+        console.log('[VoiceNote] Recording started successfully!');
+      }
     } catch (err: any) {
-      console.error('[VoiceNote] Failed to start recording', err);
+      console.error('[VoiceNote] Failed to start recording after retries', err);
       Alert.alert('Start Recording Error', err.message || String(err));
     }
   };
