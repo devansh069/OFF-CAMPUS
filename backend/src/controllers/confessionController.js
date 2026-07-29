@@ -522,8 +522,13 @@ exports.reportConfession = async (req, res) => {
     // Apply progressive penalty to vibe score
     const targetUser = await User.findOne({ where: { user_id: target_user_id } });
     if (targetUser) {
-      let currentVibeScore = targetUser.vibe_score || 10;
-      let newVibeScore = Math.max(0, currentVibeScore - totalReports);
+      const currentVibeScore = (targetUser.vibe_score !== null && targetUser.vibe_score !== undefined)
+        ? parseFloat(targetUser.vibe_score)
+        : 10.0;
+      
+      const penalty = 1.0;
+      const newVibeScore = Math.max(0.0, parseFloat((currentVibeScore - penalty).toFixed(2)));
+      const changeAmount = parseFloat((newVibeScore - currentVibeScore).toFixed(2));
 
       targetUser.vibe_score = newVibeScore;
       await targetUser.save();
@@ -531,7 +536,7 @@ exports.reportConfession = async (req, res) => {
       await VibeScoreLog.create({
         user_id: target_user_id,
         reason: `Confession reported by user (Total reports: ${totalReports})`,
-        change_amount: -(totalReports),
+        change_amount: changeAmount,
         new_score: newVibeScore
       });
     }

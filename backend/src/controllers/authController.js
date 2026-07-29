@@ -166,7 +166,9 @@ exports.verifyOTP = async (req, res) => {
             const tr = referrer.total_referrals;
             console.log(`[Referral] ${referrer.user_id} now has ${tr} total referral(s)`);
 
-            const oldScore = parseFloat(referrer.vibe_score) || 10;
+            const oldScore = (referrer.vibe_score !== null && referrer.vibe_score !== undefined)
+              ? parseFloat(referrer.vibe_score)
+              : 10.0;
 
             if (tr === 1) {
               referrer.vibe_score = Math.min(oldScore + 2, 10);
@@ -182,7 +184,7 @@ exports.verifyOTP = async (req, res) => {
                 user_id: referrer.user_id,
                 reason: '3rd Referral: 1.5x Profile Visibility unlocked',
                 change_amount: 0,
-                new_score: parseFloat(referrer.vibe_score) || 10
+                new_score: referrer.vibe_score
               });
             } else if (tr === 5) {
               referrer.vibe_score = 10;
@@ -198,7 +200,7 @@ exports.verifyOTP = async (req, res) => {
                 user_id: referrer.user_id,
                 reason: '7th Referral: 2.0x Ultimate Visibility unlocked',
                 change_amount: 0,
-                new_score: parseFloat(referrer.vibe_score) || 10
+                new_score: referrer.vibe_score
               });
             } else if (tr >= 10 && !referrer.has_event_pass) {
               referrer.has_event_pass = true;
@@ -206,7 +208,7 @@ exports.verifyOTP = async (req, res) => {
                 user_id: referrer.user_id,
                 reason: '10th Referral: Free Off-Campus Event Pass earned!',
                 change_amount: 0,
-                new_score: parseFloat(referrer.vibe_score) || 10
+                new_score: referrer.vibe_score
               });
             } else {
               // Log every other referral too (2nd, 4th, 6th, 8th, 9th)
@@ -214,7 +216,7 @@ exports.verifyOTP = async (req, res) => {
                 user_id: referrer.user_id,
                 reason: `Referral #${tr}: Friend joined using your code`,
                 change_amount: 0,
-                new_score: parseFloat(referrer.vibe_score) || 10
+                new_score: referrer.vibe_score
               });
             }
 
@@ -1248,8 +1250,13 @@ exports.reportUser = async (req, res) => {
     // Apply the progressive penalty to vibe score
     const targetUser = await User.findOne({ where: { user_id: target_user_id } });
     if (targetUser) {
-      let currentVibeScore = targetUser.vibe_score || 10;
-      let newVibeScore = Math.max(0, currentVibeScore - totalReports);
+      const currentVibeScore = (targetUser.vibe_score !== null && targetUser.vibe_score !== undefined)
+        ? parseFloat(targetUser.vibe_score)
+        : 10.0;
+      
+      const penalty = 1.0;
+      const newVibeScore = Math.max(0.0, parseFloat((currentVibeScore - penalty).toFixed(2)));
+      const changeAmount = parseFloat((newVibeScore - currentVibeScore).toFixed(2));
       
       targetUser.vibe_score = newVibeScore;
       await targetUser.save();
@@ -1257,7 +1264,7 @@ exports.reportUser = async (req, res) => {
       await VibeScoreLog.create({
         user_id: target_user_id,
         reason: `Reported by user (Total reports: ${totalReports})`,
-        change_amount: -(totalReports),
+        change_amount: changeAmount,
         new_score: newVibeScore
       });
     }
