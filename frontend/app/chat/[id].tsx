@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import io from 'socket.io-client';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 function VoiceMessageBubble({ audioUrl, isMine }: { audioUrl: string; isMine: boolean }) {
@@ -901,18 +903,20 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      {/* App main dark theme linear gradient */}
-      <LinearGradient
-        colors={['#050005', '#160222', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
+      {/* Top-Left Dark Purple Glow Ball matching Chat Inbox */}
+      <View style={styles.glowBallContainer} pointerEvents="none">
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
 
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Floating Glass Header */}
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="#FFF" />
           </TouchableOpacity>
           {otherUser && (
@@ -936,15 +940,18 @@ export default function ChatScreen() {
                   {otherUser.verification_status === 'verified' && (
                     <Ionicons name="checkmark-circle" size={14} color="#00D2FF" />
                   )}
+                  {otherUser.is_premium && (
+                    <Ionicons name="crown" size={14} color="#FFD700" />
+                  )}
                 </View>
                 {otherUser.college?.name && (
-                  <Text style={styles.headerStatus}>{otherUser.college.name}</Text>
+                  <Text style={styles.headerStatus} numberOfLines={1}>{otherUser.college.name}</Text>
                 )}
               </View>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu}>
-            <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.6)" />
+          <TouchableOpacity style={styles.headerInfoBtn} onPress={handleHeaderMenu} activeOpacity={0.7}>
+            <Ionicons name="ellipsis-vertical" size={20} color="rgba(255, 255, 255, 0.9)" />
           </TouchableOpacity>
         </View>
 
@@ -1049,7 +1056,7 @@ export default function ChatScreen() {
           </ScrollView>
         )}
 
-        {/* Dynamic Input Bar Section */}
+        {/* Dynamic Floating Glass Input Controls (No Container Div) */}
         {previewAudioUri ? (
           <WhatsAppVoicePreviewBar
             audioUri={previewAudioUri}
@@ -1086,155 +1093,213 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </BlurView>
         ) : (
-          <BlurView intensity={90} tint="dark" style={styles.inputContainer}>
+          <View style={styles.inputContainer}>
+            <BlurView intensity={65} tint="dark" style={styles.micBtnGlass}>
+              <TouchableOpacity
+                style={styles.micBtnInner}
+                onPress={startRecording}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="mic" size={20} color="rgba(255, 255, 255, 0.7)" />
+              </TouchableOpacity>
+            </BlurView>
+            <BlurView intensity={65} tint="dark" style={styles.inputGlassWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Type a message..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={text}
+                onChangeText={setText}
+                multiline
+                maxLength={500}
+              />
+            </BlurView>
             <TouchableOpacity
-              style={styles.micBtn}
-              onPress={startRecording}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="mic" size={20} color="rgba(255, 255, 255, 0.6)" />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor="#666"
-              value={text}
-              onChangeText={setText}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
               onPress={sendMessage}
               disabled={!text.trim() || sending}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
+              style={styles.sendBtnTouch}
             >
-              {sending ? (
-                <ActivityIndicator size="small" color="#000" />
+              {text.trim() && !sending ? (
+                <LinearGradient
+                  colors={['#D2FF52', '#8BE000']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.sendBtnActive}
+                >
+                  <Ionicons name="send" size={17} color="#000" style={{ marginLeft: 2 }} />
+                </LinearGradient>
               ) : (
-                <Ionicons name="send" size={16} color="#000" style={{ marginLeft: 2 }} />
+                <View style={styles.sendBtnDisabled}>
+                  {sending ? (
+                    <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.5)" />
+                  ) : (
+                    <Ionicons name="send" size={16} color="rgba(255, 255, 255, 0.3)" style={{ marginLeft: 2 }} />
+                  )}
+                </View>
               )}
             </TouchableOpacity>
-          </BlurView>
+          </View>
         )}
       </KeyboardAvoidingView>
 
-      {/* User Profile Preview Modal */}
+      {/* 100% Exact Vibe Card Profile Preview Modal */}
       <Modal
         visible={showProfileModal}
-        transparent={true}
+        transparent={false}
         animationType="slide"
         onRequestClose={() => setShowProfileModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={95} tint="dark" style={[styles.modalContainer, { maxHeight: '90%', padding: 0, overflow: 'hidden' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>User Profile 👤</Text>
-              <TouchableOpacity onPress={() => setShowProfileModal(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.vibeCardModalContainer}>
+          {/* Floating Header Bar */}
+          <View style={styles.vibeModalFloatingHeader}>
+            <TouchableOpacity
+              onPress={() => setShowProfileModal(false)}
+              style={styles.vibeModalBackBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.vibeModalTitle}>View Profile</Text>
+            <View style={{ width: 40 }} />
+          </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-              {/* Photo */}
-              <View style={{ alignItems: 'center' }}>
-                <Image
-                  source={{ uri: otherUser?.photos?.[0] || otherUser?.picture }}
-                  style={{ width: 130, height: 130, borderRadius: 65, borderWidth: 3, borderColor: '#C2FF3D' }}
-                />
-                {otherUser?.is_premium && (
-                  <View style={{ position: 'absolute', top: 4, right: '32%', backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 12, padding: 4 }}>
-                    <Ionicons name="crown" size={20} color="#FFD700" />
+          <ScrollView contentContainerStyle={styles.vibeModalScrollContent} showsVerticalScrollIndicator={false}>
+            {/* 1. Main Photo Card (Full Portrait 9:16) */}
+            <View style={styles.vibeMainPhotoCard}>
+              <Image
+                source={{ uri: otherUser?.photos?.[0] || otherUser?.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop' }}
+                style={styles.vibeProfilePhoto}
+                resizeMode="cover"
+              />
+              {/* Glass Shine Reflection Overlay */}
+              <LinearGradient
+                colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
+                locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
+
+              {/* Glass Details Card */}
+              <BlurView intensity={35} tint="dark" style={styles.vibeGlassDetailsCard}>
+                <View style={styles.vibeCardDetailsContent}>
+                  <View style={styles.vibeCardNameRow}>
+                    <Text style={styles.vibeCardNameText}>
+                      {otherUser?.name || 'Student'}{otherUser?.age ? `, ${otherUser.age}` : ''}
+                    </Text>
+                    {otherUser?.verification_status === 'verified' && (
+                      <Ionicons name="checkmark-circle" size={22} color="#00D2FF" />
+                    )}
+                    {otherUser?.is_premium && (
+                      <Ionicons name="crown" size={20} color="#FFD700" />
+                    )}
                   </View>
-                )}
-              </View>
 
-              {/* Name & Age */}
-              <View style={{ alignItems: 'center', gap: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '900' }}>
-                    {otherUser?.name || 'User'}, {otherUser?.age || 20}
-                  </Text>
-                  {otherUser?.verification_status === 'verified' && (
-                    <Ionicons name="checkmark-circle" size={20} color="#00D2FF" />
+                  <View style={styles.vibeCardCollegeRow}>
+                    <Text style={styles.vibeCardCollegeText} numberOfLines={1}>
+                      🎓 {otherUser?.college?.name || 'College Network'}
+                      {[otherUser?.course, otherUser?.year].filter(Boolean).length > 0
+                        ? ` • ${[otherUser?.course, otherUser?.year].filter(Boolean).join(' • ')}`
+                        : ''}
+                    </Text>
+                  </View>
+
+                  {otherUser?.bio ? <Text style={styles.vibeCardBioText}>{otherUser.bio}</Text> : null}
+
+                  {/* Characteristics Scrollable Row */}
+                  <View style={styles.vibeScrollWrapper}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.vibeScrollContentContainer}
+                    >
+                      {[
+                        otherUser?.gender && { icon: 'person-outline', text: otherUser.gender.toUpperCase() },
+                        otherUser?.height && { icon: 'resize-outline', text: `${otherUser.height} cm` },
+                        otherUser?.religion && { icon: 'sparkles-outline', text: otherUser.religion },
+                        otherUser?.looking_for && { icon: 'heart-outline', text: otherUser.looking_for },
+                        otherUser?.drink && { icon: 'wine-outline', text: otherUser.drink },
+                        otherUser?.smoke && { icon: 'flame-outline', text: otherUser.smoke },
+                      ].filter(Boolean).map((item: any, idx: number, arr: any[]) => (
+                        <React.Fragment key={idx}>
+                          <View style={styles.vibeScrollItem}>
+                            <Ionicons name={item.icon} size={15} color="rgba(255, 255, 255, 0.7)" />
+                            <Text style={styles.vibeScrollItemText}>{item.text}</Text>
+                          </View>
+                          {idx < arr.length - 1 && <View style={styles.vibeScrollSeparator} />}
+                        </React.Fragment>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  {/* Interests / Tags */}
+                  {Array.isArray(otherUser?.interests) && otherUser.interests.length > 0 && (
+                    <View style={styles.vibeCardTagsRow}>
+                      {otherUser.interests.map((tag: string, idx: number) => (
+                        <View key={idx} style={styles.vibeCardTagPill}>
+                          <Text style={styles.vibeCardTagText}>#{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
                   )}
                 </View>
-                {otherUser?.college?.name && (
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' }}>
-                    🎓 {otherUser.college.name}
-                  </Text>
-                )}
-              </View>
+              </BlurView>
+            </View>
 
-              {/* Bio */}
-              {otherUser?.bio ? (
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 4 }}>
-                    ABOUT
-                  </Text>
-                  <Text style={{ color: '#FFF', fontSize: 14, lineHeight: 20 }}>
-                    {otherUser.bio}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Characteristics Pills */}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {otherUser?.gender && (
-                  <View style={{ backgroundColor: 'rgba(194, 255, 61, 0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.3)' }}>
-                    <Text style={{ color: '#C2FF3D', fontSize: 12, fontWeight: '700' }}>
-                      👤 {otherUser.gender.toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                {otherUser?.religion && (
-                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
-                      🙏 {otherUser.religion}
-                    </Text>
-                  </View>
-                )}
-                {otherUser?.drink && (
-                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
-                      🍷 Drinks: {otherUser.drink}
-                    </Text>
-                  </View>
-                )}
-                {otherUser?.smoke && (
-                  <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
-                      🚬 Smokes: {otherUser.smoke}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Interests */}
-              {Array.isArray(otherUser?.interests) && otherUser.interests.length > 0 && (
-                <View>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>
-                    INTERESTS & VIBES
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {otherUser.interests.map((tag: string, idx: number) => (
-                      <View key={idx} style={{ backgroundColor: 'rgba(255, 27, 107, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 27, 107, 0.3)' }}>
-                        <Text style={{ color: '#FF6CD2', fontSize: 12, fontWeight: '600' }}>#{tag}</Text>
+            {/* 2. Standalone Spotify Card */}
+            {otherUser?.spotify_data?.top_tracks?.length > 0 && (
+              <View style={styles.vibeSpotifyCard}>
+                <Text style={styles.vibeSectionTitle}>Top Spotify Tracks 🎵</Text>
+                {otherUser.spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => {
+                  const title = typeof track === 'string' ? track.split(' - ')[0] : track.name;
+                  const artist = typeof track === 'string' ? (track.split(' - ')[1] || 'Spotify Vibe') : track.artist;
+                  return (
+                    <View key={idx} style={styles.vibeSpotifyTrackRow}>
+                      <Ionicons name="play" size={16} color="#1DB954" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.vibeSpotifyTrackName} numberOfLines={1}>{title}</Text>
+                        <Text style={styles.vibeSpotifyArtistName} numberOfLines={1}>{artist}</Text>
                       </View>
-                    ))}
-                  </View>
-                </View>
-              )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
-              {/* Back Action */}
-              <TouchableOpacity
-                style={{ backgroundColor: '#C2FF3D', paddingVertical: 14, borderRadius: 24, alignItems: 'center', marginTop: 10 }}
-                onPress={() => setShowProfileModal(false)}
-              >
-                <Text style={{ color: '#000', fontSize: 15, fontWeight: '800' }}>Back to Chat</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </BlurView>
+            {/* 3. Secondary Photos & Q&A Prompts */}
+            {Array.isArray(otherUser?.photos) && otherUser.photos.length > 1 && (
+              <View style={styles.vibeSecondaryPhotosSection}>
+                {otherUser.photos.slice(1).map((photoUri: string, idx: number) => {
+                  const promptEntries = otherUser?.prompts ? Object.entries(otherUser.prompts) : [];
+                  const prompt = promptEntries[idx];
+
+                  return (
+                    <BlurView intensity={35} tint="dark" key={idx} style={styles.vibeSecondaryPhotoCard}>
+                      {prompt && (
+                        <View style={styles.vibePromptHeader}>
+                          <Text style={styles.vibePromptQuestion}>{prompt[0]}</Text>
+                          <Text style={styles.vibePromptAnswer}>{prompt[1] as string}</Text>
+                        </View>
+                      )}
+                      <View style={styles.vibeSecondaryPhotoContainer}>
+                        <Image source={{ uri: photoUri }} style={styles.vibeProfileSecondaryPhoto} resizeMode="cover" />
+                        <LinearGradient
+                          colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
+                          locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFillObject}
+                          pointerEvents="none"
+                        />
+                      </View>
+                    </BlurView>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1319,6 +1384,18 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+  },
+  glowBall: {
+    flex: 1,
+    borderRadius: 650,
+  },
   flex: { flex: 1 },
   centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
   
@@ -1346,22 +1423,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   headerAvatarWrapper: {
     position: 'relative',
   },
   headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   headerOnlineBadge: {
     position: 'absolute',
@@ -1379,7 +1453,7 @@ const styles = StyleSheet.create({
   },
   headerName: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   statusBadge: {
@@ -1393,19 +1467,16 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   headerStatus: {
-    color: 'rgba(255, 255, 255, 0.4)',
+    color: 'rgba(255, 255, 255, 0.45)',
     fontSize: 11,
     fontWeight: '600',
   },
   headerInfoBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
 
   // Messages Container
@@ -1615,40 +1686,259 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  micBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  micBtnGlass: {
+    borderRadius: 22,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  micBtnInner: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  inputGlassWrapper: {
+    flex: 1,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   input: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     color: '#FFF',
     fontSize: 14,
     fontWeight: '500',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 22,
     maxHeight: 100,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    backgroundColor: '#C2FF3D',
-    borderRadius: 21,
+  sendBtnTouch: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sendBtnActive: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   sendBtnDisabled: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    opacity: 0.8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // 100% Exact Vibe Card Profile Preview Modal Styles
+  vibeCardModalContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  vibeModalFloatingHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 44 : 10,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  vibeModalBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vibeModalTitle: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  vibeModalScrollContent: {
+    paddingBottom: 40,
+  },
+  vibeMainPhotoCard: {
+    width: screenWidth,
+    height: screenHeight * 0.82,
+    position: 'relative',
+    backgroundColor: '#0A000F',
+  },
+  vibeProfilePhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  vibeGlassDetailsCard: {
+    position: 'absolute',
+    bottom: 20,
+    left: 14,
+    right: 14,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+    padding: 16,
+  },
+  vibeCardDetailsContent: {
+    gap: 8,
+  },
+  vibeCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  vibeCardNameText: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  vibeCardCollegeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vibeCardCollegeText: {
+    color: '#C2FF3D',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  vibeCardBioText: {
+    color: '#FFF',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  vibeScrollWrapper: {
+    marginTop: 6,
+  },
+  vibeScrollContentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  vibeScrollItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  vibeScrollItemText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  vibeScrollSeparator: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  vibeCardTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  vibeCardTagPill: {
+    backgroundColor: 'rgba(255, 27, 107, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 27, 107, 0.3)',
+  },
+  vibeCardTagText: {
+    color: '#FF6CD2',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  vibeSpotifyCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#10061A',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#221435',
+    gap: 10,
+  },
+  vibeSectionTitle: {
+    color: '#1DB954',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  vibeSpotifyTrackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 10,
+    borderRadius: 12,
+  },
+  vibeSpotifyTrackName: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  vibeSpotifyArtistName: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+  },
+  vibeSecondaryPhotosSection: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 16,
+  },
+  vibeSecondaryPhotoCard: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#10061A',
+  },
+  vibePromptHeader: {
+    padding: 16,
+    gap: 4,
+  },
+  vibePromptQuestion: {
+    color: '#9D4EDD',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  vibePromptAnswer: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  vibeSecondaryPhotoContainer: {
+    height: 380,
+    position: 'relative',
+  },
+  vibeProfileSecondaryPhoto: {
+    width: '100%',
+    height: '100%',
   },
 
   // Report Modal Styling
