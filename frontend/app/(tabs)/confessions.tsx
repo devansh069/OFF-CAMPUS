@@ -180,6 +180,7 @@ export default function CampusLive() {
   const lastCardTap = useRef<number>(0);
   const tapTimeout = useRef<any>(null);
   const lastDetailCardTap = useRef<number>(0);
+  const storyPressStartTime = useRef<number>(0);
 
   // Confession Reporting States
   const [showReportModal, setShowReportModal] = useState(false);
@@ -255,6 +256,14 @@ export default function CampusLive() {
   // Custom Options Modal State
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [selectedOptionsConfession, setSelectedOptionsConfession] = useState<any | null>(null);
+
+  // Custom Sharing Modal State
+  const [sharingConfession, setSharingConfession] = useState<any | null>(null);
+  const [shareChats, setShareChats] = useState<any[]>([]);
+  const [loadingShareChats, setLoadingShareChats] = useState(false);
+  const [shareSearchQuery, setShareSearchQuery] = useState('');
+  const [sendingToUserId, setSendingToUserId] = useState<{ [key: string]: boolean }>({});
+  const [sentToUserId, setSentToUserId] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     if (showAudienceModal) {
@@ -476,6 +485,148 @@ export default function CampusLive() {
       });
     } catch (e) {
       console.warn('[handleDeleteNotif Error]:', e);
+    }
+  };
+
+  const handleNotificationClick = async (item: any) => {
+    // 1. Close notifications modal
+    setShowNotificationsModal(false);
+
+    // 2. Mark as read
+    if (!item.is_read) {
+      handleMarkNotifRead(item.notification_id);
+    }
+
+    // 3. Navigate/Select confession
+    const localConf = confessions.find((c: any) => c.confession_id === item.confession_id);
+    if (localConf) {
+      openComments(localConf);
+    } else {
+      if (sessionToken === 'dummy_token') {
+        Alert.alert('Not Found', 'Mock mode: this confession is not loaded in feed.');
+        return;
+      }
+      try {
+        setLoading(true);
+        const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/confessions/${item.confession_id}`, {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+        if (!res.ok) throw new Error('Confession not found');
+        const data = await res.json();
+        if (data.confession) {
+          openComments(data.confession);
+        } else {
+          Alert.alert('Not Found', 'This confession has been deleted or is no longer available.');
+        }
+      } catch (error) {
+        console.warn('Failed to fetch confession details for notification:', error);
+        Alert.alert('Not Found', 'This confession is no longer available.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const openShareModal = async (confession: any) => {
+    setSharingConfession(confession);
+    setShareSearchQuery('');
+    setSentToUserId({});
+    setSendingToUserId({});
+    setLoadingShareChats(true);
+    setShareChats([]);
+
+    if (sessionToken === 'dummy_token') {
+      const mockChats = [
+        {
+          user: {
+            user_id: 'usr_mock1',
+            name: 'Aishwarya Sen',
+            picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock2',
+            name: 'Kabir Malhotra',
+            picture: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock3',
+            name: 'Pooja Sharma',
+            picture: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200'
+          }
+        }
+      ];
+      setShareChats(mockChats);
+      setLoadingShareChats(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/conversations`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShareChats(data.conversations || []);
+      }
+    } catch (error) {
+      console.warn('Failed to load sharing conversations:', error);
+    } finally {
+      setLoadingShareChats(false);
+    }
+  };
+
+  const handleSendDM = async (partnerUserId: string) => {
+    if (!sharingConfession) return;
+    setSendingToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+    try {
+      const textToSend = `Check out this confession:\n"${sharingConfession.content}"\n\nSee it here: https://offcampus.in/confessions/${sharingConfession.confession_id}`;
+      
+      if (sessionToken === 'dummy_token') {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+        return;
+      }
+
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          to_user_id: partnerUserId,
+          content: textToSend,
+          message_type: 'text'
+        })
+      });
+      if (res.ok) {
+        setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+      } else {
+        Alert.alert('Error', 'Failed to send confession in chat.');
+      }
+    } catch (err) {
+      console.warn('handleSendDM error:', err);
+      Alert.alert('Error', 'Failed to connect to server.');
+    } finally {
+      setSendingToUserId(prev => ({ ...prev, [partnerUserId]: false }));
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (!sharingConfession) return;
+    try {
+      const shareUrl = `https://offcampus.in/confessions/${sharingConfession.confession_id}`;
+      await Share.share({
+        message: `Check out this confession on Off-Campus: "${sharingConfession.content}"\n\nRead more at: ${shareUrl}`,
+        url: shareUrl,
+        title: 'Share Confession'
+      });
+    } catch (error) {
+      console.warn('Native Share Error:', error);
     }
   };
 
@@ -919,7 +1070,7 @@ export default function CampusLive() {
       return;
     }
 
-    setSelectedConfession(null);
+    closeComments();
     setShowViewersSheet(false);
     setShowStoryModal(false);
 
@@ -941,6 +1092,11 @@ export default function CampusLive() {
     } else {
       router.push(`/(tabs)/discover?targetUserId=${viewer.user_id}`);
     }
+  };
+
+  const closeComments = () => {
+    setSelectedConfession(null);
+    router.setParams({ id: '' });
   };
 
   const openComments = async (confession: any) => {
@@ -1589,6 +1745,11 @@ export default function CampusLive() {
                       <Ionicons name="chatbubble" size={16} color="rgba(255, 255, 255, 0.4)" />
                       <Text style={styles.simpleActionText}>{c.comments || 0}</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.simpleActionBtn} onPress={(e) => { e.stopPropagation(); openShareModal(c); }}>
+                      <Ionicons name="share-social-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
+                      <Text style={styles.simpleActionText}>Share</Text>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Double Tap Animation Overlay */}
@@ -1617,7 +1778,7 @@ export default function CampusLive() {
         <Modal
           visible={selectedConfession !== null}
           animationType="slide"
-          onRequestClose={() => setSelectedConfession(null)}
+          onRequestClose={closeComments}
         >
           <SafeAreaView style={styles.commentsModalContainer}>
             <KeyboardAvoidingView
@@ -1638,7 +1799,7 @@ export default function CampusLive() {
               <View style={styles.commentsModalHeader}>
                 <TouchableOpacity
                   style={styles.modalCloseBtn}
-                  onPress={() => setSelectedConfession(null)}
+                  onPress={closeComments}
                 >
                   <Ionicons name="arrow-back" size={24} color="#FFF" />
                 </TouchableOpacity>
@@ -1709,6 +1870,10 @@ export default function CampusLive() {
                           <Ionicons name="chatbubble" size={14} color="#FFF" />
                           <Text style={styles.modalConfActT}>{selectedConfession.comments || 0}</Text>
                         </View>
+                        <TouchableOpacity style={styles.modalConfAct} onPress={() => openShareModal(selectedConfession)}>
+                          <Ionicons name="share-social" size={14} color="#FFF" />
+                          <Text style={styles.modalConfActT}>Share</Text>
+                        </TouchableOpacity>
                       </View>
 
                       {activeDoubleTapId === selectedConfession.confession_id && (
@@ -1879,20 +2044,6 @@ export default function CampusLive() {
                     <View style={styles.optionsHeaderBar} />
                     <Text style={styles.optionsTitle}>Confession Options </Text>
                   </View>
-
-                  <TouchableOpacity
-                    style={styles.optionsItem}
-                    onPress={() => {
-                      setShowOptionsModal(false);
-                      if (selectedOptionsConfession) {
-                        handleShare(selectedOptionsConfession);
-                      }
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="share-social-outline" size={20} color="#FFF" />
-                    <Text style={styles.optionsItemText}>Share Confession</Text>
-                  </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.optionsItem, styles.optionsItemDanger]}
@@ -2209,15 +2360,31 @@ export default function CampusLive() {
             {/* Left/Right Press Controls */}
             <TouchableOpacity
               style={styles.storyLeftTap}
-              onPress={goPrevStory}
-              onPressIn={() => setIsStoryPaused(true)}
+              onPress={() => {
+                const duration = Date.now() - storyPressStartTime.current;
+                if (duration < 250) {
+                  goPrevStory();
+                }
+              }}
+              onPressIn={() => {
+                storyPressStartTime.current = Date.now();
+                setIsStoryPaused(true);
+              }}
               onPressOut={() => setIsStoryPaused(false)}
               activeOpacity={1}
             />
             <TouchableOpacity
               style={styles.storyRightTap}
-              onPress={goNextStory}
-              onPressIn={() => setIsStoryPaused(true)}
+              onPress={() => {
+                const duration = Date.now() - storyPressStartTime.current;
+                if (duration < 250) {
+                  goNextStory();
+                }
+              }}
+              onPressIn={() => {
+                storyPressStartTime.current = Date.now();
+                setIsStoryPaused(true);
+              }}
               onPressOut={() => setIsStoryPaused(false)}
               activeOpacity={1}
             />
@@ -2500,20 +2667,6 @@ export default function CampusLive() {
               </View>
 
               <TouchableOpacity
-                style={styles.optionsItem}
-                onPress={() => {
-                  setShowOptionsModal(false);
-                  if (selectedOptionsConfession) {
-                    handleShare(selectedOptionsConfession);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="share-social-outline" size={20} color="#FFF" />
-                <Text style={styles.optionsItemText}>Share Confession</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={[styles.optionsItem, styles.optionsItemDanger]}
                 onPress={() => {
                   setShowOptionsModal(false);
@@ -2537,6 +2690,117 @@ export default function CampusLive() {
               >
                 <Text style={styles.optionsCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
+            </BlurView>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* CUSTOM SHARE BOTTOM SHEET MODAL */}
+        <Modal
+          visible={sharingConfession !== null}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setSharingConfession(null)}
+        >
+          <TouchableOpacity
+            style={styles.optionsModalOverlay}
+            activeOpacity={1}
+            onPress={() => setSharingConfession(null)}
+          >
+            <BlurView intensity={90} tint="dark" style={[styles.optionsModalContainer, { height: screenHeight * 0.7 }]}>
+              {/* Header Drag Bar */}
+              <View style={styles.optionsHeader}>
+                <View style={styles.optionsHeaderBar} />
+                <Text style={styles.optionsTitle}>Share Confession</Text>
+              </View>
+
+              {/* Action: Share via Link / Copy */}
+              <TouchableOpacity
+                style={styles.shareViaLinkBtn}
+                onPress={handleShareLink}
+                activeOpacity={0.8}
+              >
+                <View style={styles.shareLinkIconContainer}>
+                  <Ionicons name="link-outline" size={20} color="#000" />
+                </View>
+                <Text style={styles.shareLinkText}>Share via Link / Copy</Text>
+              </TouchableOpacity>
+
+              {/* Search Bar for DMs */}
+              <View style={styles.shareSearchContainer}>
+                <Ionicons name="search-outline" size={16} color="rgba(255, 255, 255, 0.4)" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.shareSearchInput}
+                  placeholder="Search chats..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  value={shareSearchQuery}
+                  onChangeText={setShareSearchQuery}
+                />
+                {shareSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setShareSearchQuery('')}>
+                    <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* DMs List */}
+              {loadingShareChats ? (
+                <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 20 }} />
+              ) : (
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 40 }}
+                  style={{ flex: 1, width: '100%', marginTop: 10 }}
+                >
+                  {shareChats
+                    .filter(conv =>
+                      conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                    )
+                    .map((conv: any) => {
+                      const partner = conv.user;
+                      if (!partner) return null;
+                      const isSending = sendingToUserId[partner.user_id];
+                      const isSent = sentToUserId[partner.user_id];
+
+                      return (
+                        <View key={partner.user_id} style={styles.shareChatRow}>
+                          <View style={styles.shareChatLeft}>
+                            <Image
+                              source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
+                              style={styles.shareChatPfp}
+                            />
+                            <Text style={styles.shareChatName} numberOfLines={1}>
+                              {partner.name}
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.shareSendBtn,
+                              isSent && styles.shareSendBtnSent,
+                              isSending && { opacity: 0.6 }
+                            ]}
+                            disabled={isSending || isSent}
+                            onPress={() => handleSendDM(partner.user_id)}
+                          >
+                            {isSending ? (
+                              <ActivityIndicator color="#000" size="small" />
+                            ) : (
+                              <Text style={[styles.shareSendBtnText, isSent && styles.shareSendBtnTextSent]}>
+                                {isSent ? 'Sent' : 'Send'}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+
+                  {shareChats.filter(conv =>
+                    conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                  ).length === 0 && (
+                    <Text style={styles.noChatsText}>No matches or chats found.</Text>
+                  )}
+                </ScrollView>
+              )}
             </BlurView>
           </TouchableOpacity>
         </Modal>
@@ -2586,6 +2850,7 @@ export default function CampusLive() {
                     item={item}
                     onRead={handleMarkNotifRead}
                     onDelete={handleDeleteNotif}
+                    onPress={handleNotificationClick}
                   />
                 ))}
               </ScrollView>
@@ -2599,7 +2864,7 @@ export default function CampusLive() {
 }
 
 // Swipeable Notification Item Row
-const NotificationRow = ({ item, onRead, onDelete }) => {
+const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
   const panX = useRef(new Animated.Value(0)).current;
   const currentTranslateX = useRef(0);
 
@@ -2689,7 +2954,11 @@ const NotificationRow = ({ item, onRead, onDelete }) => {
         ]}
         {...panResponder.panHandlers}
       >
-        <View style={styles.notifContentWrapper}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => onPress(item)}
+          style={styles.notifContentWrapper}
+        >
           <Image
             source={{ uri: item.sender_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
             style={styles.notifPfp}
@@ -2712,7 +2981,7 @@ const NotificationRow = ({ item, onRead, onDelete }) => {
               <Ionicons name="chatbubble-ellipses-outline" size={16} color="#C2FF3D" />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {!item.is_read && <View style={styles.unreadDot} />}
       </Animated.View>
@@ -4262,5 +4531,102 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  shareViaLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#C2FF3D',
+    marginBottom: 14,
+    gap: 12,
+    width: '100%',
+  },
+  shareLinkIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareLinkText: {
+    color: '#000',
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  shareSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    height: 40,
+    marginBottom: 10,
+    width: '100%',
+  },
+  shareSearchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 13.5,
+    padding: 0,
+  },
+  shareChatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    width: '100%',
+  },
+  shareChatLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  shareChatPfp: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  shareChatName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  shareSendBtn: {
+    height: 30,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  shareSendBtnSent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  shareSendBtnText: {
+    color: '#000',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  shareSendBtnTextSent: {
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  noChatsText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13.5,
+    textAlign: 'center',
+    marginTop: 30,
   },
 });

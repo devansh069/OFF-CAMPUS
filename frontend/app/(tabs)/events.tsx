@@ -287,7 +287,10 @@ export default function Events() {
         // Only trigger if it is mostly a vertical swipe (not a horizontal swipe on components like the photo gallery)
         return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
       },
-      onMoveShouldSetPanResponderCapture: () => false, // Let children (buttons/scrolls) handle gestures first, preventing hijacking
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        // Intercept and capture the gesture if it is mostly a vertical drag (prevents child touchables from blocking swipes)
+        return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
       onPanResponderMove: (evt, gestureState) => {
         let nextValue = lastTranslateY.current + gestureState.dy;
         if (nextValue < SNAP_TOP) {
@@ -976,7 +979,7 @@ export default function Events() {
                 </View>
               ) : (
                 <>
-                  <View style={styles.expandedSheetHeader}>
+                  <View style={styles.expandedSheetHeader} {...panResponder.panHandlers}>
                     <Text style={styles.expandedSheetTitle}>Event Details</Text>
                     <TouchableOpacity
                       style={styles.expandedSheetCloseBtn}

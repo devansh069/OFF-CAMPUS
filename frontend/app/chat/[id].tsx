@@ -17,7 +17,7 @@ import {
   Animated,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -1140,6 +1140,53 @@ export default function ChatScreen() {
     return list;
   };
 
+  const renderMessageText = (content: string, isMine: boolean) => {
+    // Check if the message contains a confession link
+    const confessionIdMatch = content.match(/confessions\/(conf_[a-zA-Z0-9]+)/);
+    if (confessionIdMatch) {
+      const confessionId = confessionIdMatch[1];
+      // Extract confession text if possible (contained within quotation marks in content)
+      const textQuoteMatch = content.match(/"([^"]+)"/);
+      const confessionSnippet = textQuoteMatch ? textQuoteMatch[1] : 'Shared Confession';
+
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: '/(tabs)/confessions',
+              params: { id: confessionId }
+            });
+          }}
+          activeOpacity={0.8}
+          style={[
+            styles.shareConfCard,
+            isMine ? styles.shareConfCardMine : styles.shareConfCardTheir
+          ]}
+        >
+          <View style={styles.shareConfHeader}>
+            <Ionicons name="planet" size={14} color="#C2FF3D" />
+            <Text style={styles.shareConfHeaderText}>SHARED CONFESSION</Text>
+          </View>
+          <Text style={styles.shareConfSnippet} numberOfLines={3}>
+            "{confessionSnippet}"
+          </Text>
+          <View style={styles.shareConfDivider} />
+          <View style={styles.shareConfFooter}>
+            <Text style={styles.shareConfActionText}>Tap to View Thread</Text>
+            <Ionicons name="chevron-forward" size={14} color={isMine ? '#FFF' : '#C2FF3D'} />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // Default text rendering
+    return (
+      <Text style={isMine ? styles.myText : styles.theirText}>
+        {content}
+      </Text>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Top-Left Dark Purple Glow Ball matching Chat Inbox */}
@@ -1260,7 +1307,7 @@ export default function ChatScreen() {
                               resizeMode="cover"
                             />
                           ) : (
-                            <Text style={styles.myText}>{msg.content}</Text>
+                            renderMessageText(msg.content, true)
                           )}
                         </LinearGradient>
                       )
@@ -1280,7 +1327,7 @@ export default function ChatScreen() {
                               resizeMode="cover"
                             />
                           ) : (
-                            <Text style={styles.theirText}>{msg.content}</Text>
+                            renderMessageText(msg.content, false)
                           )}
                         </View>
                       )
@@ -2458,6 +2505,54 @@ const styles = StyleSheet.create({
   submitBtnText: {
     color: '#FFF',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  shareConfCard: {
+    padding: 12,
+    borderRadius: 14,
+    width: 220,
+    borderWidth: 1,
+  },
+  shareConfCardMine: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  shareConfCardTheir: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  shareConfHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  shareConfHeaderText: {
+    color: '#C2FF3D',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  shareConfSnippet: {
+    color: '#FFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  shareConfDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 10,
+  },
+  shareConfFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shareConfActionText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 11,
     fontWeight: '700',
   },
 });
