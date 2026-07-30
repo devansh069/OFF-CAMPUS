@@ -1179,6 +1179,44 @@ export default function ChatScreen() {
       );
     }
 
+    // Check if the message contains an event link
+    const eventIdMatch = content.match(/events\/(evt_[a-zA-Z0-9]+)/);
+    if (eventIdMatch) {
+      const eventId = eventIdMatch[1];
+      // Extract event title if possible (contained within quotation marks in content)
+      const textQuoteMatch = content.match(/"([^"]+)"/);
+      const eventTitle = textQuoteMatch ? textQuoteMatch[1] : 'Shared Event';
+
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: '/(tabs)/events',
+              params: { id: eventId }
+            });
+          }}
+          activeOpacity={0.8}
+          style={[
+            styles.shareConfCard,
+            isMine ? styles.shareConfCardMine : styles.shareConfCardTheir
+          ]}
+        >
+          <View style={styles.shareConfHeader}>
+            <Ionicons name="calendar" size={14} color="#C2FF3D" />
+            <Text style={styles.shareConfHeaderText}>SHARED EVENT</Text>
+          </View>
+          <Text style={styles.shareConfSnippet} numberOfLines={2}>
+            {eventTitle}
+          </Text>
+          <View style={styles.shareConfDivider} />
+          <View style={styles.shareConfFooter}>
+            <Text style={styles.shareConfActionText}>Tap to View Details</Text>
+            <Ionicons name="chevron-forward" size={14} color={isMine ? '#FFF' : '#C2FF3D'} />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     // Default text rendering
     return (
       <Text style={isMine ? styles.myText : styles.theirText}>
@@ -2555,5 +2593,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-});
 });

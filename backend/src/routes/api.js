@@ -88,6 +88,7 @@ router.post('/admin/events/:id/reject', adminController.rejectEvent);
 // Event endpoints (Protected, except /events which is public)
 router.get('/events', eventController.getAllEvents);
 router.get('/events/feed', authMiddleware, eventController.getEventsFeed);
+router.get('/events/:id', authMiddleware, eventController.getEventById);
 router.post('/events/create', authMiddleware, eventController.createEvent);
 router.post('/events/:id/rsvp', authMiddleware, eventController.toggleRSVP);
 router.post('/events/:id/star', authMiddleware, eventController.toggleStar);

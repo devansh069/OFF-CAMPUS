@@ -284,3 +284,40 @@ exports.getAllEvents = async (req, res) => {
   }
 };
 
+// 5. Get Event by ID
+exports.getEventById = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { id } = req.params;
+
+    const event = await Event.findOne({
+      where: { event_id: id },
+      include: [
+        { model: User, as: 'host', attributes: ['user_id', 'name', 'photos', 'phone_number', 'email'] },
+        { model: College, as: 'college', attributes: ['college_id', 'name', 'short_name'] }
+      ]
+    });
+
+    if (!event) {
+      return res.status(404).json({ detail: 'Event not found' });
+    }
+
+    const rsvp = await EventAttendee.findOne({
+      where: { event_id: id, user_id: userId }
+    });
+
+    const star = await EventStar.findOne({
+      where: { event_id: id, user_id: userId }
+    });
+
+    const plainEvent = event.toJSON();
+    plainEvent.is_attending = !!rsvp;
+    plainEvent.is_starred = !!star;
+
+    return res.status(200).json({ event: plainEvent });
+  } catch (error) {
+    console.error('[GetEventById Error]:', error);
+    return res.status(500).json({ detail: 'Failed to retrieve event: ' + error.message });
+  }
+};
+

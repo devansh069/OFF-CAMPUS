@@ -17,13 +17,14 @@ import {
   PanResponder,
   Alert,
   KeyboardAvoidingView,
+  Share,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -266,6 +267,14 @@ export default function Events() {
 
   const lastEventId = useRef<string | null>(null);
 
+  const { id } = useLocalSearchParams();
+  const [sharingEvent, setSharingEvent] = useState<any | null>(null);
+  const [shareChats, setShareChats] = useState<any[]>([]);
+  const [loadingShareChats, setLoadingShareChats] = useState(false);
+  const [shareSearchQuery, setShareSearchQuery] = useState('');
+  const [sendingToUserId, setSendingToUserId] = useState<{ [key: string]: boolean }>({});
+  const [sentToUserId, setSentToUserId] = useState<{ [key: string]: boolean }>({});
+
   useEffect(() => {
     if (selectedEvent) {
       if (selectedEvent.event_id !== lastEventId.current) {
@@ -289,6 +298,147 @@ export default function Events() {
       setSheetExpanded(toValue === SNAP_TOP);
     });
   };
+  const closeEventDetails = () => {
+    setSelectedEvent(null);
+    router.setParams({ id: '' });
+  };
+
+  const openShareModal = async (event: any) => {
+    setSharingEvent(event);
+    setShareSearchQuery('');
+    setSentToUserId({});
+    setSendingToUserId({});
+    setLoadingShareChats(true);
+    setShareChats([]);
+
+    if (sessionToken === 'dummy_token') {
+      const mockChats = [
+        {
+          user: {
+            user_id: 'usr_mock1',
+            name: 'Aishwarya Sen',
+            picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock2',
+            name: 'Kabir Malhotra',
+            picture: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock3',
+            name: 'Pooja Sharma',
+            picture: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200'
+          }
+        }
+      ];
+      setShareChats(mockChats);
+      setLoadingShareChats(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/conversations`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShareChats(data.conversations || []);
+      }
+    } catch (error) {
+      console.warn('Failed to load sharing conversations:', error);
+    } finally {
+      setLoadingShareChats(false);
+    }
+  };
+
+  const handleSendDM = async (partnerUserId: string) => {
+    if (!sharingEvent) return;
+    setSendingToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+    try {
+      const textToSend = `Check out this event:\n"${sharingEvent.title}"\n\nSee it here: https://offcampus.in/events/${sharingEvent.event_id}`;
+      
+      if (sessionToken === 'dummy_token') {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+        return;
+      }
+
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          to_user_id: partnerUserId,
+          content: textToSend,
+          message_type: 'text'
+        })
+      });
+      if (res.ok) {
+        setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
+      } else {
+        Alert.alert('Error', 'Failed to send event link.');
+      }
+    } catch (err) {
+      console.warn('handleSendDM error:', err);
+      Alert.alert('Error', 'Failed to connect to server.');
+    } finally {
+      setSendingToUserId(prev => ({ ...prev, [partnerUserId]: false }));
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (!sharingEvent) return;
+    try {
+      const shareUrl = `https://offcampus.in/events/${sharingEvent.event_id}`;
+      await Share.share({
+        message: `Check out this event on Off-Campus: "${sharingEvent.title}"\n\nRead more at: ${shareUrl}`,
+        url: shareUrl,
+        title: 'Share Event'
+      });
+    } catch (error) {
+      console.warn('Share Link Error:', error);
+    }
+  };
+
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      if (!id) return;
+      const targetId = Array.isArray(id) ? id[0] : id;
+
+      if (selectedEvent?.event_id === targetId) return;
+
+      const localMatch = events.find((e: any) => e.event_id === targetId);
+      if (localMatch) {
+        setSelectedEvent(localMatch);
+        animateTo(SNAP_TOP);
+        return;
+      }
+
+      if (sessionToken && sessionToken !== 'dummy_token') {
+        try {
+          const headers = { 'Authorization': `Bearer ${sessionToken}` };
+          const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/${targetId}`, { headers });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.event) {
+              setSelectedEvent(data.event);
+              animateTo(SNAP_TOP);
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching deep-linked event:', e);
+        }
+      }
+    };
+
+    handleDeepLink();
+  }, [id, events, sessionToken, selectedEvent?.event_id]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -584,7 +734,7 @@ export default function Events() {
   };
 
   const handleMessageHost = (hostName: string) => {
-    setSelectedEvent(null);
+    closeEventDetails();
     router.push('/(tabs)/messages');
   };
 
@@ -923,7 +1073,7 @@ export default function Events() {
         animationType="slide"
         transparent={true}
         visible={selectedEvent !== null}
-        onRequestClose={() => setSelectedEvent(null)}
+        onRequestClose={closeEventDetails}
       >
         {selectedEvent && (
           <View style={styles.detailsModalContainer}>
@@ -949,7 +1099,7 @@ export default function Events() {
                     <View style={styles.modalOverlayHeader}>
                       <TouchableOpacity
                         style={styles.circularBackBtn}
-                        onPress={() => setSelectedEvent(null)}
+                        onPress={closeEventDetails}
                       >
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                       </TouchableOpacity>
@@ -1221,6 +1371,15 @@ export default function Events() {
                         >
                           <Text style={styles.modalRegisterNowText}>Register Now</Text>
                         </TouchableOpacity>
+
+                        {/* Share Event Button */}
+                        <TouchableOpacity
+                          style={styles.modalShareBtn}
+                          activeOpacity={0.8}
+                          onPress={() => openShareModal(selectedEvent)}
+                        >
+                          <Ionicons name="share-social" size={20} color="#000" />
+                        </TouchableOpacity>
                       </BlurView>
                     );
                   })()}
@@ -1258,6 +1417,117 @@ export default function Events() {
             )}
           </View>
         )}
+      </Modal>
+
+      {/* CUSTOM SHARE BOTTOM SHEET MODAL */}
+      <Modal
+        visible={sharingEvent !== null}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSharingEvent(null)}
+      >
+        <TouchableOpacity
+          style={styles.optionsModalOverlay}
+          activeOpacity={1}
+          onPress={() => setSharingEvent(null)}
+        >
+          <BlurView intensity={90} tint="dark" style={[styles.optionsModalContainer, { height: SCREEN_HEIGHT * 0.7 }]}>
+            {/* Header Drag Bar */}
+            <View style={styles.optionsHeader}>
+              <View style={styles.optionsHeaderBar} />
+              <Text style={styles.optionsTitle}>Share Event</Text>
+            </View>
+
+            {/* Action: Share via Link / Copy */}
+            <TouchableOpacity
+              style={styles.shareViaLinkBtn}
+              onPress={handleShareLink}
+              activeOpacity={0.8}
+            >
+              <View style={styles.shareLinkIconContainer}>
+                <Ionicons name="link-outline" size={20} color="#000" />
+              </View>
+              <Text style={styles.shareLinkText}>Share via Link / Copy</Text>
+            </TouchableOpacity>
+
+            {/* Search Bar for DMs */}
+            <View style={styles.shareSearchContainer}>
+              <Ionicons name="search-outline" size={16} color="rgba(255, 255, 255, 0.4)" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.shareSearchInput}
+                placeholder="Search chats..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={shareSearchQuery}
+                onChangeText={setShareSearchQuery}
+              />
+              {shareSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setShareSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* DMs List */}
+            {loadingShareChats ? (
+              <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 20 }} />
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                style={{ flex: 1, width: '100%', marginTop: 10 }}
+              >
+                {shareChats
+                  .filter(conv =>
+                    conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                  )
+                  .map((conv: any) => {
+                    const partner = conv.user;
+                    if (!partner) return null;
+                    const isSending = sendingToUserId[partner.user_id];
+                    const isSent = sentToUserId[partner.user_id];
+
+                    return (
+                      <View key={partner.user_id} style={styles.shareChatRow}>
+                        <View style={styles.shareChatLeft}>
+                          <Image
+                            source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
+                            style={styles.shareChatPfp}
+                          />
+                          <Text style={styles.shareChatName} numberOfLines={1}>
+                            {partner.name}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.shareSendBtn,
+                            isSent && styles.shareSendBtnSent,
+                            isSending && { opacity: 0.6 }
+                          ]}
+                          disabled={isSending || isSent}
+                          onPress={() => handleSendDM(partner.user_id)}
+                        >
+                          {isSending ? (
+                            <ActivityIndicator color="#000" size="small" />
+                          ) : (
+                            <Text style={[styles.shareSendBtnText, isSent && styles.shareSendBtnTextSent]}>
+                              {isSent ? 'Sent' : 'Send'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+
+                {shareChats.filter(conv =>
+                  conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                ).length === 0 && (
+                  <Text style={styles.noChatsText}>No matches or chats found.</Text>
+                )}
+              </ScrollView>
+            )}
+          </BlurView>
+        </TouchableOpacity>
       </Modal>
 
       {user && (
@@ -2675,11 +2945,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: Platform.OS === 'ios' ? 95 : 80,
+    height: Platform.OS === 'ios' ? 100 : 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 15,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
@@ -2687,7 +2958,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: '48%',
+    width: '32%',
   },
   thumbActionBtn: {
     flex: 1,
@@ -2716,7 +2987,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalRegisterNowBtn: {
-    width: '48%',
+    width: '46%',
     height: 46,
     borderRadius: 23,
     backgroundColor: '#C2FF3D',
@@ -2882,5 +3153,142 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  modalShareBtn: {
+    width: '16%',
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  optionsModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    backgroundColor: '#0F0F14',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  optionsHeader: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 16,
+  },
+  optionsHeaderBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 12,
+  },
+  optionsTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  shareViaLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#C2FF3D',
+    marginBottom: 14,
+    gap: 12,
+    width: '100%',
+  },
+  shareLinkIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareLinkText: {
+    color: '#000',
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  shareSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    height: 40,
+    marginBottom: 10,
+    width: '100%',
+  },
+  shareSearchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 13.5,
+    padding: 0,
+  },
+  shareChatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    width: '100%',
+  },
+  shareChatLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  shareChatPfp: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  shareChatName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  shareSendBtn: {
+    height: 30,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  shareSendBtnSent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  shareSendBtnText: {
+    color: '#000',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  shareSendBtnTextSent: {
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  noChatsText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13.5,
+    textAlign: 'center',
+    marginTop: 30,
   },
 });
