@@ -16,6 +16,7 @@ import {
   Animated,
   PanResponder,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
@@ -164,6 +165,7 @@ const getEventExtras = (event: any) => {
   let galleryList = EVENT_EXTRAS.evt_vips_pulse.gallery;
   if (category === 'party') galleryList = EVENT_EXTRAS.evt_iitd_rendezvous.gallery;
   else if (category === 'workshop') galleryList = EVENT_EXTRAS.evt_mait_tech.gallery;
+  else if (category === 'trip') galleryList = EVENT_EXTRAS.evt_iitd_rendezvous.gallery;
   else if (category === 'sports') galleryList = EVENT_EXTRAS.evt_lsr_sports.gallery;
 
   return {
@@ -191,6 +193,7 @@ const getEventFlyer = (e: any) => {
     fest: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
     party: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
     workshop: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&auto=format&fit=crop&q=80',
+    trip: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
     sports: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=80',
   };
   return fallbacks[e.category] || fallbacks.fest;
@@ -251,6 +254,7 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [activeFullScreenPhoto, setActiveFullScreenPhoto] = useState<string | null>(null);
 
   // Bottom Sheet variables
   const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -260,11 +264,18 @@ export default function Events() {
   const lastTranslateY = useRef(SNAP_BOTTOM);
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
+  const lastEventId = useRef<string | null>(null);
+
   useEffect(() => {
-    if (selectedEvent !== null) {
-      translateY.setValue(SNAP_BOTTOM);
-      lastTranslateY.current = SNAP_BOTTOM;
-      setSheetExpanded(false);
+    if (selectedEvent) {
+      if (selectedEvent.event_id !== lastEventId.current) {
+        translateY.setValue(SNAP_BOTTOM);
+        lastTranslateY.current = SNAP_BOTTOM;
+        setSheetExpanded(false);
+        lastEventId.current = selectedEvent.event_id;
+      }
+    } else {
+      lastEventId.current = null;
     }
   }, [selectedEvent]);
 
@@ -400,6 +411,10 @@ export default function Events() {
   };
 
   const pickGalleryPhoto = async () => {
+    if (formGalleryPhotos.length >= 4) {
+      Alert.alert('Limit Reached', 'You can only add a maximum of 4 photos to the event gallery.');
+      return;
+    }
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -574,10 +589,10 @@ export default function Events() {
   };
 
   const categories = [
-    { key: 'party', label: 'parties and clubbing', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline' },
-    { key: 'fest', label: 'concert and fest', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline' },
-    { key: 'workshop', label: 'workshops and tech', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline' },
-    { key: 'trip', label: 'Trips', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline' },
+    { key: 'party', label: 'parties and clubbin', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline' },
+    { key: 'fest', label: 'concerrt ad fest', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline' },
+    { key: 'workshop', label: 'workshop and tech', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline' },
+    { key: 'trip', label: 'trips', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline' },
     { key: 'sports', label: 'sports', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline' },
   ];
 
@@ -740,11 +755,27 @@ export default function Events() {
                             source={{ uri: getEventFlyer(e) }}
                             style={styles.topEventImage}
                           />
+
+                          {/* Save/Bookmark Icon Overlay */}
+                          <TouchableOpacity
+                            style={styles.topEventSaveBtn}
+                            activeOpacity={0.8}
+                            onPress={() => handleToggleStar(e.event_id)}
+                          >
+                            <Ionicons
+                              name={e.is_starred ? "bookmark" : "bookmark-outline"}
+                              size={15}
+                              color={e.is_starred ? "#C2FF3D" : "#FFF"}
+                            />
+                          </TouchableOpacity>
+
                           {/* 50% Bottom: Event Info */}
                           <View style={styles.topEventInfo}>
-                            <Text style={[styles.topEventCat, { color: categoryObj.colors[0] }]}>
-                              {e.category.toUpperCase()}
-                            </Text>
+                            <View style={[styles.catBadge, { backgroundColor: `${categoryObj.colors[0]}1F` }]}>
+                              <Text style={[styles.topEventCat, { color: categoryObj.colors[0] }]}>
+                                {e.category.toUpperCase()}
+                              </Text>
+                            </View>
                             <Text style={styles.topEventTitle} numberOfLines={1}>
                               {e.title}
                             </Text>
@@ -771,7 +802,12 @@ export default function Events() {
             })()}
 
             {/* Recent Events Vertical List */}
-            <Text style={styles.sectionHeading}>Recent Events</Text>
+            <View style={styles.sectionHeadingRow}>
+              <Text style={styles.sectionHeadingNoMargin}>Recent Events</Text>
+              <View style={styles.purpleClockCircle}>
+                <Ionicons name="time" size={12} color="#9E00FF" />
+              </View>
+            </View>
 
             {sortedEvents.length === 0 ? (
               <View style={styles.emptyContainer}>
@@ -818,14 +854,20 @@ export default function Events() {
                         {/* Center Column: Title, host, mini specs */}
                         <View style={styles.miniCardDetails}>
                           <View style={styles.miniCardTopRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={[styles.miniCatBadge, { backgroundColor: `${categoryObj.colors[0]}1F` }]}>
                               <Text style={[styles.miniCardCatLabel, { color: categoryObj.colors[0] }]}>
                                 {categoryObj.label.toUpperCase()}
                               </Text>
                             </View>
-                            <Text style={styles.miniCardDaysAway}>
-                              {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
-                            </Text>
+                            {daysAway < 0 ? (
+                              <View style={styles.pastBadge}>
+                                <Text style={styles.pastBadgeText}>Past</Text>
+                              </View>
+                            ) : (
+                              <Text style={styles.miniCardDaysAway}>
+                                {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `${daysAway}d left`}
+                              </Text>
+                            )}
                           </View>
 
                           <Text style={styles.miniCardTitle} numberOfLines={1}>{e.title}</Text>
@@ -845,7 +887,7 @@ export default function Events() {
                           </View>
                         </View>
 
-                        {/* Right Column: Favorite/Star button */}
+                        {/* Right Column: Save/Bookmark button */}
                         <TouchableOpacity
                           style={styles.miniCardRsvpBtn}
                           activeOpacity={0.8}
@@ -853,16 +895,16 @@ export default function Events() {
                         >
                           {e.is_starred ? (
                             <LinearGradient
-                              colors={['#FFD700', '#FFD700']}
+                              colors={['#C2FF3D', '#C2FF3D']}
                               style={styles.miniRsvpGradient}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 1 }}
                             >
-                              <Ionicons name="star" size={14} color="#000" />
+                              <Ionicons name="bookmark" size={13} color="#000" />
                             </LinearGradient>
                           ) : (
                             <View style={styles.miniRsvpOutline}>
-                              <Ionicons name="star-outline" size={14} color="rgba(255,255,255,0.5)" />
+                              <Ionicons name="bookmark-outline" size={13} color="rgba(255,255,255,0.5)" />
                             </View>
                           )}
                         </TouchableOpacity>
@@ -890,44 +932,55 @@ export default function Events() {
               style={styles.modalCoverContainer}
               {...panResponder.panHandlers}
             >
-              <Image
-                source={{ uri: getEventFlyer(selectedEvent) }}
-                style={styles.modalCoverImage}
-              />
+              {(() => {
+                const categoryObj = categories.find(cat => cat.key === selectedEvent.category) || {
+                  key: 'other',
+                  colors: ['#FF1B6B', '#FF7B00'],
+                  icon: 'calendar-outline'
+                };
+                return (
+                  <>
+                    <Image
+                      source={{ uri: getEventFlyer(selectedEvent) }}
+                      style={styles.modalCoverImage}
+                    />
 
-              {/* Header buttons overlay */}
-              <View style={styles.modalOverlayHeader}>
-                <TouchableOpacity
-                  style={styles.circularBackBtn}
-                  onPress={() => setSelectedEvent(null)}
-                >
-                  <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
+                    {/* Header buttons overlay */}
+                    <View style={styles.modalOverlayHeader}>
+                      <TouchableOpacity
+                        style={styles.circularBackBtn}
+                        onPress={() => setSelectedEvent(null)}
+                      >
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                      </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.circularStarBtn,
-                    selectedEvent.is_starred && { backgroundColor: '#FFD700' }
-                  ]}
-                  onPress={() => handleToggleStar(selectedEvent.event_id)}
-                >
-                  <Ionicons
-                    name={selectedEvent.is_starred ? "star" : "star-outline"}
-                    size={20}
-                    color={selectedEvent.is_starred ? "#000" : "#FFF"}
-                  />
-                </TouchableOpacity>
-              </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.circularStarBtn,
+                          selectedEvent.is_starred && { backgroundColor: '#C2FF3D' }
+                        ]}
+                        onPress={() => handleToggleStar(selectedEvent.event_id)}
+                      >
+                        <Ionicons
+                          name={selectedEvent.is_starred ? "bookmark" : "bookmark-outline"}
+                          size={20}
+                          color={selectedEvent.is_starred ? "#000" : "#FFF"}
+                        />
+                      </TouchableOpacity>
+                    </View>
 
-              {/* Overlaid Label & Title */}
-              <View style={styles.modalCoverTextOverlay}>
-                <Text style={styles.modalCoverCategory}>
-                  {selectedEvent.category ? selectedEvent.category.toUpperCase() : 'EVENT'}
-                </Text>
-                <Text style={styles.modalCoverTitle}>
-                  {selectedEvent.title}
-                </Text>
-              </View>
+                    {/* Overlaid Label & Title */}
+                    <View style={styles.modalCoverTextOverlay}>
+                      <Text style={styles.modalCoverTitle}>
+                        {selectedEvent.title}
+                      </Text>
+                      <Text style={styles.modalCoverCategoryWhite}>
+                        {selectedEvent.category ? selectedEvent.category.toUpperCase() : 'EVENT'}
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()}
             </View>
 
             {/* Tap to collapse overlay above details sheet */}
@@ -1013,25 +1066,33 @@ export default function Events() {
                       if (galleryImages.length === 0) return null;
 
                       return (
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          style={styles.modalGalleryScroll}
-                          contentContainerStyle={styles.modalGalleryScrollContent}
-                        >
-                          {galleryImages.map((imgUri, imgIndex) => {
-                            const finalUri = imgUri.startsWith('http')
-                              ? imgUri
-                              : `${EXPO_PUBLIC_BACKEND_URL}/${imgUri}`;
-                            return (
-                              <Image
-                                key={imgIndex}
-                                source={{ uri: finalUri }}
-                                style={styles.modalGalleryThumbnail}
-                              />
-                            );
-                          })}
-                        </ScrollView>
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={[styles.modalAboutHeading, { marginTop: 15 }]}>Photos</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.modalGalleryScroll}
+                            contentContainerStyle={styles.modalGalleryScrollContent}
+                          >
+                            {galleryImages.map((imgUri, imgIndex) => {
+                              const finalUri = imgUri.startsWith('http')
+                                ? imgUri
+                                : `${EXPO_PUBLIC_BACKEND_URL}/${imgUri}`;
+                              return (
+                                <TouchableOpacity
+                                  key={imgIndex}
+                                  activeOpacity={0.9}
+                                  onPress={() => setActiveFullScreenPhoto(finalUri)}
+                                >
+                                  <Image
+                                    source={{ uri: finalUri }}
+                                    style={styles.modalGalleryThumbnail}
+                                  />
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
                       );
                     })()}
 
@@ -1129,9 +1190,7 @@ export default function Events() {
                             ]}
                             activeOpacity={0.8}
                             onPress={() => {
-                              if (!isGoing) {
-                                handleRSVP(selectedEvent.event_id);
-                              }
+                              handleRSVP(selectedEvent.event_id);
                             }}
                           >
                             <Ionicons
@@ -1141,29 +1200,6 @@ export default function Events() {
                             />
                             <Text style={[styles.thumbActionText, { color: isGoing ? "#000" : "#FFF" }]}>
                               +1
-                            </Text>
-                          </TouchableOpacity>
-
-                          {/* Thumbs Down (not attending / -1) */}
-                          <TouchableOpacity
-                            style={[
-                              styles.thumbActionBtn,
-                              !isGoing ? styles.thumbDownActive : styles.thumbInactive
-                            ]}
-                            activeOpacity={0.8}
-                            onPress={() => {
-                              if (isGoing) {
-                                handleRSVP(selectedEvent.event_id);
-                              }
-                            }}
-                          >
-                            <Ionicons
-                              name={!isGoing ? "thumbs-down" : "thumbs-down-outline"}
-                              size={18}
-                              color={!isGoing ? "#000" : "#FFF"}
-                            />
-                            <Text style={[styles.thumbActionText, { color: !isGoing ? "#000" : "#FFF" }]}>
-                              -1
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -1191,6 +1227,35 @@ export default function Events() {
                 </>
               )}
             </Animated.View>
+            {activeFullScreenPhoto !== null && (
+              <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999, justifyContent: 'center', alignItems: 'center' }]}>
+                {/* Blur Backdrop */}
+                <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
+
+                {/* Dismiss Touch Area */}
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  activeOpacity={1}
+                  onPress={() => setActiveFullScreenPhoto(null)}
+                />
+
+                {/* Centered Image Card */}
+                <View style={styles.centeredPhotoCard}>
+                  <TouchableOpacity
+                    style={styles.centeredPhotoCloseBtn}
+                    activeOpacity={0.85}
+                    onPress={() => setActiveFullScreenPhoto(null)}
+                  >
+                    <Ionicons name="close" size={18} color="#FFF" />
+                  </TouchableOpacity>
+                  <Image
+                    source={{ uri: activeFullScreenPhoto }}
+                    style={styles.centeredPhotoImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              </View>
+            )}
           </View>
         )}
       </Modal>
@@ -1212,7 +1277,20 @@ export default function Events() {
         visible={createModalVisible}
         onRequestClose={() => setCreateModalVisible(false)}
       >
-        <View style={styles.detailsModalContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.detailsModalContainer}>
+          {/* Top-Left Dark Purple Glow Ball */}
+          <View style={styles.glowBallContainer}>
+            <LinearGradient
+              colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.8, y: 0.8 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </View>
           <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject}>
             <SafeAreaView style={{ flex: 1 }}>
               {/* Header */}
@@ -1258,25 +1336,34 @@ export default function Events() {
 
                     <Text style={styles.inputLabel}>Category</Text>
                     <View style={styles.formRow}>
-                      {['fest', 'party', 'workshop', 'sports'].map((cat) => (
-                        <TouchableOpacity
-                          key={cat}
-                          style={[
-                            styles.formCatBtn,
-                            formCategory === cat && styles.formCatBtnActive,
-                          ]}
-                          onPress={() => setFormCategory(cat)}
-                        >
-                          <Text
+                      {['fest', 'party', 'workshop', 'trip', 'sports'].map((cat) => {
+                        const labelMap: { [key: string]: string } = {
+                          fest: 'CONCERT & FEST',
+                          party: 'PARTIES & CLUBBIN',
+                          workshop: 'WORKSHOP & TECH',
+                          trip: 'TRIPS',
+                          sports: 'SPORTS'
+                        };
+                        return (
+                          <TouchableOpacity
+                            key={cat}
                             style={[
-                              styles.formCatText,
-                              formCategory === cat && styles.formCatTextActive,
+                              styles.formCatBtn,
+                              formCategory === cat && styles.formCatBtnActive,
                             ]}
+                            onPress={() => setFormCategory(cat)}
                           >
-                            {cat.toUpperCase()}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.formCatText,
+                                formCategory === cat && styles.formCatTextActive,
+                              ]}
+                            >
+                              {labelMap[cat] || cat.toUpperCase()}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
 
                     <Text style={styles.inputLabel}>Date & Time *</Text>
@@ -1306,46 +1393,134 @@ export default function Events() {
                           <Text style={{ color: formDate ? '#FFF' : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
                             {formDate
                               ? new Date(formDate).toLocaleString(undefined, {
-                                dateStyle: 'medium',
-                                timeStyle: 'short',
-                              })
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                })
                               : 'Select Date & Time'}
                           </Text>
                           <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.5)" />
                         </TouchableOpacity>
 
                         {showDatePicker && (
-                          <DateTimePicker
-                            value={dateValue}
-                            mode="date"
-                            display="default"
-                            onChange={(event, selectedDate) => {
-                              setShowDatePicker(false);
-                              if (selectedDate) {
-                                setDateValue(selectedDate);
-                                setShowTimePicker(true);
-                              }
-                            }}
-                          />
+                          Platform.OS === 'ios' ? (
+                            <Modal
+                              transparent={true}
+                              animationType="fade"
+                              visible={showDatePicker}
+                              onRequestClose={() => setShowDatePicker(false)}
+                            >
+                              <View style={styles.modalPickerBackdrop}>
+                                <View style={styles.modalPickerContainer}>
+                                  <View style={styles.modalPickerHeader}>
+                                    <Text style={styles.modalPickerHeaderTitle}>Select Date</Text>
+                                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                      <Text style={styles.modalPickerCloseText}>Done</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                  <DateTimePicker
+                                    value={dateValue}
+                                    mode="date"
+                                    display="spinner"
+                                    themeVariant="dark"
+                                    textColor="#FFF"
+                                    onChange={(event, selectedDate) => {
+                                      if (selectedDate) {
+                                        const combinedDate = new Date(selectedDate);
+                                        combinedDate.setHours(dateValue.getHours());
+                                        combinedDate.setMinutes(dateValue.getMinutes());
+                                        setDateValue(combinedDate);
+                                        setFormDate(combinedDate.toISOString());
+                                      }
+                                    }}
+                                  />
+                                  <TouchableOpacity 
+                                    style={styles.modalPickerConfirmBtn}
+                                    onPress={() => {
+                                      setShowDatePicker(false);
+                                      setShowTimePicker(true);
+                                    }}
+                                  >
+                                    <Text style={styles.modalPickerConfirmText}>Next: Select Time</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            </Modal>
+                          ) : (
+                            <DateTimePicker
+                              value={dateValue}
+                              mode="date"
+                              display="default"
+                              onChange={(event, selectedDate) => {
+                                setShowDatePicker(false);
+                                if (selectedDate) {
+                                  setDateValue(selectedDate);
+                                  setShowTimePicker(true);
+                                }
+                              }}
+                            />
+                          )
                         )}
 
                         {showTimePicker && (
-                          <DateTimePicker
-                            value={dateValue}
-                            mode="time"
-                            display="default"
-                            is24Hour={true}
-                            onChange={(event, selectedTime) => {
-                              setShowTimePicker(false);
-                              if (selectedTime) {
-                                const combinedDate = new Date(dateValue);
-                                combinedDate.setHours(selectedTime.getHours());
-                                combinedDate.setMinutes(selectedTime.getMinutes());
-                                setDateValue(combinedDate);
-                                setFormDate(combinedDate.toISOString());
-                              }
-                            }}
-                          />
+                          Platform.OS === 'ios' ? (
+                            <Modal
+                              transparent={true}
+                              animationType="fade"
+                              visible={showTimePicker}
+                              onRequestClose={() => setShowTimePicker(false)}
+                            >
+                              <View style={styles.modalPickerBackdrop}>
+                                <View style={styles.modalPickerContainer}>
+                                  <View style={styles.modalPickerHeader}>
+                                    <Text style={styles.modalPickerHeaderTitle}>Select Time</Text>
+                                    <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                                      <Text style={styles.modalPickerCloseText}>Done</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                  <DateTimePicker
+                                    value={dateValue}
+                                    mode="time"
+                                    display="spinner"
+                                    is24Hour={true}
+                                    themeVariant="dark"
+                                    textColor="#FFF"
+                                    onChange={(event, selectedTime) => {
+                                      if (selectedTime) {
+                                        const combinedDate = new Date(dateValue);
+                                        combinedDate.setHours(selectedTime.getHours());
+                                        combinedDate.setMinutes(selectedTime.getMinutes());
+                                        setDateValue(combinedDate);
+                                        setFormDate(combinedDate.toISOString());
+                                      }
+                                    }}
+                                  />
+                                  <TouchableOpacity 
+                                    style={styles.modalPickerConfirmBtn}
+                                    onPress={() => setShowTimePicker(false)}
+                                  >
+                                    <Text style={styles.modalPickerConfirmText}>Confirm Date & Time</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            </Modal>
+                          ) : (
+                            <DateTimePicker
+                              value={dateValue}
+                              mode="time"
+                              display="default"
+                              is24Hour={true}
+                              onChange={(event, selectedTime) => {
+                                setShowTimePicker(false);
+                                if (selectedTime) {
+                                  const combinedDate = new Date(dateValue);
+                                  combinedDate.setHours(selectedTime.getHours());
+                                  combinedDate.setMinutes(selectedTime.getMinutes());
+                                  setDateValue(combinedDate);
+                                  setFormDate(combinedDate.toISOString());
+                                }
+                              }}
+                            />
+                          )
                         )}
                       </>
                     )}
@@ -1449,13 +1624,13 @@ export default function Events() {
                       disabled={creating}
                     >
                       <LinearGradient
-                        colors={['#FF1B6B', '#FF6B35']}
+                        colors={['#C2FF3D', '#C2FF3D']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.submitGradient}
                       >
                         {creating ? (
-                          <ActivityIndicator color="#FFF" />
+                          <ActivityIndicator color="#000" />
                         ) : (
                           <Text style={styles.submitBtnText}>Create Event</Text>
                         )}
@@ -1468,7 +1643,8 @@ export default function Events() {
             </SafeAreaView>
           </BlurView>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+    </Modal>
     </View>
   );
 }
@@ -1580,14 +1756,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: 'rgba(7, 8, 15, 0.45)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   miniCardGlass: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 24,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   miniCardThumbnail: {
     width: 76,
@@ -1962,7 +2137,7 @@ const styles = StyleSheet.create({
   },
   fabBtn: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 96,
     right: 24,
     backgroundColor: '#C2FF3D',
     width: 56,
@@ -1992,8 +2167,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   formCatBtnActive: {
-    borderColor: '#FF1B6B',
-    backgroundColor: 'rgba(255, 27, 107, 0.15)',
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.15)',
   },
   formCatText: {
     color: 'rgba(255, 255, 255, 0.6)',
@@ -2001,7 +2176,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   formCatTextActive: {
-    color: '#FF1B6B',
+    color: '#C2FF3D',
   },
   inputLabel: {
     color: '#FFF',
@@ -2075,7 +2250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitBtnText: {
-    color: '#FFF',
+    color: '#000',
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.5,
@@ -2553,5 +2728,159 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  topEventSaveBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  catBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  miniCatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  modalCatBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  sectionHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  sectionHeadingNoMargin: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  purpleClockCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#9E00FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  modalCoverCategoryWhite: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    opacity: 0.7,
+    letterSpacing: 0.5,
+  },
+  pastBadge: {
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  pastBadgeText: {
+    color: '#FF3B30',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalPickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalPickerContainer: {
+    backgroundColor: '#0F0D15',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalPickerHeaderTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalPickerCloseText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalPickerConfirmBtn: {
+    backgroundColor: '#C2FF3D',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalPickerConfirmText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  centeredPhotoCard: {
+    width: '85%',
+    aspectRatio: 1,
+    borderRadius: 24,
+    backgroundColor: '#1E1A2A',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  centeredPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  centeredPhotoCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 });

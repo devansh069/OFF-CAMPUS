@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal, Platform, Animated, PanResponder } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,9 @@ import { useRouter } from 'expo-router';
 import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const CARD_WIDTH = screenWidth * 0.68;
+const CONTAINER_WIDTH = screenWidth - 32;
+const CENTER_CARD_LEFT = (CONTAINER_WIDTH - CARD_WIDTH) / 2;
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 
@@ -123,14 +126,94 @@ export default function Likes() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
   const [incomingLikes, setIncomingLikes] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'likes' | 'handshakes'>('handshakes');
+  const [activeTab, setActiveTab] = useState<'likes' | 'handshakes'>('likes');
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any | null>(null);
   const [showFullProfile, setShowFullProfile] = useState(false);
   const [activeProfileIndex, setActiveProfileIndex] = useState<number>(0);
   const [upsellVisible, setUpsellVisible] = useState(false);
+  const [matchesCount, setMatchesCount] = useState<number>(0);
 
   const likes = incomingLikes.filter(p => activeTab === 'handshakes' ? p.is_handshake : !p.is_handshake);
+
+  const prevIndex = likes.length > 0 ? (activeProfileIndex - 1 + likes.length) % likes.length : 0;
+  const nextIndex = likes.length > 0 ? (activeProfileIndex + 1) % likes.length : 0;
+
+  const handleNextCard = () => {
+    if (likes.length > 0) {
+      setActiveProfileIndex(prev => (prev + 1) % likes.length);
+    }
+  };
+
+  const handlePrevCard = () => {
+    if (likes.length > 0) {
+      setActiveProfileIndex(prev => (prev - 1 + likes.length) % likes.length);
+    }
+  };
+
+  const pan = useRef(new Animated.ValueXY()).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 30;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const threshold = 100;
+        if (gestureState.dx > threshold) {
+          // Swiped right -> Previous profile
+          Animated.timing(pan, {
+            toValue: { x: screenWidth, y: gestureState.dy },
+            duration: 200,
+            useNativeDriver: true
+          }).start(() => {
+            handlePrevCard();
+            pan.setValue({ x: 0, y: 0 });
+          });
+        } else if (gestureState.dx < -threshold) {
+          // Swiped left -> Next profile
+          Animated.timing(pan, {
+            toValue: { x: -screenWidth, y: gestureState.dy },
+            duration: 200,
+            useNativeDriver: true
+          }).start(() => {
+            handleNextCard();
+            pan.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          // Snap back
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            friction: 5,
+            useNativeDriver: true
+          }).start();
+        }
+      }
+    })
+  ).current;
+
+  const rotateCard = pan.x.interpolate({
+    inputRange: [-screenWidth / 2, 0, screenWidth / 2],
+    outputRange: ['-10deg', '0deg', '10deg'],
+    extrapolate: 'clamp'
+  });
+
+  const animatedCardStyle = {
+    transform: [
+      { translateX: pan.x },
+      { translateY: pan.y },
+      { rotate: rotateCard }
+    ]
+  };
+
+  useEffect(() => {
+    // Reset index on tab switch
+    setActiveProfileIndex(0);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchLikes();
@@ -139,20 +222,24 @@ export default function Likes() {
   const fetchLikes = async () => {
     if (sessionToken === 'dummy_token') {
       setIncomingLikes([]);
+      setMatchesCount(0);
       setLoading(false);
       return;
     }
 
     try {
-      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/likes-received`, {
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
-      });
-      if (!r.ok) throw new Error('Failed to fetch incoming likes');
-      const d = await r.json();
-      setIncomingLikes(d.likes || []);
+      const headers = { 'Authorization': `Bearer ${sessionToken}` };
+      const [likesRes, matchesRes] = await Promise.all([
+        fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/likes-received`, { headers }).then(r => r.json()),
+        fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/discovery/matches`, { headers }).then(r => r.json())
+      ]);
+
+      setIncomingLikes(likesRes.likes || []);
+      setMatchesCount(matchesRes.matches ? matchesRes.matches.length : 0);
     } catch (e: any) {
       console.warn('fetchLikes failed:', e.message);
       setIncomingLikes([]);
+      setMatchesCount(0);
     } finally {
       setLoading(false);
     }
@@ -268,32 +355,48 @@ export default function Likes() {
       </View>
       <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.bg}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.greet}>People Who</Text>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>Liked You 💖</Text>
+            {/* Redesigned Mockup Header Row */}
+            <View style={styles.headerRow}>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitleText}>Likes</Text>
               </View>
+              <Image 
+                source={require('../../assets/images/logo_off.png')} 
+                style={styles.headerLogo} 
+                resizeMode="contain"
+              />
             </View>
 
-            {/* Custom Tab Selector */}
-            <View style={styles.tabContainer}>
+            {/* Custom Tab Selector Toggles */}
+            <View style={styles.newTabContainer}>
               <TouchableOpacity
-                style={[styles.tabButton, activeTab === 'handshakes' && styles.tabButtonActive]}
-                onPress={() => setActiveTab('handshakes')}
+                style={[styles.newTabButton, activeTab === 'likes' && styles.newTabButtonActive]}
+                onPress={() => setActiveTab('likes')}
+                activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="handshake" size={18} color={activeTab === 'handshakes' ? '#000' : '#FFF'} />
-                <Text style={[styles.tabText, activeTab === 'handshakes' && styles.tabTextActive]}>
-                  Handshakes ({incomingLikes.filter(p => p.is_handshake).length})
+                <Ionicons 
+                  name="heart" 
+                  size={13} 
+                  color={activeTab === 'likes' ? '#000' : 'rgba(255, 255, 255, 0.6)'} 
+                  style={{ marginRight: 6 }} 
+                />
+                <Text style={[styles.newTabText, activeTab === 'likes' && styles.newTabTextActive]}>
+                  LIKES
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tabButton, activeTab === 'likes' && styles.tabButtonActive]}
-                onPress={() => setActiveTab('likes')}
+                style={[styles.newTabButton, activeTab === 'handshakes' && styles.newTabButtonActive]}
+                onPress={() => setActiveTab('handshakes')}
+                activeOpacity={0.8}
               >
-                <Ionicons name="heart" size={16} color={activeTab === 'likes' ? '#000' : '#FFF'} style={{ marginRight: 2 }} />
-                <Text style={[styles.tabText, activeTab === 'likes' && styles.tabTextActive]}>
-                  Likes ({incomingLikes.filter(p => !p.is_handshake).length})
+                <MaterialCommunityIcons 
+                  name="handshake" 
+                  size={15} 
+                  color={activeTab === 'handshakes' ? '#000' : 'rgba(255, 255, 255, 0.6)'} 
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.newTabText, activeTab === 'handshakes' && styles.newTabTextActive]}>
+                  HANDSHAKES
                 </Text>
               </TouchableOpacity>
             </View>
@@ -320,100 +423,199 @@ export default function Likes() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
-                {/* 3x3 Photo Cubes Grid */}
-                <View style={styles.gridContainer}>
-                  {gridData.map((profile, index) => {
-                    if (profile) {
-                      const isLockedForFree = !user?.is_premium && index > 0;
+              <View style={styles.carouselWrapper}>
+                {/* 1. Photos carousel stack comes first */}
+                <View style={styles.carouselContainer}>
+                  <View style={styles.cardDeck}>
+                    {/* Left rotated card (Previous) */}
+                    {likes.length >= 3 && (
+                      <TouchableOpacity 
+                        style={[styles.stackedCard, styles.leftCard]}
+                        activeOpacity={0.9}
+                        onPress={() => {
+                          if (!user?.is_premium && prevIndex > 0) {
+                            setUpsellVisible(true);
+                          } else {
+                            setActiveProfileIndex(prevIndex);
+                          }
+                        }}
+                      >
+                        <Image 
+                          source={{ uri: getProfilePhotos(likes[prevIndex])[0] }} 
+                          style={styles.cardImage} 
+                          blurRadius={!user?.is_premium && prevIndex > 0 ? 25 : 0}
+                        />
+                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.cardGrad} />
+                        
+                        {/* Left Card Info */}
+                        {(!user?.is_premium && prevIndex > 0) ? null : (
+                          <View style={styles.cardMiniInfo}>
+                            <Text style={styles.cardMiniName} numberOfLines={1}>
+                              {likes[prevIndex].name}, {likes[prevIndex].age}
+                            </Text>
+                            <Text style={styles.cardMiniSub} numberOfLines={1}>
+                              {getCollegeName(likes[prevIndex])}
+                            </Text>
+                          </View>
+                        )}
 
-                      if (isLockedForFree) {
-                        return (
-                          <TouchableOpacity
-                            key={profile.user_id || index}
-                            style={styles.gridCellActive}
-                            onPress={() => setUpsellVisible(true)}
-                            activeOpacity={0.85}
-                          >
-                            <Image
-                              source={{ uri: getProfilePhotos(profile)[0] }}
-                              style={[styles.gridPhoto, { opacity: 0.15 }]}
-                              blurRadius={Platform.OS === 'ios' ? 30 : 20}
-                            />
-                            <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}>
-                              <View style={styles.lockedCellOverlay}>
-                                <View style={styles.lockIconCircle}>
-                                  <Ionicons name="lock-closed" size={16} color="#C2FF3D" />
-                                </View>
-                                <Text style={styles.lockedCellText}>Unlock Likes</Text>
-                              </View>
-                            </BlurView>
-                          </TouchableOpacity>
-                        );
-                      }
+                        {!user?.is_premium && prevIndex > 0 && (
+                          <View style={styles.cardLockOverlay}>
+                            <Ionicons name="lock-closed" size={24} color="#C2FF3D" style={styles.cardLockIcon} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )}
 
-                      // Active Profile, color, clickable, overlay cross/handshake buttons
-                      return (
-                        <TouchableOpacity
-                          key={profile.user_id || index}
-                          style={styles.gridCellActive}
+                    {/* Right rotated card (Next) */}
+                    {likes.length >= 2 && (
+                      <TouchableOpacity 
+                        style={[styles.stackedCard, styles.rightCard]}
+                        activeOpacity={0.9}
+                        onPress={() => {
+                          if (!user?.is_premium && nextIndex > 0) {
+                            setUpsellVisible(true);
+                          } else {
+                            setActiveProfileIndex(nextIndex);
+                          }
+                        }}
+                      >
+                        <Image 
+                          source={{ uri: getProfilePhotos(likes[nextIndex])[0] }} 
+                          style={styles.cardImage} 
+                          blurRadius={!user?.is_premium && nextIndex > 0 ? 25 : 0}
+                        />
+                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.cardGrad} />
+
+                        {/* Right Card Info */}
+                        {(!user?.is_premium && nextIndex > 0) ? null : (
+                          <View style={styles.cardMiniInfo}>
+                            <Text style={styles.cardMiniName} numberOfLines={1}>
+                              {likes[nextIndex].name}, {likes[nextIndex].age}
+                            </Text>
+                            <Text style={styles.cardMiniSub} numberOfLines={1}>
+                              {getCollegeName(likes[nextIndex])}
+                            </Text>
+                          </View>
+                        )}
+
+                        {!user?.is_premium && nextIndex > 0 && (
+                          <View style={styles.cardLockOverlay}>
+                            <Ionicons name="lock-closed" size={24} color="#C2FF3D" style={styles.cardLockIcon} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Center active card (Animated & Swipeable) */}
+                    {likes[activeProfileIndex] && (
+                      <Animated.View
+                        style={[styles.stackedCard, styles.centerCard, animatedCardStyle]}
+                        {...panResponder.panHandlers}
+                      >
+                        <TouchableOpacity 
+                          style={StyleSheet.absoluteFillObject}
+                          activeOpacity={0.95}
                           onPress={() => {
-                            setActiveProfileIndex(index);
-                            setShowFullProfile(true);
+                            if (!user?.is_premium && activeProfileIndex > 0) {
+                              setUpsellVisible(true);
+                            } else {
+                              setShowFullProfile(true);
+                            }
                           }}
-                          activeOpacity={0.9}
                         >
-                          <Image
-                            source={{ uri: getProfilePhotos(profile)[0] }}
-                            style={styles.gridPhoto}
+                          <Image 
+                            source={{ uri: getProfilePhotos(likes[activeProfileIndex])[0] }} 
+                            style={styles.cardImage} 
+                            blurRadius={!user?.is_premium && activeProfileIndex > 0 ? 25 : 0}
                           />
+                          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.95)']} style={styles.cardGrad} />
 
-                          {/* Glass shine reflection overlay */}
-                          <LinearGradient
-                            colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.0)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.08)']}
-                            locations={[0.0, 0.25, 0.5, 0.75, 1.0]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={StyleSheet.absoluteFillObject}
-                            pointerEvents="none"
-                          />
-
-                          {/* Symmetrical small bottom-corner action overlay buttons */}
-                          <TouchableOpacity
-                            style={[styles.smallActionBtn, styles.smallNopeBtn]}
-                            onPress={() => handleReject(profile.user_id)}
-                            activeOpacity={0.8}
-                          >
-                            <Ionicons name="close" size={16} color="#FF453A" />
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.smallActionBtn, styles.smallLikeBtn]}
-                            onPress={() => handleAccept(profile.user_id)}
-                            activeOpacity={0.8}
-                          >
-                            <MaterialCommunityIcons name="handshake" size={16} color="#C2FF3D" />
-                          </TouchableOpacity>
-                        </TouchableOpacity>
-                      );
-                    } else {
-                      // Empty cell placeholder
-                      return (
-                        <View
-                          key={`empty-${index}`}
-                          style={styles.gridCellLocked}
-                        >
-                          <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFillObject}>
-                            <View style={styles.lockedOverlay}>
-                              <Ionicons name="heart-outline" size={20} color="rgba(255,255,255,0.15)" />
+                          {(!user?.is_premium && activeProfileIndex > 0) ? (
+                            <View style={styles.cardLockOverlay}>
+                              <Ionicons name="lock-closed" size={32} color="#C2FF3D" style={styles.cardLockIcon} />
                             </View>
-                          </BlurView>
-                        </View>
-                      );
-                    }
-                  })}
+                          ) : (
+                            <View style={styles.cardCenterInfo}>
+                              <View style={styles.centerNameRow}>
+                                <Text style={styles.centerName} numberOfLines={1}>
+                                  {likes[activeProfileIndex].name}, {likes[activeProfileIndex].age}
+                                </Text>
+                                {likes[activeProfileIndex].verification_status === 'verified' && (
+                                  <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" style={{ marginLeft: 6 }} />
+                                )}
+                              </View>
+                              
+                              <Text style={styles.centerCollegeText} numberOfLines={1}>
+                                {getCollegeName(likes[activeProfileIndex])} University
+                              </Text>
+                              
+                              <View style={styles.centerLocRow}>
+                                <Ionicons name="location-sharp" size={14} color="rgba(255, 255, 255, 0.6)" style={{ marginRight: 4 }} />
+                                <Text style={styles.centerLocText} numberOfLines={1}>
+                                  {likes[activeProfileIndex].location || 'South Delhi'}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </Animated.View>
+                    )}
+                  </View>
+
+                  {/* Swipe/Browse Instructions */}
+                  <View style={styles.swipeExploreRow}>
+                    <Ionicons name="chevron-back" size={12} color="rgba(255,255,255,0.4)" />
+                    <Ionicons name="chevron-back" size={12} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.swipeExploreText}>SWIPE TO EXPLORE</Text>
+                    <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.3)" />
+                    <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.4)" />
+                  </View>
                 </View>
-              </ScrollView>
+
+                {/* 2. Stats row comes second */}
+                <View style={styles.statsRow}>
+                  <View style={styles.statBox}>
+                    <Ionicons name="heart" size={18} color="#9E00FF" />
+                    <Text style={styles.statCount}>{incomingLikes.filter(p => !p.is_handshake).length}</Text>
+                    <Text style={styles.statLabel}>Likes</Text>
+                  </View>
+                  
+                  <View style={styles.statDivider} />
+                  
+                  <View style={styles.statBox}>
+                    <MaterialCommunityIcons name="handshake" size={18} color="#FFD700" />
+                    <Text style={styles.statCount}>{incomingLikes.filter(p => p.is_handshake).length}</Text>
+                    <Text style={styles.statLabel}>Handshakes</Text>
+                  </View>
+                  
+                  <View style={styles.statDivider} />
+                  
+                  <View style={styles.statBox}>
+                    <Ionicons name="sparkles" size={18} color="#C2FF3D" />
+                    <Text style={styles.statCount}>{matchesCount}</Text>
+                    <Text style={styles.statLabel}>Matches</Text>
+                  </View>
+                </View>
+
+                {/* 3. View All Option comes third */}
+                <TouchableOpacity 
+                  style={styles.viewAllLikesBtn}
+                  activeOpacity={0.8}
+                  onPress={() => setUpsellVisible(true)}
+                >
+                  <View style={styles.viewAllLeft}>
+                    <Ionicons name="eye-sharp" size={20} color="#000" style={{ marginRight: 10 }} />
+                    <View>
+                      <Text style={styles.viewAllTitle}>VIEW ALL LIKES</Text>
+                      <Text style={styles.viewAllSub}>See who liked you</Text>
+                    </View>
+                  </View>
+                  <View style={styles.viewAllRightCircle}>
+                    <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Match Screen Overlay */}
@@ -657,6 +859,300 @@ const cellHeight = (screenHeight - 250) / 3;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 12 : 36,
+    paddingBottom: 16,
+    paddingHorizontal: 4,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitleText: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  purpleHeartChatBubble: {
+    position: 'relative',
+    marginLeft: 10,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatBubbleIconBack: {
+    position: 'absolute',
+  },
+  chatBubbleHeartIcon: {
+    position: 'absolute',
+    top: 7,
+  },
+  matchesBadge: {
+    backgroundColor: 'rgba(194, 255, 61, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 255, 61, 0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  matchesBadgeText: {
+    color: '#C2FF3D',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  newTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#0F0D15',
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 16,
+  },
+  newTabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  newTabButtonActive: {
+    backgroundColor: '#C2FF3D',
+  },
+  newTabText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  newTabTextActive: {
+    color: '#000',
+    fontWeight: '900',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 24,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statCount: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  carouselWrapper: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingBottom: 24,
+  },
+  carouselContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardDeck: {
+    width: '100%',
+    height: screenHeight * 0.46,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  stackedCard: {
+    width: CARD_WIDTH,
+    height: '100%',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    position: 'absolute',
+    backgroundColor: '#0F0E17',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  leftCard: {
+    left: CENTER_CARD_LEFT - 32,
+    transform: [{ rotate: '-6deg' }, { scale: 0.88 }],
+    zIndex: 1,
+    opacity: 0.6,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  rightCard: {
+    left: CENTER_CARD_LEFT + 32,
+    transform: [{ rotate: '6deg' }, { scale: 0.88 }],
+    zIndex: 1,
+    opacity: 0.6,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  centerCard: {
+    left: CENTER_CARD_LEFT,
+    zIndex: 5,
+    borderColor: '#9E00FF', // Purple glowing borders for active center card
+    shadowColor: '#9E00FF',
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cardGrad: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+  cardMiniInfo: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    zIndex: 3,
+  },
+  cardMiniName: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  cardMiniSub: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  cardLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 4,
+  },
+  cardLockIcon: {
+    shadowColor: '#C2FF3D',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  cardCenterInfo: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    zIndex: 3,
+    gap: 4,
+  },
+  centerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  centerName: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  centerCollegeText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  centerLocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  centerLocText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  swipeExploreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+  },
+  swipeExploreText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  viewAllLikesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#C2FF3D',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    marginHorizontal: 4,
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    marginTop: 12,
+  },
+  viewAllLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewAllTitle: {
+    color: '#000',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  viewAllSub: {
+    color: 'rgba(0, 0, 0, 0.65)',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  viewAllRightCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogo: {
+    width: 42,
+    height: 42,
+    marginRight: 4,
+  },
   lockedCellOverlay: {
     flex: 1,
     alignItems: 'center',
