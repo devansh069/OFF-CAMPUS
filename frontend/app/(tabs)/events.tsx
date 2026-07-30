@@ -284,11 +284,10 @@ export default function Events() {
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dy) > 5;
+        // Only trigger if it is mostly a vertical swipe (not a horizontal swipe on components like the photo gallery)
+        return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
       },
-      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
-        return Math.abs(gestureState.dy) > 5;
-      },
+      onMoveShouldSetPanResponderCapture: () => false, // Let children (buttons/scrolls) handle gestures first, preventing hijacking
       onPanResponderMove: (evt, gestureState) => {
         let nextValue = lastTranslateY.current + gestureState.dy;
         if (nextValue < SNAP_TOP) {
@@ -886,7 +885,7 @@ export default function Events() {
             {/* Full-Screen Cover Image Section */}
             <View 
               style={styles.modalCoverContainer}
-              {...(!sheetExpanded ? panResponder.panHandlers : {})}
+              {...panResponder.panHandlers}
             >
               <Image
                 source={{ uri: getEventFlyer(selectedEvent) }}
@@ -957,6 +956,7 @@ export default function Events() {
                   zIndex: 10,
                 }
               ]}
+              {...(!sheetExpanded ? panResponder.panHandlers : {})}
             >
               {/* Drag Handle Row */}
               <View style={styles.modalDragHandleRow} {...panResponder.panHandlers}>
