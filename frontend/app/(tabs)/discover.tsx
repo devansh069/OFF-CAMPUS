@@ -299,7 +299,6 @@ const getScrollableItems = (profile: any) => {
   let location = profile.location;
   let state = profile.state;
 
-  // Generate deterministic mock values based on name/ID if not present
   const hash = (profile.name || '').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
 
   if (!height) {
