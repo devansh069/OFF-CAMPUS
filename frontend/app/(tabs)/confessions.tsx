@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
 import io from 'socket.io-client';
+import * as Clipboard from 'expo-clipboard';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -55,30 +56,6 @@ const MOCK_STORIES = [
   }
 ];
 
-const MOCK_TOP_VIBES = [
-  {
-    user_id: 'user_priya',
-    name: 'Priya Sharma',
-    bio: 'Late-night coffee dates & indie music ☕📖',
-    vibe_score: 4.9,
-    photos: ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop']
-  },
-  {
-    user_id: 'user_aarav',
-    name: 'Aarav Mehta',
-    bio: 'Football enthusiast, guitar player ⚽🎸',
-    vibe_score: 4.8,
-    photos: ['https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop']
-  },
-  {
-    user_id: 'user_ananya',
-    name: 'Ananya Kapoor',
-    bio: 'Classical dancer and dog lover 🐕💃',
-    vibe_score: 4.7,
-    photos: ['https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop']
-  }
-];
-
 export default function CampusLive() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
@@ -94,7 +71,7 @@ export default function CampusLive() {
   const [refreshing, setRefreshing] = useState(false);
   const [confessionImage, setConfessionImage] = useState<string | null>(null);
   const [expandedConfessions, setExpandedConfessions] = useState<{ [key: string]: boolean }>({});
-  
+
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -264,6 +241,8 @@ export default function CampusLive() {
   const [shareSearchQuery, setShareSearchQuery] = useState('');
   const [sendingToUserId, setSendingToUserId] = useState<{ [key: string]: boolean }>({});
   const [sentToUserId, setSentToUserId] = useState<{ [key: string]: boolean }>({});
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [sendingBulk, setSendingBulk] = useState(false);
 
   useEffect(() => {
     if (showAudienceModal) {
@@ -532,6 +511,7 @@ export default function CampusLive() {
     setShareSearchQuery('');
     setSentToUserId({});
     setSendingToUserId({});
+    setSelectedUserIds([]);
     setLoadingShareChats(true);
     setShareChats([]);
 
@@ -556,6 +536,48 @@ export default function CampusLive() {
             user_id: 'usr_mock3',
             name: 'Pooja Sharma',
             picture: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock4',
+            name: 'Rahul Verma',
+            picture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock5',
+            name: 'Sneha Kapoor',
+            picture: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock6',
+            name: 'Arjun Nair',
+            picture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock7',
+            name: 'Diya Patel',
+            picture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock8',
+            name: 'Vikram Singh',
+            picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200'
+          }
+        },
+        {
+          user: {
+            user_id: 'usr_mock9',
+            name: 'Meera Joshi',
+            picture: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200'
           }
         }
       ];
@@ -584,7 +606,7 @@ export default function CampusLive() {
     setSendingToUserId(prev => ({ ...prev, [partnerUserId]: true }));
     try {
       const textToSend = `Check out this confession:\n"${sharingConfession.content}"\n\nSee it here: https://offcampus.in/confessions/${sharingConfession.confession_id}`;
-      
+
       if (sessionToken === 'dummy_token') {
         await new Promise(resolve => setTimeout(resolve, 600));
         setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
@@ -614,6 +636,80 @@ export default function CampusLive() {
     } finally {
       setSendingToUserId(prev => ({ ...prev, [partnerUserId]: false }));
     }
+  };
+
+  const handleSendBulkDM = async () => {
+    if (!sharingConfession || selectedUserIds.length === 0) return;
+    setSendingBulk(true);
+    try {
+      const textToSend = `Check out this confession:\n"${sharingConfession.content}"\n\nSee it here: https://offcampus.in/confessions/${sharingConfession.confession_id}`;
+
+      const promises = selectedUserIds.map(async (userId) => {
+        if (sessionToken === 'dummy_token') {
+          return { ok: true, userId };
+        }
+        try {
+          const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/messages/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+              to_user_id: userId,
+              content: textToSend,
+              message_type: 'text'
+            })
+          });
+          return { ok: res.ok, userId };
+        } catch {
+          return { ok: false, userId };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const failed = results.filter(r => !r.ok);
+
+      if (failed.length > 0) {
+        Alert.alert('Partial Success', 'Some messages could not be sent.');
+      } else {
+        Alert.alert('Success', 'Confession shared successfully!');
+      }
+
+      // Reset state and close modal
+      setSelectedUserIds([]);
+      setSharingConfession(null);
+    } catch (err) {
+      console.warn('handleSendBulkDM error:', err);
+      Alert.alert('Error', 'Failed to share confession.');
+    } finally {
+      setSendingBulk(false);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!sharingConfession) return;
+    const shareText = `Check out this confession on Off-Campus: "${sharingConfession.content}"\n\nRead more at: https://offcampus.in/confessions/${sharingConfession.confession_id}`;
+    const url = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(url);
+        } else {
+          // Fallback to normal share sheet if WhatsApp is not installed
+          return Share.share({
+            message: shareText,
+          });
+        }
+      })
+      .catch((err) => console.error('An error occurred sharing to WhatsApp', err));
+  };
+
+  const handleCopyLink = async () => {
+    if (!sharingConfession) return;
+    const shareUrl = `https://offcampus.in/confessions/${sharingConfession.confession_id}`;
+    await Clipboard.setStringAsync(shareUrl);
+    Alert.alert('Link Copied', 'Confession link copied to clipboard!');
   };
 
   const handleShareLink = async () => {
@@ -1434,7 +1530,7 @@ export default function CampusLive() {
       if (Array.isArray(photos) && photos.length > 0) {
         myUserPicture = photos[0];
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const myStoryIndex = stories.findIndex((s: any) => s.user_id === user?.user_id);
@@ -1490,8 +1586,8 @@ export default function CampusLive() {
             </View>
 
             <View style={styles.newHeaderRight}>
-              <TouchableOpacity 
-                style={styles.bellBtn} 
+              <TouchableOpacity
+                style={styles.bellBtn}
                 onPress={() => setShowNotificationsModal(true)}
                 activeOpacity={0.8}
               >
@@ -2699,108 +2795,145 @@ export default function CampusLive() {
           visible={sharingConfession !== null}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setSharingConfession(null)}
+          onRequestClose={() => { setSharingConfession(null); setSelectedUserIds([]); }}
         >
           <TouchableOpacity
-            style={styles.optionsModalOverlay}
+            style={[styles.optionsModalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
             activeOpacity={1}
-            onPress={() => setSharingConfession(null)}
+            onPress={() => { setSharingConfession(null); setSelectedUserIds([]); }}
           >
-            <BlurView intensity={90} tint="dark" style={[styles.optionsModalContainer, { height: screenHeight * 0.7 }]}>
-              {/* Header Drag Bar */}
-              <View style={styles.optionsHeader}>
-                <View style={styles.optionsHeaderBar} />
-                <Text style={styles.optionsTitle}>Share Confession</Text>
-              </View>
-
-              {/* Action: Share via Link / Copy */}
-              <TouchableOpacity
-                style={styles.shareViaLinkBtn}
-                onPress={handleShareLink}
-                activeOpacity={0.8}
-              >
-                <View style={styles.shareLinkIconContainer}>
-                  <Ionicons name="link-outline" size={20} color="#000" />
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={[styles.optionsModalContainer, { height: screenHeight * 0.65, backgroundColor: 'rgba(15, 15, 20, 0.65)', overflow: 'hidden' }]}
+            >
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1, width: '100%' }}>
+                {/* Drag Handle */}
+                <View style={styles.shareSheetDragRow}>
+                  <View style={styles.shareSheetDragBar} />
                 </View>
-                <Text style={styles.shareLinkText}>Share via Link / Copy</Text>
-              </TouchableOpacity>
 
-              {/* Search Bar for DMs */}
-              <View style={styles.shareSearchContainer}>
-                <Ionicons name="search-outline" size={16} color="rgba(255, 255, 255, 0.4)" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.shareSearchInput}
-                  placeholder="Search chats..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  value={shareSearchQuery}
-                  onChangeText={setShareSearchQuery}
-                />
-                {shareSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setShareSearchQuery('')}>
-                    <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
-                  </TouchableOpacity>
-                )}
-              </View>
+                {/* Search Row */}
+                <View style={styles.shareSearchRow}>
+                  <View style={styles.shareSearchBarNew}>
+                    <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.4)" style={{ marginRight: 10 }} />
+                    <TextInput
+                      style={styles.shareSearchInputNew}
+                      placeholder="Search"
+                      placeholderTextColor="rgba(255,255,255,0.35)"
+                      value={shareSearchQuery}
+                      onChangeText={setShareSearchQuery}
+                    />
+                    {shareSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setShareSearchQuery('')}>
+                        <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.4)" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
 
-              {/* DMs List */}
-              {loadingShareChats ? (
-                <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 20 }} />
-              ) : (
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 40 }}
-                  style={{ flex: 1, width: '100%', marginTop: 10 }}
-                >
-                  {shareChats
-                    .filter(conv =>
-                      conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
-                    )
-                    .map((conv: any) => {
-                      const partner = conv.user;
-                      if (!partner) return null;
-                      const isSending = sendingToUserId[partner.user_id];
-                      const isSent = sentToUserId[partner.user_id];
-
+                {/* Grid of Matches */}
+                {loadingShareChats ? (
+                  <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 40 }} />
+                ) : (
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.shareGridContainer}
+                    style={{ flex: 1, width: '100%' }}
+                  >
+                    {(() => {
+                      const filtered = shareChats.filter(conv =>
+                        conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return <Text style={styles.noChatsText}>No matches found.</Text>;
+                      }
                       return (
-                        <View key={partner.user_id} style={styles.shareChatRow}>
-                          <View style={styles.shareChatLeft}>
-                            <Image
-                              source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
-                              style={styles.shareChatPfp}
-                            />
-                            <Text style={styles.shareChatName} numberOfLines={1}>
-                              {partner.name}
-                            </Text>
-                          </View>
-
-                          <TouchableOpacity
-                            style={[
-                              styles.shareSendBtn,
-                              isSent && styles.shareSendBtnSent,
-                              isSending && { opacity: 0.6 }
-                            ]}
-                            disabled={isSending || isSent}
-                            onPress={() => handleSendDM(partner.user_id)}
-                          >
-                            {isSending ? (
-                              <ActivityIndicator color="#000" size="small" />
-                            ) : (
-                              <Text style={[styles.shareSendBtnText, isSent && styles.shareSendBtnTextSent]}>
-                                {isSent ? 'Sent' : 'Send'}
-                              </Text>
-                            )}
-                          </TouchableOpacity>
+                        <View style={styles.shareGrid}>
+                          {filtered.map((conv: any) => {
+                            const partner = conv.user;
+                            if (!partner) return null;
+                            const isSelected = selectedUserIds.includes(partner.user_id);
+                            return (
+                              <TouchableOpacity
+                                key={partner.user_id}
+                                style={styles.shareGridItem}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                  setSelectedUserIds(prev => {
+                                    if (isSelected) {
+                                      return prev.filter(id => id !== partner.user_id);
+                                    }
+                                    if (prev.length >= 5) {
+                                      Alert.alert('Limit Reached', 'You can share with up to 5 people at a time.');
+                                      return prev;
+                                    }
+                                    return [...prev, partner.user_id];
+                                  });
+                                }}
+                              >
+                                <View style={styles.shareGridPfpWrap}>
+                                  <Image
+                                    source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
+                                    style={[
+                                      styles.shareGridPfp,
+                                      isSelected && styles.shareGridPfpSelected,
+                                    ]}
+                                  />
+                                  {isSelected && (
+                                    <View style={styles.shareGridCheckBadge}>
+                                      <Ionicons name="checkmark" size={12} color="#000" />
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={styles.shareGridName} numberOfLines={2}>
+                                  {partner.name}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
                       );
-                    })}
+                    })()}
+                  </ScrollView>
+                )}
+              </TouchableOpacity>
 
-                  {shareChats.filter(conv =>
-                    conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
-                  ).length === 0 && (
-                    <Text style={styles.noChatsText}>No matches or chats found.</Text>
-                  )}
-                </ScrollView>
-              )}
+              {/* Fixed Bottom Bar */}
+              <View style={styles.shareBottomBar}>
+                {selectedUserIds.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.shareBottomSendBtn}
+                    activeOpacity={0.85}
+                    onPress={handleSendBulkDM}
+                    disabled={sendingBulk}
+                  >
+                    {sendingBulk ? (
+                      <ActivityIndicator color="#000" size="small" />
+                    ) : (
+                      <Text style={styles.shareBottomSendText}>
+                        Send to {selectedUserIds.length} {selectedUserIds.length === 1 ? 'person' : 'people'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.shareBottomActions}>
+                    <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleShareWhatsApp}>
+                      <View style={[styles.shareBottomIconCircle, { backgroundColor: '#25D366' }]}>
+                        <Ionicons name="logo-whatsapp" size={26} color="#FFF" />
+                      </View>
+                      <Text style={styles.shareBottomActionLabel}>WhatsApp</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleCopyLink}>
+                      <View style={[styles.shareBottomIconCircle, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                        <Ionicons name="link-outline" size={24} color="#FFF" />
+                      </View>
+                      <Text style={styles.shareBottomActionLabel}>Copy link</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </BlurView>
           </TouchableOpacity>
         </Modal>
@@ -2963,7 +3096,7 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
             source={{ uri: item.sender_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
             style={styles.notifPfp}
           />
-          
+
           <View style={styles.notifTextContainer}>
             <Text style={styles.notifBodyText}>
               <Text style={styles.notifBoldText}>{item.sender_name} </Text>
@@ -4532,96 +4665,129 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  shareViaLinkBtn: {
-    flexDirection: 'row',
+  shareSheetDragRow: {
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  shareSheetDragBar: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  shareSearchRow: {
     paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: '#C2FF3D',
-    marginBottom: 14,
-    gap: 12,
-    width: '100%',
+    paddingVertical: 10,
   },
-  shareLinkIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareLinkText: {
-    color: '#000',
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  shareSearchContainer: {
+  shareSearchBarNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 12,
-    height: 40,
-    marginBottom: 10,
-    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 44,
   },
-  shareSearchInput: {
+  shareSearchInputNew: {
     flex: 1,
     color: '#FFF',
-    fontSize: 13.5,
+    fontSize: 15,
     padding: 0,
   },
-  shareChatRow: {
+  shareGridContainer: {
+    paddingHorizontal: 0,
+    paddingBottom: 100,
+    paddingTop: 6,
+  },
+  shareGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  shareGridItem: {
+    width: '33.33%',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
-    width: '100%',
+    paddingVertical: 12,
   },
-  shareChatLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
+  shareGridPfpWrap: {
+    position: 'relative',
+    marginBottom: 8,
   },
-  shareChatPfp: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  shareGridPfp: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 3,
+    borderColor: 'transparent',
   },
-  shareChatName: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
+  shareGridPfpSelected: {
+    borderColor: '#C2FF3D',
   },
-  shareSendBtn: {
-    height: 30,
-    paddingHorizontal: 16,
-    borderRadius: 15,
+  shareGridCheckBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#C2FF3D',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 70,
+    borderWidth: 2,
+    borderColor: '#1A1A2E',
   },
-  shareSendBtnSent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+  shareGridName: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    maxWidth: 90,
   },
-  shareSendBtnText: {
+  shareBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    backgroundColor: 'rgba(15, 15, 20, 0.6)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  shareBottomActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 28,
+  },
+  shareBottomActionItem: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  shareBottomIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBottomActionLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  shareBottomSendBtn: {
+    backgroundColor: '#C2FF3D',
+    borderRadius: 16,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBottomSendText: {
     color: '#000',
-    fontSize: 12.5,
+    fontSize: 15,
     fontWeight: '800',
-  },
-  shareSendBtnTextSent: {
-    color: 'rgba(255, 255, 255, 0.5)',
   },
   noChatsText: {
     color: 'rgba(255, 255, 255, 0.4)',
