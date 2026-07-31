@@ -92,6 +92,7 @@ router.get('/events/:id', authMiddleware, eventController.getEventById);
 router.post('/events/create', authMiddleware, eventController.createEvent);
 router.post('/events/:id/rsvp', authMiddleware, eventController.toggleRSVP);
 router.post('/events/:id/star', authMiddleware, eventController.toggleStar);
+router.get('/debug/give-premium', eventController.givePremiumDebug);
 
 // Confessions endpoints
 router.get('/confessions/feed', authMiddleware, confessionController.getConfessionsFeed);

@@ -849,8 +849,8 @@ export default function CampusLive() {
     );
   };
 
-  // Story Posting Handlers
   const handlePostStory = async (audience: 'matches' | 'college' | 'global') => {
+    if (posting) return;
 
     if (!storyImage) {
       Alert.alert('Error', 'No image selected to post');
@@ -2177,7 +2177,7 @@ export default function CampusLive() {
                 <Text style={styles.sheetDesc}>Select who can view your active 24h story post.</Text>
 
                 {/* College Visibility Option */}
-                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('college')} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('college')} activeOpacity={0.8} disabled={posting}>
                   <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(157, 78, 221, 0.15)', borderColor: 'rgba(157, 78, 221, 0.3)' }]}>
                     <Ionicons name="school" size={20} color="#9D4EDD" />
                   </View>
@@ -2189,7 +2189,7 @@ export default function CampusLive() {
                 </TouchableOpacity>
 
                 {/* Matches Visibility Option */}
-                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('matches')} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.audienceOpt} onPress={() => handlePostStory('matches')} activeOpacity={0.8} disabled={posting}>
                   <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 45, 85, 0.15)', borderColor: 'rgba(255, 45, 85, 0.3)' }]}>
                     <Ionicons name="heart" size={20} color="#FF1B6B" />
                   </View>
@@ -2209,7 +2209,7 @@ export default function CampusLive() {
                     return;
                   }
                   handlePostStory('global');
-                }} activeOpacity={0.8}>
+                }} activeOpacity={0.8} disabled={posting}>
                   <View style={[styles.audienceIconWrapper, { backgroundColor: 'rgba(255, 215, 0, 0.15)', borderColor: 'rgba(255, 215, 0, 0.3)' }]}>
                     <Ionicons name="globe" size={20} color="#FFD700" />
                   </View>

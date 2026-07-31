@@ -1140,81 +1140,146 @@ export default function ChatScreen() {
     return list;
   };
 
+  const SharedEventCard = ({ eventId, defaultTitle, isMine }: { eventId: string; defaultTitle: string; isMine: boolean }) => {
+    const [eventData, setEventData] = useState<any | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchEvent = async () => {
+        if (sessionToken === 'dummy_token') {
+          setEventData({
+            title: defaultTitle,
+            date: new Date().toISOString(),
+            location: 'VIPS Campus',
+            cover_image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop'
+          });
+          setLoading(false);
+          return;
+        }
+        try {
+          const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/events/${eventId}`, {
+            headers: { 'Authorization': `Bearer ${sessionToken}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setEventData(data.event);
+          }
+        } catch (err) {
+          console.warn('Error fetching shared event card details:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchEvent();
+    }, [eventId]);
+
+    const displayTitle = eventData?.title || defaultTitle;
+    const displayLocation = eventData?.location || 'Campus';
+    const displayImage = eventData?.cover_image || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop';
+    
+    const dateStr = eventData?.date ? new Date(eventData.date).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : '';
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          router.push({
+            pathname: '/(tabs)/events',
+            params: { id: eventId }
+          });
+        }}
+        activeOpacity={0.9}
+        style={[
+          styles.shareEventCard,
+          isMine ? styles.shareEventCardMine : styles.shareEventCardTheir
+        ]}
+      >
+        <Image
+          source={{ uri: displayImage }}
+          style={styles.shareEventCover}
+          resizeMode="cover"
+        />
+        <View style={styles.shareEventDetails}>
+          <View style={styles.shareEventHeaderRow}>
+            <Ionicons name="calendar-outline" size={13} color="#C2FF3D" />
+            <Text style={styles.shareEventHeaderText}>SHARED EVENT</Text>
+          </View>
+          <Text style={styles.shareEventTitle} numberOfLines={2}>
+            {displayTitle}
+          </Text>
+          {dateStr ? (
+            <View style={styles.shareEventMetaRow}>
+              <Ionicons name="time-outline" size={12} color="rgba(255, 255, 255, 0.5)" />
+              <Text style={styles.shareEventMetaText}>{dateStr}</Text>
+            </View>
+          ) : null}
+          <View style={styles.shareEventMetaRow}>
+            <Ionicons name="location-outline" size={12} color="rgba(255, 255, 255, 0.5)" />
+            <Text style={styles.shareEventMetaText} numberOfLines={1}>{displayLocation}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const SharedConfessionCard = ({ confessionId, defaultSnippet, isMine }: { confessionId: string; defaultSnippet: string; isMine: boolean }) => {
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          router.push({
+            pathname: '/(tabs)/confessions',
+            params: { id: confessionId }
+          });
+        }}
+        activeOpacity={0.8}
+        style={[
+          styles.shareConfCard,
+          isMine ? styles.shareConfCardMine : styles.shareConfCardTheir
+        ]}
+      >
+        <View style={styles.shareConfHeader}>
+          <Ionicons name="planet" size={14} color="#C2FF3D" />
+          <Text style={styles.shareConfHeaderText}>SHARED CONFESSION</Text>
+        </View>
+        
+        <View style={styles.shareConfQuoteContainer}>
+          <Ionicons name="quote" size={16} color="rgba(255, 255, 255, 0.15)" style={styles.quoteIcon} />
+          <Text style={styles.shareConfSnippet} numberOfLines={3}>
+            {defaultSnippet}
+          </Text>
+        </View>
+
+        <View style={styles.shareConfDivider} />
+        
+        <View style={styles.shareConfFooter}>
+          <Text style={styles.shareConfActionText}>Tap to View Thread</Text>
+          <Ionicons name="chevron-forward" size={14} color="rgba(255, 255, 255, 0.4)" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderMessageText = (content: string, isMine: boolean) => {
     // Check if the message contains a confession link
     const confessionIdMatch = content.match(/confessions\/(conf_[a-zA-Z0-9]+)/);
     if (confessionIdMatch) {
       const confessionId = confessionIdMatch[1];
-      // Extract confession text if possible (contained within quotation marks in content)
       const textQuoteMatch = content.match(/"([^"]+)"/);
       const confessionSnippet = textQuoteMatch ? textQuoteMatch[1] : 'Shared Confession';
-
-      return (
-        <TouchableOpacity
-          onPress={() => {
-            router.push({
-              pathname: '/(tabs)/confessions',
-              params: { id: confessionId }
-            });
-          }}
-          activeOpacity={0.8}
-          style={[
-            styles.shareConfCard,
-            isMine ? styles.shareConfCardMine : styles.shareConfCardTheir
-          ]}
-        >
-          <View style={styles.shareConfHeader}>
-            <Ionicons name="planet" size={14} color="#C2FF3D" />
-            <Text style={styles.shareConfHeaderText}>SHARED CONFESSION</Text>
-          </View>
-          <Text style={styles.shareConfSnippet} numberOfLines={3}>
-            "{confessionSnippet}"
-          </Text>
-          <View style={styles.shareConfDivider} />
-          <View style={styles.shareConfFooter}>
-            <Text style={styles.shareConfActionText}>Tap to View Thread</Text>
-            <Ionicons name="chevron-forward" size={14} color={isMine ? '#FFF' : '#C2FF3D'} />
-          </View>
-        </TouchableOpacity>
-      );
+      return <SharedConfessionCard confessionId={confessionId} defaultSnippet={confessionSnippet} isMine={isMine} />;
     }
 
     // Check if the message contains an event link
     const eventIdMatch = content.match(/events\/(evt_[a-zA-Z0-9]+)/);
     if (eventIdMatch) {
       const eventId = eventIdMatch[1];
-      // Extract event title if possible (contained within quotation marks in content)
       const textQuoteMatch = content.match(/"([^"]+)"/);
       const eventTitle = textQuoteMatch ? textQuoteMatch[1] : 'Shared Event';
-
-      return (
-        <TouchableOpacity
-          onPress={() => {
-            router.push({
-              pathname: '/(tabs)/events',
-              params: { id: eventId }
-            });
-          }}
-          activeOpacity={0.8}
-          style={[
-            styles.shareConfCard,
-            isMine ? styles.shareConfCardMine : styles.shareConfCardTheir
-          ]}
-        >
-          <View style={styles.shareConfHeader}>
-            <Ionicons name="calendar" size={14} color="#C2FF3D" />
-            <Text style={styles.shareConfHeaderText}>SHARED EVENT</Text>
-          </View>
-          <Text style={styles.shareConfSnippet} numberOfLines={2}>
-            {eventTitle}
-          </Text>
-          <View style={styles.shareConfDivider} />
-          <View style={styles.shareConfFooter}>
-            <Text style={styles.shareConfActionText}>Tap to View Details</Text>
-            <Ionicons name="chevron-forward" size={14} color={isMine ? '#FFF' : '#C2FF3D'} />
-          </View>
-        </TouchableOpacity>
-      );
+      return <SharedEventCard eventId={eventId} defaultTitle={eventTitle} isMine={isMine} />;
     }
 
     // Default text rendering
@@ -2547,29 +2612,39 @@ const styles = StyleSheet.create({
   },
   shareConfCard: {
     padding: 12,
-    borderRadius: 14,
-    width: 220,
-    borderWidth: 1,
+    borderRadius: 16,
+    width: 230,
+    backgroundColor: '#1E1625',
+    borderWidth: 0.5,
+    borderColor: 'rgba(157, 78, 221, 0.12)',
   },
   shareConfCardMine: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#271F30',
+    borderColor: 'rgba(157, 78, 221, 0.2)',
   },
   shareConfCardTheir: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#1A1320',
+    borderColor: 'rgba(157, 78, 221, 0.12)',
   },
   shareConfHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   shareConfHeaderText: {
     color: '#C2FF3D',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  shareConfQuoteContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 4,
+  },
+  quoteIcon: {
+    marginTop: 2,
   },
   shareConfSnippet: {
     color: '#FFF',
@@ -2577,6 +2652,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
     fontStyle: 'italic',
+    flex: 1,
   },
   shareConfDivider: {
     height: 1,
@@ -2589,8 +2665,60 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   shareConfActionText: {
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 11,
     fontWeight: '700',
+  },
+  shareEventCard: {
+    borderRadius: 16,
+    width: 230,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+  },
+  shareEventCardMine: {
+    backgroundColor: '#271F30',
+    borderColor: 'rgba(157, 78, 221, 0.2)',
+  },
+  shareEventCardTheir: {
+    backgroundColor: '#1A1320',
+    borderColor: 'rgba(157, 78, 221, 0.12)',
+  },
+  shareEventCover: {
+    width: '100%',
+    height: 110,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  shareEventDetails: {
+    padding: 12,
+  },
+  shareEventHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  shareEventHeaderText: {
+    color: '#C2FF3D',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  shareEventTitle: {
+    color: '#FFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  shareEventMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  shareEventMetaText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

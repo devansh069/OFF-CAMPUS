@@ -1862,7 +1862,7 @@ export default function Events() {
                     ) : (
                       <TouchableOpacity style={styles.imagePickerBtn} onPress={pickCoverImage}>
                         <Ionicons name="image-outline" size={20} color="#FFF" />
-                        <Text style={styles.imagePickerBtnText}>Select Cover Image</Text>
+                        <Text style={styles.imagePickerBtnText}>Event Flyer</Text>
                       </TouchableOpacity>
                     )}
 

@@ -321,3 +321,20 @@ exports.getEventById = async (req, res) => {
   }
 };
 
+// Temporary Debug Endpoint to grant premium status on deployed DB
+exports.givePremiumDebug = async (req, res) => {
+  try {
+    const [results, metadata] = await sequelize.query(
+      `UPDATE users SET is_premium = true, premium_until = '2035-12-31 23:59:59' WHERE phone_number LIKE '%1111111111'`
+    );
+    return res.status(200).json({
+      success: true,
+      message: 'Successfully updated premium status on production!',
+      affected: metadata.affectedRows || metadata
+    });
+  } catch (error) {
+    console.error('[GivePremiumDebug Error]:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
