@@ -1389,52 +1389,67 @@ export default function ChatScreen() {
                     />
                   )}
                   <View style={styles.bubbleWrapper}>
-                    {isMine ? (
-                      isAudio ? (
-                        <VoiceMessageBubble audioUrl={msg.image_url} isMine={true} />
-                      ) : (
-                        <LinearGradient
-                          colors={['#C2FF3D', '#98D014']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={[
+                    {(() => {
+                      const isConfessionLink = msg.content && msg.content.includes('confessions/conf_');
+                      const isEventLink = msg.content && msg.content.includes('events/evt_');
+                      const isSharedCard = isConfessionLink || isEventLink;
+
+                      if (isMine) {
+                        if (isAudio) {
+                          return <VoiceMessageBubble audioUrl={msg.image_url} isMine={true} />;
+                        }
+                        if (isSharedCard) {
+                          return renderMessageText(msg.content, true);
+                        }
+                        return (
+                          <LinearGradient
+                            colors={['rgba(194, 255, 61, 0.16)', 'rgba(194, 255, 61, 0.06)']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={[
+                              styles.messageBubble,
+                              styles.myMessage,
+                              { borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.25)' },
+                              msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
+                            ]}
+                          >
+                            {msg.message_type === 'image' ? (
+                              <Image
+                                source={{ uri: msg.image_url }}
+                                style={{ width: 200, height: 200, borderRadius: 8 }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              renderMessageText(msg.content, true)
+                            )}
+                          </LinearGradient>
+                        );
+                      } else {
+                        if (isAudio) {
+                          return <VoiceMessageBubble audioUrl={msg.image_url} isMine={false} />;
+                        }
+                        if (isSharedCard) {
+                          return renderMessageText(msg.content, false);
+                        }
+                        return (
+                          <View style={[
                             styles.messageBubble,
-                            styles.myMessage,
+                            styles.theirMessage,
                             msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
-                          ]}
-                        >
-                          {msg.message_type === 'image' ? (
-                            <Image
-                              source={{ uri: msg.image_url }}
-                              style={{ width: 200, height: 200, borderRadius: 8 }}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            renderMessageText(msg.content, true)
-                          )}
-                        </LinearGradient>
-                      )
-                    ) : (
-                      isAudio ? (
-                        <VoiceMessageBubble audioUrl={msg.image_url} isMine={false} />
-                      ) : (
-                        <View style={[
-                          styles.messageBubble,
-                          styles.theirMessage,
-                          msg.message_type === 'image' && { padding: 4, borderRadius: 12, overflow: 'hidden' }
-                        ]}>
-                          {msg.message_type === 'image' ? (
-                            <Image
-                              source={{ uri: msg.image_url }}
-                              style={{ width: 200, height: 200, borderRadius: 8 }}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            renderMessageText(msg.content, false)
-                          )}
-                        </View>
-                      )
-                    )}
+                          ]}>
+                            {msg.message_type === 'image' ? (
+                              <Image
+                                source={{ uri: msg.image_url }}
+                                style={{ width: 200, height: 200, borderRadius: 8 }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              renderMessageText(msg.content, false)
+                            )}
+                          </View>
+                        );
+                      }
+                    })()}
                     <Text style={[styles.msgTime, isMine ? styles.myTime : styles.theirTime]}>
                       {formattedTime}
                     </Text>
@@ -1998,12 +2013,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   theirMessage: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  myText: { color: '#000000', fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  myText: { color: '#FFFFFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
   theirText: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20 },
   msgTime: {
     fontSize: 10,
@@ -2614,17 +2629,17 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     width: 230,
-    backgroundColor: '#1E1625',
-    borderWidth: 0.5,
-    borderColor: 'rgba(157, 78, 221, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   shareConfCardMine: {
-    backgroundColor: '#271F30',
-    borderColor: 'rgba(157, 78, 221, 0.2)',
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
   },
   shareConfCardTheir: {
-    backgroundColor: '#1A1320',
-    borderColor: 'rgba(157, 78, 221, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   shareConfHeader: {
     flexDirection: 'row',
@@ -2673,15 +2688,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: 230,
     overflow: 'hidden',
-    borderWidth: 0.5,
+    borderWidth: 1,
   },
   shareEventCardMine: {
-    backgroundColor: '#271F30',
-    borderColor: 'rgba(157, 78, 221, 0.2)',
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
+    borderColor: 'rgba(194, 255, 61, 0.25)',
   },
   shareEventCardTheir: {
-    backgroundColor: '#1A1320',
-    borderColor: 'rgba(157, 78, 221, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   shareEventCover: {
     width: '100%',

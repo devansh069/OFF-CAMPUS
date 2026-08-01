@@ -18,6 +18,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Share,
+  Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
@@ -406,7 +407,7 @@ export default function Events() {
     setSendingToUserId(prev => ({ ...prev, [partnerUserId]: true }));
     try {
       const textToSend = `Check out this event:\n"${sharingEvent.title}"\n\nSee it here: https://offcampus.in/events/${sharingEvent.event_id}`;
-      
+
       if (sessionToken === 'dummy_token') {
         await new Promise(resolve => setTimeout(resolve, 600));
         setSentToUserId(prev => ({ ...prev, [partnerUserId]: true }));
@@ -442,7 +443,7 @@ export default function Events() {
     setSendingBulk(true);
     try {
       const textToSend = `Check out this event:\n"${sharingEvent.title}"\n\nSee it here: https://offcampus.in/events/${sharingEvent.event_id}`;
-      
+
       const promises = selectedUserIds.map(async (userId) => {
         if (sessionToken === 'dummy_token') {
           return { ok: true, userId };
@@ -468,13 +469,13 @@ export default function Events() {
 
       const results = await Promise.all(promises);
       const failed = results.filter(r => !r.ok);
-      
+
       if (failed.length > 0) {
         Alert.alert('Partial Success', 'Some messages could not be sent.');
       } else {
         Alert.alert('Success', 'Event shared successfully!');
       }
-      
+
       setSelectedUserIds([]);
       setSharingEvent(null);
     } catch (err) {
@@ -557,15 +558,17 @@ export default function Events() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onStartShouldSetPanResponderCapture: () => false,
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         // Only trigger if it is mostly a vertical swipe (not a horizontal swipe on components like the photo gallery)
         return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
       },
-      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
-        // Intercept and capture the gesture if it is mostly a vertical drag (prevents child touchables from blocking swipes)
-        return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dy) > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        );
       },
       onPanResponderMove: (evt, gestureState) => {
         let nextValue = lastTranslateY.current + gestureState.dy;
@@ -1193,9 +1196,8 @@ export default function Events() {
         {selectedEvent && (
           <View style={styles.detailsModalContainer}>
             {/* Full-Screen Cover Image Section */}
-            <View 
+            <View
               style={styles.modalCoverContainer}
-              {...panResponder.panHandlers}
             >
               {(() => {
                 const categoryObj = categories.find(cat => cat.key === selectedEvent.category) || {
@@ -1205,13 +1207,19 @@ export default function Events() {
                 };
                 return (
                   <>
-                    <Image
-                      source={{ uri: getEventFlyer(selectedEvent) }}
-                      style={styles.modalCoverImage}
-                    />
+                    {/* Swipable cover image wrapper */}
+                    <View 
+                      style={StyleSheet.absoluteFillObject}
+                      {...panResponder.panHandlers}
+                    >
+                      <Image
+                        source={{ uri: getEventFlyer(selectedEvent) }}
+                        style={styles.modalCoverImage}
+                      />
+                    </View>
 
-                    {/* Header buttons overlay */}
-                    <View style={styles.modalOverlayHeader}>
+                    {/* Header buttons overlay (Outside the swipable cover wrapper) */}
+                    <View style={[styles.modalOverlayHeader, { zIndex: 1000 }]}>
                       <TouchableOpacity
                         style={styles.circularBackBtn}
                         onPress={closeEventDetails}
@@ -1257,7 +1265,7 @@ export default function Events() {
                   left: 0,
                   right: 0,
                   height: SNAP_TOP,
-                  zIndex: 8,
+                  zIndex: 999,
                 }}
                 activeOpacity={1}
                 onPress={() => animateTo(SNAP_BOTTOM)}
@@ -1280,7 +1288,9 @@ export default function Events() {
               {...(!sheetExpanded ? panResponder.panHandlers : {})}
             >
               {/* Drag Handle Row */}
-              <View style={styles.modalDragHandleRow} {...panResponder.panHandlers}>
+              <View style={styles.modalDragHandleRow}
+
+              >
                 <View style={styles.modalDragHandle} />
               </View>
 
@@ -1303,7 +1313,7 @@ export default function Events() {
                       style={styles.expandedSheetCloseBtn}
                       onPress={() => animateTo(SNAP_BOTTOM)}
                     >
-                      <Ionicons name="chevron-down" size={20} color="rgba(255,255,255,0.6)" />
+                      {/* <Ionicons name="chevron-down" size={20} color="rgba(255,255,255,0.6)" /> */}
                     </TouchableOpacity>
                   </View>
 
@@ -1491,7 +1501,11 @@ export default function Events() {
                         <TouchableOpacity
                           style={styles.modalShareBtn}
                           activeOpacity={0.8}
-                          onPress={() => openShareModal(selectedEvent)}
+                          onPress={() => {
+                            console.log("DEBUG: Share button pressed! event:", selectedEvent);
+                            Alert.alert("Debug", "Share button pressed!");
+                            openShareModal(selectedEvent);
+                          }}
                         >
                           <Ionicons name="share-social" size={20} color="#000" />
                         </TouchableOpacity>
@@ -1501,6 +1515,152 @@ export default function Events() {
                 </>
               )}
             </Animated.View>
+
+            {/* CUSTOM SHARE BOTTOM VIEW OVERLAY (Avoiding Nested Modal Freezes) */}
+            {sharingEvent !== null && (
+              <View style={[StyleSheet.absoluteFillObject, { zIndex: 9998 }]}>
+                <TouchableOpacity
+                  style={[styles.optionsModalOverlay, { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
+                  activeOpacity={1}
+                  onPress={() => { setSharingEvent(null); setSelectedUserIds([]); }}
+                >
+                  <BlurView
+                    intensity={80}
+                    tint="dark"
+                    style={[styles.optionsModalContainer, { height: SCREEN_HEIGHT * 0.65, backgroundColor: 'rgba(15, 15, 20, 0.65)', overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
+                  >
+                    <TouchableOpacity activeOpacity={1} style={{ flex: 1, width: '100%' }}>
+                      {/* Drag Handle */}
+                      <View style={styles.shareSheetDragRow}>
+                        <View style={styles.shareSheetDragBar} />
+                      </View>
+
+                      {/* Search Row */}
+                      <View style={styles.shareSearchRow}>
+                        <View style={styles.shareSearchBarNew}>
+                          <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.4)" style={{ marginRight: 10 }} />
+                          <TextInput
+                            style={styles.shareSearchInputNew}
+                            placeholder="Search"
+                            placeholderTextColor="rgba(255,255,255,0.35)"
+                            value={shareSearchQuery}
+                            onChangeText={setShareSearchQuery}
+                          />
+                          {shareSearchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setShareSearchQuery('')}>
+                              <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.4)" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* Grid of Matches */}
+                      {loadingShareChats ? (
+                        <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 40 }} />
+                      ) : (
+                        <ScrollView
+                          showsVerticalScrollIndicator={false}
+                          contentContainerStyle={styles.shareGridContainer}
+                          style={{ flex: 1, width: '100%' }}
+                        >
+                          {(() => {
+                            const filtered = shareChats.filter(conv =>
+                              conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
+                            );
+                            if (filtered.length === 0) {
+                              return <Text style={styles.noChatsText}>No matches found.</Text>;
+                            }
+                            return (
+                              <View style={styles.shareGrid}>
+                                {filtered.map((conv: any) => {
+                                  const partner = conv.user;
+                                  if (!partner) return null;
+                                  const isSelected = selectedUserIds.includes(partner.user_id);
+                                  return (
+                                    <TouchableOpacity
+                                      key={partner.user_id}
+                                      style={styles.shareGridItem}
+                                      activeOpacity={0.7}
+                                      onPress={() => {
+                                        setSelectedUserIds(prev => {
+                                          if (isSelected) {
+                                            return prev.filter(id => id !== partner.user_id);
+                                          }
+                                          if (prev.length >= 5) {
+                                            Alert.alert('Limit Reached', 'You can share with up to 5 people at a time.');
+                                            return prev;
+                                          }
+                                          return [...prev, partner.user_id];
+                                        });
+                                      }}
+                                    >
+                                      <View style={styles.shareGridPfpWrap}>
+                                        <Image
+                                          source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
+                                          style={[
+                                            styles.shareGridPfp,
+                                            isSelected && styles.shareGridPfpSelected,
+                                          ]}
+                                        />
+                                        {isSelected && (
+                                          <View style={styles.shareGridCheckBadge}>
+                                            <Ionicons name="checkmark" size={12} color="#000" />
+                                          </View>
+                                        )}
+                                      </View>
+                                      <Text style={styles.shareGridName} numberOfLines={2}>
+                                        {partner.name}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            );
+                          })()}
+                        </ScrollView>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Fixed Bottom Bar */}
+                    <View style={styles.shareBottomBar}>
+                      {selectedUserIds.length > 0 ? (
+                        <TouchableOpacity
+                          style={styles.shareBottomSendBtn}
+                          activeOpacity={0.85}
+                          onPress={handleSendBulkDM}
+                          disabled={sendingBulk}
+                        >
+                          {sendingBulk ? (
+                            <ActivityIndicator color="#000" size="small" />
+                          ) : (
+                            <Text style={styles.shareBottomSendText}>
+                              Send to {selectedUserIds.length} {selectedUserIds.length === 1 ? 'person' : 'people'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.shareBottomActions}>
+                          <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleShareWhatsApp}>
+                            <View style={[styles.shareBottomIconCircle, { backgroundColor: '#25D366' }]}>
+                              <Ionicons name="logo-whatsapp" size={26} color="#FFF" />
+                            </View>
+                            <Text style={styles.shareBottomActionLabel}>WhatsApp</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleCopyLink}>
+                            <View style={[styles.shareBottomIconCircle, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                              <Ionicons name="link-outline" size={24} color="#FFF" />
+                            </View>
+                            <Text style={styles.shareBottomActionLabel}>Copy link</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  </BlurView>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {activeFullScreenPhoto !== null && (
               <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999, justifyContent: 'center', alignItems: 'center' }]}>
                 {/* Blur Backdrop */}
@@ -1534,154 +1694,6 @@ export default function Events() {
         )}
       </Modal>
 
-      {/* CUSTOM SHARE BOTTOM SHEET MODAL */}
-      <Modal
-        visible={sharingEvent !== null}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => { setSharingEvent(null); setSelectedUserIds([]); }}
-      >
-        <TouchableOpacity
-          style={[styles.optionsModalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
-          activeOpacity={1}
-          onPress={() => { setSharingEvent(null); setSelectedUserIds([]); }}
-        >
-          <BlurView
-            intensity={80}
-            tint="dark"
-            style={[styles.optionsModalContainer, { height: SCREEN_HEIGHT * 0.65, backgroundColor: 'rgba(15, 15, 20, 0.65)', overflow: 'hidden' }]}
-          >
-            <TouchableOpacity activeOpacity={1} style={{ flex: 1, width: '100%' }}>
-              {/* Drag Handle */}
-              <View style={styles.shareSheetDragRow}>
-                <View style={styles.shareSheetDragBar} />
-              </View>
-
-              {/* Search Row */}
-              <View style={styles.shareSearchRow}>
-                <View style={styles.shareSearchBarNew}>
-                  <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.4)" style={{ marginRight: 10 }} />
-                  <TextInput
-                    style={styles.shareSearchInputNew}
-                    placeholder="Search"
-                    placeholderTextColor="rgba(255,255,255,0.35)"
-                    value={shareSearchQuery}
-                    onChangeText={setShareSearchQuery}
-                  />
-                  {shareSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setShareSearchQuery('')}>
-                      <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.4)" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* Grid of Matches */}
-              {loadingShareChats ? (
-                <ActivityIndicator color="#C2FF3D" size="small" style={{ marginTop: 40 }} />
-              ) : (
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.shareGridContainer}
-                  style={{ flex: 1, width: '100%' }}
-                >
-                  {(() => {
-                    const filtered = shareChats.filter(conv =>
-                      conv.user?.name?.toLowerCase().includes(shareSearchQuery.toLowerCase())
-                    );
-                    if (filtered.length === 0) {
-                      return <Text style={styles.noChatsText}>No matches found.</Text>;
-                    }
-                    return (
-                      <View style={styles.shareGrid}>
-                        {filtered.map((conv: any) => {
-                          const partner = conv.user;
-                          if (!partner) return null;
-                          const isSelected = selectedUserIds.includes(partner.user_id);
-                          return (
-                            <TouchableOpacity
-                              key={partner.user_id}
-                              style={styles.shareGridItem}
-                              activeOpacity={0.7}
-                              onPress={() => {
-                                setSelectedUserIds(prev => {
-                                  if (isSelected) {
-                                    return prev.filter(id => id !== partner.user_id);
-                                  }
-                                  if (prev.length >= 5) {
-                                    Alert.alert('Limit Reached', 'You can share with up to 5 people at a time.');
-                                    return prev;
-                                  }
-                                  return [...prev, partner.user_id];
-                                });
-                              }}
-                            >
-                              <View style={styles.shareGridPfpWrap}>
-                                <Image
-                                  source={{ uri: partner.picture || (partner.photos && partner.photos[0]) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200' }}
-                                  style={[
-                                    styles.shareGridPfp,
-                                    isSelected && styles.shareGridPfpSelected,
-                                  ]}
-                                />
-                                {isSelected && (
-                                  <View style={styles.shareGridCheckBadge}>
-                                    <Ionicons name="checkmark" size={12} color="#000" />
-                                  </View>
-                                )}
-                              </View>
-                              <Text style={styles.shareGridName} numberOfLines={2}>
-                                {partner.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    );
-                  })()}
-                </ScrollView>
-              )}
-            </TouchableOpacity>
-
-            {/* Fixed Bottom Bar */}
-            <View style={styles.shareBottomBar}>
-              {selectedUserIds.length > 0 ? (
-                <TouchableOpacity
-                  style={styles.shareBottomSendBtn}
-                  activeOpacity={0.85}
-                  onPress={handleSendBulkDM}
-                  disabled={sendingBulk}
-                >
-                  {sendingBulk ? (
-                    <ActivityIndicator color="#000" size="small" />
-                  ) : (
-                    <Text style={styles.shareBottomSendText}>
-                      Send to {selectedUserIds.length} {selectedUserIds.length === 1 ? 'person' : 'people'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.shareBottomActions}>
-                  <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleShareWhatsApp}>
-                    <View style={[styles.shareBottomIconCircle, { backgroundColor: '#25D366' }]}>
-                      <Ionicons name="logo-whatsapp" size={26} color="#FFF" />
-                    </View>
-                    <Text style={styles.shareBottomActionLabel}>WhatsApp</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.shareBottomActionItem} activeOpacity={0.8} onPress={handleCopyLink}>
-                    <View style={[styles.shareBottomIconCircle, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-                      <Ionicons name="link-outline" size={24} color="#FFF" />
-                    </View>
-                    <Text style={styles.shareBottomActionLabel}>Copy link</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </BlurView>
-        </TouchableOpacity>
-      </Modal>
-
       {user && (
         <TouchableOpacity
           style={styles.fabBtn}
@@ -1704,369 +1716,369 @@ export default function Events() {
           style={{ flex: 1 }}
         >
           <View style={styles.detailsModalContainer}>
-          {/* Top-Left Dark Purple Glow Ball */}
-          <View style={styles.glowBallContainer}>
-            <LinearGradient
-              colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.8, y: 0.8 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </View>
-          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject}>
-            <SafeAreaView style={{ flex: 1 }}>
-              {/* Header */}
-              <View style={styles.detailsModalHeader}>
-                <TouchableOpacity
-                  style={styles.modalHeaderCloseBtn}
-                  onPress={() => setCreateModalVisible(false)}
-                >
-                  <Ionicons name="close" size={20} color="#FFF" />
-                </TouchableOpacity>
-                <Text style={styles.modalHeaderTitle}>Create New Event</Text>
-                <View style={{ width: 36 }} />
-              </View>
-
-              {/* Form Card */}
-              <View style={styles.modalCardWrapper}>
-                <BlurView intensity={65} tint="dark" style={styles.detailsGlassCard}>
-                  <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.modalCardScrollContent}
+            {/* Top-Left Dark Purple Glow Ball */}
+            <View style={styles.glowBallContainer}>
+              <LinearGradient
+                colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0.8, y: 0.8 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </View>
+            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject}>
+              <SafeAreaView style={{ flex: 1 }}>
+                {/* Header */}
+                <View style={styles.detailsModalHeader}>
+                  <TouchableOpacity
+                    style={styles.modalHeaderCloseBtn}
+                    onPress={() => setCreateModalVisible(false)}
                   >
-                    <View style={styles.modalDragHandleRow}>
-                      <View style={styles.modalDragHandle} />
-                    </View>
+                    <Ionicons name="close" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalHeaderTitle}>Create New Event</Text>
+                  <View style={{ width: 36 }} />
+                </View>
 
-                    <Text style={styles.inputLabel}>Event Title *</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Neon Dance Party"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formTitle}
-                      onChangeText={setFormTitle}
-                    />
+                {/* Form Card */}
+                <View style={styles.modalCardWrapper}>
+                  <BlurView intensity={65} tint="dark" style={styles.detailsGlassCard}>
+                    <ScrollView
+                      showsVerticalScrollIndicator={false}
+                      contentContainerStyle={styles.modalCardScrollContent}
+                    >
+                      <View style={styles.modalDragHandleRow}>
+                        <View style={styles.modalDragHandle} />
+                      </View>
 
-                    <Text style={styles.inputLabel}>Host Name *</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Student Council"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formHost}
-                      onChangeText={setFormHost}
-                    />
-
-                    <Text style={styles.inputLabel}>Category</Text>
-                    <View style={styles.formRow}>
-                      {['fest', 'party', 'workshop', 'trip', 'sports'].map((cat) => {
-                        const labelMap: { [key: string]: string } = {
-                          fest: 'CONCERT & FEST',
-                          party: 'PARTIES & CLUBBIN',
-                          workshop: 'WORKSHOP & TECH',
-                          trip: 'TRIPS',
-                          sports: 'SPORTS'
-                        };
-                        return (
-                          <TouchableOpacity
-                            key={cat}
-                            style={[
-                              styles.formCatBtn,
-                              formCategory === cat && styles.formCatBtnActive,
-                            ]}
-                            onPress={() => setFormCategory(cat)}
-                          >
-                            <Text
-                              style={[
-                                styles.formCatText,
-                                formCategory === cat && styles.formCatTextActive,
-                              ]}
-                            >
-                              {labelMap[cat] || cat.toUpperCase()}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    <Text style={styles.inputLabel}>Date & Time *</Text>
-                    {Platform.OS === 'web' ? (
+                      <Text style={styles.inputLabel}>Event Title *</Text>
                       <TextInput
                         style={styles.input}
-                        placeholder="e.g. 2026-07-15 18:00"
+                        placeholder="e.g. Neon Dance Party"
                         placeholderTextColor="rgba(255,255,255,0.3)"
-                        value={formDate}
-                        onChangeText={setFormDate}
+                        value={formTitle}
+                        onChangeText={setFormTitle}
                       />
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={[
-                            styles.input,
-                            {
-                              flexDirection: 'row',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              height: 50,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                          onPress={() => setShowDatePicker(true)}
-                        >
-                          <Text style={{ color: formDate ? '#FFF' : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-                            {formDate
-                              ? new Date(formDate).toLocaleString(undefined, {
+
+                      <Text style={styles.inputLabel}>Host Name *</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. Student Council"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formHost}
+                        onChangeText={setFormHost}
+                      />
+
+                      <Text style={styles.inputLabel}>Category</Text>
+                      <View style={styles.formRow}>
+                        {['fest', 'party', 'workshop', 'trip', 'sports'].map((cat) => {
+                          const labelMap: { [key: string]: string } = {
+                            fest: 'CONCERT & FEST',
+                            party: 'PARTIES & CLUBBIN',
+                            workshop: 'WORKSHOP & TECH',
+                            trip: 'TRIPS',
+                            sports: 'SPORTS'
+                          };
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              style={[
+                                styles.formCatBtn,
+                                formCategory === cat && styles.formCatBtnActive,
+                              ]}
+                              onPress={() => setFormCategory(cat)}
+                            >
+                              <Text
+                                style={[
+                                  styles.formCatText,
+                                  formCategory === cat && styles.formCatTextActive,
+                                ]}
+                              >
+                                {labelMap[cat] || cat.toUpperCase()}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      <Text style={styles.inputLabel}>Date & Time *</Text>
+                      {Platform.OS === 'web' ? (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 2026-07-15 18:00"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          value={formDate}
+                          onChangeText={setFormDate}
+                        />
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={[
+                              styles.input,
+                              {
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                height: 50,
+                              },
+                            ]}
+                            activeOpacity={0.7}
+                            onPress={() => setShowDatePicker(true)}
+                          >
+                            <Text style={{ color: formDate ? '#FFF' : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                              {formDate
+                                ? new Date(formDate).toLocaleString(undefined, {
                                   dateStyle: 'medium',
                                   timeStyle: 'short',
                                 })
-                              : 'Select Date & Time'}
-                          </Text>
-                          <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.5)" />
-                        </TouchableOpacity>
+                                : 'Select Date & Time'}
+                            </Text>
+                            <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.5)" />
+                          </TouchableOpacity>
 
-                        {showDatePicker && (
-                          Platform.OS === 'ios' ? (
-                            <Modal
-                              transparent={true}
-                              animationType="fade"
-                              visible={showDatePicker}
-                              onRequestClose={() => setShowDatePicker(false)}
-                            >
-                              <View style={styles.modalPickerBackdrop}>
-                                <View style={styles.modalPickerContainer}>
-                                  <View style={styles.modalPickerHeader}>
-                                    <Text style={styles.modalPickerHeaderTitle}>Select Date</Text>
-                                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                      <Text style={styles.modalPickerCloseText}>Done</Text>
+                          {showDatePicker && (
+                            Platform.OS === 'ios' ? (
+                              <Modal
+                                transparent={true}
+                                animationType="fade"
+                                visible={showDatePicker}
+                                onRequestClose={() => setShowDatePicker(false)}
+                              >
+                                <View style={styles.modalPickerBackdrop}>
+                                  <View style={styles.modalPickerContainer}>
+                                    <View style={styles.modalPickerHeader}>
+                                      <Text style={styles.modalPickerHeaderTitle}>Select Date</Text>
+                                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                        <Text style={styles.modalPickerCloseText}>Done</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                    <DateTimePicker
+                                      value={dateValue}
+                                      mode="date"
+                                      display="spinner"
+                                      themeVariant="dark"
+                                      textColor="#FFF"
+                                      onChange={(event, selectedDate) => {
+                                        if (selectedDate) {
+                                          const combinedDate = new Date(selectedDate);
+                                          combinedDate.setHours(dateValue.getHours());
+                                          combinedDate.setMinutes(dateValue.getMinutes());
+                                          setDateValue(combinedDate);
+                                          setFormDate(combinedDate.toISOString());
+                                        }
+                                      }}
+                                    />
+                                    <TouchableOpacity
+                                      style={styles.modalPickerConfirmBtn}
+                                      onPress={() => {
+                                        setShowDatePicker(false);
+                                        setShowTimePicker(true);
+                                      }}
+                                    >
+                                      <Text style={styles.modalPickerConfirmText}>Next: Select Time</Text>
                                     </TouchableOpacity>
                                   </View>
-                                  <DateTimePicker
-                                    value={dateValue}
-                                    mode="date"
-                                    display="spinner"
-                                    themeVariant="dark"
-                                    textColor="#FFF"
-                                    onChange={(event, selectedDate) => {
-                                      if (selectedDate) {
-                                        const combinedDate = new Date(selectedDate);
-                                        combinedDate.setHours(dateValue.getHours());
-                                        combinedDate.setMinutes(dateValue.getMinutes());
-                                        setDateValue(combinedDate);
-                                        setFormDate(combinedDate.toISOString());
-                                      }
-                                    }}
-                                  />
-                                  <TouchableOpacity 
-                                    style={styles.modalPickerConfirmBtn}
-                                    onPress={() => {
-                                      setShowDatePicker(false);
-                                      setShowTimePicker(true);
-                                    }}
-                                  >
-                                    <Text style={styles.modalPickerConfirmText}>Next: Select Time</Text>
-                                  </TouchableOpacity>
                                 </View>
-                              </View>
-                            </Modal>
-                          ) : (
-                            <DateTimePicker
-                              value={dateValue}
-                              mode="date"
-                              display="default"
-                              onChange={(event, selectedDate) => {
-                                setShowDatePicker(false);
-                                if (selectedDate) {
-                                  setDateValue(selectedDate);
-                                  setShowTimePicker(true);
-                                }
-                              }}
-                            />
-                          )
-                        )}
+                              </Modal>
+                            ) : (
+                              <DateTimePicker
+                                value={dateValue}
+                                mode="date"
+                                display="default"
+                                onChange={(event, selectedDate) => {
+                                  setShowDatePicker(false);
+                                  if (selectedDate) {
+                                    setDateValue(selectedDate);
+                                    setShowTimePicker(true);
+                                  }
+                                }}
+                              />
+                            )
+                          )}
 
-                        {showTimePicker && (
-                          Platform.OS === 'ios' ? (
-                            <Modal
-                              transparent={true}
-                              animationType="fade"
-                              visible={showTimePicker}
-                              onRequestClose={() => setShowTimePicker(false)}
-                            >
-                              <View style={styles.modalPickerBackdrop}>
-                                <View style={styles.modalPickerContainer}>
-                                  <View style={styles.modalPickerHeader}>
-                                    <Text style={styles.modalPickerHeaderTitle}>Select Time</Text>
-                                    <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                                      <Text style={styles.modalPickerCloseText}>Done</Text>
+                          {showTimePicker && (
+                            Platform.OS === 'ios' ? (
+                              <Modal
+                                transparent={true}
+                                animationType="fade"
+                                visible={showTimePicker}
+                                onRequestClose={() => setShowTimePicker(false)}
+                              >
+                                <View style={styles.modalPickerBackdrop}>
+                                  <View style={styles.modalPickerContainer}>
+                                    <View style={styles.modalPickerHeader}>
+                                      <Text style={styles.modalPickerHeaderTitle}>Select Time</Text>
+                                      <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                                        <Text style={styles.modalPickerCloseText}>Done</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                    <DateTimePicker
+                                      value={dateValue}
+                                      mode="time"
+                                      display="spinner"
+                                      is24Hour={true}
+                                      themeVariant="dark"
+                                      textColor="#FFF"
+                                      onChange={(event, selectedTime) => {
+                                        if (selectedTime) {
+                                          const combinedDate = new Date(dateValue);
+                                          combinedDate.setHours(selectedTime.getHours());
+                                          combinedDate.setMinutes(selectedTime.getMinutes());
+                                          setDateValue(combinedDate);
+                                          setFormDate(combinedDate.toISOString());
+                                        }
+                                      }}
+                                    />
+                                    <TouchableOpacity
+                                      style={styles.modalPickerConfirmBtn}
+                                      onPress={() => setShowTimePicker(false)}
+                                    >
+                                      <Text style={styles.modalPickerConfirmText}>Confirm Date & Time</Text>
                                     </TouchableOpacity>
                                   </View>
-                                  <DateTimePicker
-                                    value={dateValue}
-                                    mode="time"
-                                    display="spinner"
-                                    is24Hour={true}
-                                    themeVariant="dark"
-                                    textColor="#FFF"
-                                    onChange={(event, selectedTime) => {
-                                      if (selectedTime) {
-                                        const combinedDate = new Date(dateValue);
-                                        combinedDate.setHours(selectedTime.getHours());
-                                        combinedDate.setMinutes(selectedTime.getMinutes());
-                                        setDateValue(combinedDate);
-                                        setFormDate(combinedDate.toISOString());
-                                      }
-                                    }}
-                                  />
-                                  <TouchableOpacity 
-                                    style={styles.modalPickerConfirmBtn}
-                                    onPress={() => setShowTimePicker(false)}
-                                  >
-                                    <Text style={styles.modalPickerConfirmText}>Confirm Date & Time</Text>
-                                  </TouchableOpacity>
                                 </View>
-                              </View>
-                            </Modal>
-                          ) : (
-                            <DateTimePicker
-                              value={dateValue}
-                              mode="time"
-                              display="default"
-                              is24Hour={true}
-                              onChange={(event, selectedTime) => {
-                                setShowTimePicker(false);
-                                if (selectedTime) {
-                                  const combinedDate = new Date(dateValue);
-                                  combinedDate.setHours(selectedTime.getHours());
-                                  combinedDate.setMinutes(selectedTime.getMinutes());
-                                  setDateValue(combinedDate);
-                                  setFormDate(combinedDate.toISOString());
-                                }
-                              }}
-                            />
-                          )
-                        )}
-                      </>
-                    )}
+                              </Modal>
+                            ) : (
+                              <DateTimePicker
+                                value={dateValue}
+                                mode="time"
+                                display="default"
+                                is24Hour={true}
+                                onChange={(event, selectedTime) => {
+                                  setShowTimePicker(false);
+                                  if (selectedTime) {
+                                    const combinedDate = new Date(dateValue);
+                                    combinedDate.setHours(selectedTime.getHours());
+                                    combinedDate.setMinutes(selectedTime.getMinutes());
+                                    setDateValue(combinedDate);
+                                    setFormDate(combinedDate.toISOString());
+                                  }
+                                }}
+                              />
+                            )
+                          )}
+                        </>
+                      )}
 
-                    <Text style={styles.inputLabel}>Registration Link</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. https://forms.gle/... or website link"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formRegistrationLink}
-                      onChangeText={setFormRegistrationLink}
-                      autoCapitalize="none"
-                      keyboardType="url"
-                    />
+                      <Text style={styles.inputLabel}>Registration Link</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. https://forms.gle/... or website link"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formRegistrationLink}
+                        onChangeText={setFormRegistrationLink}
+                        autoCapitalize="none"
+                        keyboardType="url"
+                      />
 
-                    <Text style={styles.inputLabel}>Contact Email</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. contact@college.edu"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formContactEmail}
-                      onChangeText={setFormContactEmail}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                    />
+                      <Text style={styles.inputLabel}>Contact Email</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. contact@college.edu"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formContactEmail}
+                        onChangeText={setFormContactEmail}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                      />
 
-                    <Text style={styles.inputLabel}>Contact Phone Number</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. +91 98765 43210"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formContactPhone}
-                      onChangeText={setFormContactPhone}
-                      keyboardType="phone-pad"
-                    />
+                      <Text style={styles.inputLabel}>Contact Phone Number</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. +91 98765 43210"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formContactPhone}
+                        onChangeText={setFormContactPhone}
+                        keyboardType="phone-pad"
+                      />
 
-                    <Text style={styles.inputLabel}>Location *</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Main Auditorium, Campus"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formLocation}
-                      onChangeText={setFormLocation}
-                    />
+                      <Text style={styles.inputLabel}>Location *</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. Main Auditorium, Campus"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formLocation}
+                        onChangeText={setFormLocation}
+                      />
 
-                    <Text style={styles.inputLabel}>Description *</Text>
-                    <TextInput
-                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                      placeholder="Tell students about the event..."
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={formDescription}
-                      onChangeText={setFormDescription}
-                      multiline
-                      numberOfLines={4}
-                    />
+                      <Text style={styles.inputLabel}>Description *</Text>
+                      <TextInput
+                        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                        placeholder="Tell students about the event..."
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={formDescription}
+                        onChangeText={setFormDescription}
+                        multiline
+                        numberOfLines={4}
+                      />
 
-                    {/* Cover Image Picker */}
-                    <Text style={styles.inputLabel}>Cover Image</Text>
-                    {formCoverImage ? (
-                      <View style={{ position: 'relative' }}>
-                        <Image source={{ uri: formCoverImage }} style={styles.formImagePreview} />
-                        <TouchableOpacity
-                          style={[styles.galleryDeleteBtn, { top: 6, right: 6 }]}
-                          onPress={() => setFormCoverImage(null)}
-                        >
-                          <Ionicons name="close" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity style={styles.imagePickerBtn} onPress={pickCoverImage}>
-                        <Ionicons name="image-outline" size={20} color="#FFF" />
-                        <Text style={styles.imagePickerBtnText}>Event Flyer</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Gallery Photos Picker */}
-                    <Text style={styles.inputLabel}>Gallery Photos</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                      {formGalleryPhotos.map((photo, idx) => (
-                        <View key={idx} style={styles.galleryThumbWrapper}>
-                          <Image source={{ uri: photo }} style={styles.galleryThumb} />
+                      {/* Cover Image Picker */}
+                      <Text style={styles.inputLabel}>Cover Image</Text>
+                      {formCoverImage ? (
+                        <View style={{ position: 'relative' }}>
+                          <Image source={{ uri: formCoverImage }} style={styles.formImagePreview} />
                           <TouchableOpacity
-                            style={styles.galleryDeleteBtn}
-                            onPress={() => removeGalleryPhoto(idx)}
+                            style={[styles.galleryDeleteBtn, { top: 6, right: 6 }]}
+                            onPress={() => setFormCoverImage(null)}
                           >
-                            <Ionicons name="close" size={12} color="#FFF" />
+                            <Ionicons name="close" size={14} color="#FFF" />
                           </TouchableOpacity>
                         </View>
-                      ))}
-                    </View>
-                    <TouchableOpacity style={styles.imagePickerBtn} onPress={pickGalleryPhoto}>
-                      <Ionicons name="images-outline" size={20} color="#FFF" />
-                      <Text style={styles.imagePickerBtnText}>Add Gallery Photo</Text>
-                    </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity style={styles.imagePickerBtn} onPress={pickCoverImage}>
+                          <Ionicons name="image-outline" size={20} color="#FFF" />
+                          <Text style={styles.imagePickerBtnText}>Event Flyer</Text>
+                        </TouchableOpacity>
+                      )}
 
-                    {/* Submit Button */}
-                    <TouchableOpacity
-                      style={styles.submitBtn}
-                      activeOpacity={0.8}
-                      onPress={handleCreateEvent}
-                      disabled={creating}
-                    >
-                      <LinearGradient
-                        colors={['#C2FF3D', '#C2FF3D']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.submitGradient}
+                      {/* Gallery Photos Picker */}
+                      <Text style={styles.inputLabel}>Gallery Photos</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {formGalleryPhotos.map((photo, idx) => (
+                          <View key={idx} style={styles.galleryThumbWrapper}>
+                            <Image source={{ uri: photo }} style={styles.galleryThumb} />
+                            <TouchableOpacity
+                              style={styles.galleryDeleteBtn}
+                              onPress={() => removeGalleryPhoto(idx)}
+                            >
+                              <Ionicons name="close" size={12} color="#FFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                      <TouchableOpacity style={styles.imagePickerBtn} onPress={pickGalleryPhoto}>
+                        <Ionicons name="images-outline" size={20} color="#FFF" />
+                        <Text style={styles.imagePickerBtnText}>Add Gallery Photo</Text>
+                      </TouchableOpacity>
+
+                      {/* Submit Button */}
+                      <TouchableOpacity
+                        style={styles.submitBtn}
+                        activeOpacity={0.8}
+                        onPress={handleCreateEvent}
+                        disabled={creating}
                       >
-                        {creating ? (
-                          <ActivityIndicator color="#000" />
-                        ) : (
-                          <Text style={styles.submitBtnText}>Create Event</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <LinearGradient
+                          colors={['#C2FF3D', '#C2FF3D']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.submitGradient}
+                        >
+                          {creating ? (
+                            <ActivityIndicator color="#000" />
+                          ) : (
+                            <Text style={styles.submitBtnText}>Create Event</Text>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
 
-                  </ScrollView>
-                </BlurView>
-              </View>
-            </SafeAreaView>
-          </BlurView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+                    </ScrollView>
+                  </BlurView>
+                </View>
+              </SafeAreaView>
+            </BlurView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -3105,6 +3117,8 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 20 : 15,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
+    zIndex: 999,
+    elevation: 10,
   },
   thumbsContainer: {
     flexDirection: 'row',
