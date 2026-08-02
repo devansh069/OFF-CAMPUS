@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder, Linking } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder, Linking, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +75,7 @@ export default function CampusLive() {
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [swipedNotifId, setSwipedNotifId] = useState<string | null>(null);
   const unreadNotifCount = notifications.filter(n => !n.is_read).length;
 
   const toggleExpand = (id: string) => {
@@ -463,6 +464,20 @@ export default function CampusLive() {
       });
     } catch (e) {
       console.warn('[handleDeleteNotif Error]:', e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    // Optimistic UI update
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    if (sessionToken === 'dummy_token') return;
+    try {
+      await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/notifications/read-all`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+    } catch (e) {
+      console.warn('[handleMarkAllAsRead Error]:', e);
     }
   };
 
@@ -2964,27 +2979,35 @@ export default function CampusLive() {
           visible={upsellVisible}
           onClose={() => setUpsellVisible(false)}
           title={upsellTitle}
-          featureName={upsellFeature}
-        />
-
-        {/* Notifications Modal */}
+                  {/* Notifications Modal */}
         <Modal
           visible={showNotificationsModal}
           animationType="slide"
           onRequestClose={() => setShowNotificationsModal(false)}
         >
           <SafeAreaView style={styles.notifModalContainer}>
+            {/* Top-Left Dark Purple Glow Ball matching global page theme */}
+            <View style={styles.glowBallContainer} pointerEvents="none">
+              <LinearGradient
+                colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0.8, y: 0.8 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </View>
+
             <BlurView intensity={70} tint="dark" style={styles.notifModalHeaderBar}>
               <TouchableOpacity onPress={() => setShowNotificationsModal(false)} activeOpacity={0.8} style={styles.notifBackBtn}>
                 <Ionicons name="arrow-back" size={24} color="#FFF" />
               </TouchableOpacity>
               <Text style={styles.notifModalTitle}>Notifications</Text>
-              {unreadNotifCount > 0 && (
-                <View style={styles.notifHeaderBadge}>
-                  <Text style={styles.notifHeaderBadgeText}>{unreadNotifCount} New</Text>
-                </View>
-              )}
-              <View style={{ width: 40 }} />
+              <TouchableOpacity
+                onPress={handleMarkAllAsRead}
+                activeOpacity={0.7}
+                style={styles.notifMarkAllBtn}
+              >
+                <Text style={styles.notifMarkAllText}>Mark all</Text>
+              </TouchableOpacity>
             </BlurView>
 
             {notifications.length === 0 ? (
@@ -2994,20 +3017,25 @@ export default function CampusLive() {
                 <Text style={styles.notifEmptySub}>Likes and replies on your confessions will appear here</Text>
               </View>
             ) : (
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingVertical: 10 }}
-              >
-                {notifications.map((item) => (
-                  <NotificationRow
-                    key={item.notification_id}
-                    item={item}
-                    onRead={handleMarkNotifRead}
-                    onDelete={handleDeleteNotif}
-                    onPress={handleNotificationClick}
-                  />
-                ))}
-              </ScrollView>
+              <Pressable style={{ flex: 1 }} onPress={() => setSwipedNotifId(null)}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 10 }}
+                  onScrollBeginDrag={() => setSwipedNotifId(null)}
+                >
+                  {notifications.map((item) => (
+                    <NotificationRow
+                      key={item.notification_id}
+                      item={item}
+                      onRead={handleMarkNotifRead}
+                      onDelete={handleDeleteNotif}
+                      onPress={handleNotificationClick}
+                      swipedNotifId={swipedNotifId}
+                      setSwipedNotifId={setSwipedNotifId}
+                    />
+                  ))}
+                </ScrollView>
+              </Pressable>
             )}
           </SafeAreaView>
         </Modal>
@@ -3033,7 +3061,7 @@ export default function CampusLive() {
 }
 
 // Swipeable Notification Item Row
-const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
+const NotificationRow = ({ item, onRead, onDelete, onPress, swipedNotifId, setSwipedNotifId }) => {
   const panX = useRef(new Animated.Value(0)).current;
   const currentTranslateX = useRef(0);
 
@@ -3045,6 +3073,20 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
       panX.removeListener(listenerId);
     };
   }, []);
+
+  // Watch swipedNotifId to auto-close if another row is swiped or background is tapped
+  useEffect(() => {
+    if (swipedNotifId !== item.notification_id && currentTranslateX.current !== 0) {
+      Animated.spring(panX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 8
+      }).start(() => {
+        currentTranslateX.current = 0;
+      });
+    }
+  }, [swipedNotifId]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -3062,21 +3104,29 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
         panX.setValue(newX);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx < -50) {
+        if (gestureState.dx < -40) {
+          // Open swipe actions
           Animated.spring(panX, {
             toValue: -140,
             useNativeDriver: true,
-            bounciness: 4
+            tension: 40,
+            friction: 8
           }).start(() => {
             currentTranslateX.current = -140;
+            setSwipedNotifId(item.notification_id);
           });
         } else {
+          // Close swipe actions
           Animated.spring(panX, {
             toValue: 0,
             useNativeDriver: true,
-            bounciness: 4
+            tension: 40,
+            friction: 8
           }).start(() => {
             currentTranslateX.current = 0;
+            if (swipedNotifId === item.notification_id) {
+              setSwipedNotifId(null);
+            }
           });
         }
       }
@@ -3089,24 +3139,25 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
     <View style={styles.notifRowContainer}>
       {/* Action Buttons underneath */}
       <View style={styles.notifActionsBack}>
-        {!item.is_read && (
-          <TouchableOpacity
-            style={[styles.notifActionBtn, { backgroundColor: '#007AFF' }]}
-            onPress={() => {
-              Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
-              currentTranslateX.current = 0;
-              onRead(item.notification_id);
-            }}
-          >
-            <Ionicons name="checkmark-circle-outline" size={18} color="#FFF" />
-            <Text style={styles.notifActionText}>Read</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.notifActionBtn, { backgroundColor: '#007AFF' }, item.is_read && { opacity: 0.5 }]}
+          disabled={item.is_read}
+          onPress={() => {
+            Animated.spring(panX, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
+            currentTranslateX.current = 0;
+            setSwipedNotifId(null);
+            onRead(item.notification_id);
+          }}
+        >
+          <Ionicons name="checkmark-circle-outline" size={18} color="#FFF" />
+          <Text style={styles.notifActionText}>{item.is_read ? 'Read' : 'Mark Read'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.notifActionBtn, { backgroundColor: '#FF3B30' }]}
           onPress={() => {
-            Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
+            Animated.spring(panX, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
             currentTranslateX.current = 0;
+            setSwipedNotifId(null);
             onDelete(item.notification_id);
           }}
         >
@@ -3125,7 +3176,13 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
       >
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => onPress(item)}
+          onPress={() => {
+            if (swipedNotifId) {
+              setSwipedNotifId(null);
+            } else {
+              onPress(item);
+            }
+          }}
           style={styles.notifContentWrapper}
         >
           <Image
@@ -3141,14 +3198,6 @@ const NotificationRow = ({ item, onRead, onDelete, onPress }) => {
                 "{item.content}"
               </Text>
             </Text>
-          </View>
-
-          <View style={styles.notifIndicator}>
-            {isLike ? (
-              <Text style={{ fontSize: 16 }}>❤️</Text>
-            ) : (
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color="#C2FF3D" />
-            )}
           </View>
         </TouchableOpacity>
 
@@ -3186,7 +3235,7 @@ const styles = StyleSheet.create({
   },
   notifModalContainer: {
     flex: 1,
-    backgroundColor: '#0F0E17',
+    backgroundColor: '#000000',
   },
   notifModalHeaderBar: {
     flexDirection: 'row',
@@ -3205,16 +3254,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  notifHeaderBadge: {
-    backgroundColor: '#FF2D55',
+  notifMarkAllBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  notifHeaderBadgeText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '900',
+  notifMarkAllText: {
+    color: '#C2FF3D',
+    fontSize: 12,
+    fontWeight: '700',
   },
   notifEmptyState: {
     flex: 1,
@@ -3238,7 +3289,7 @@ const styles = StyleSheet.create({
   notifRowContainer: {
     width: '100%',
     height: 72,
-    backgroundColor: '#0F0E17',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
     position: 'relative',
@@ -3268,7 +3319,7 @@ const styles = StyleSheet.create({
   notifFront: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0F0E17',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

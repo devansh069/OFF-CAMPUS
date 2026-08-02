@@ -58,6 +58,7 @@ router.post('/discovery/handshake', authMiddleware, authController.sendHandshake
 
 // Notifications routes
 router.get('/notifications', authMiddleware, authController.getNotifications);
+router.patch('/notifications/read-all', authMiddleware, authController.markAllNotificationsRead);
 router.patch('/notifications/:id/read', authMiddleware, authController.markNotificationRead);
 router.delete('/notifications/:id', authMiddleware, authController.deleteNotification);
 

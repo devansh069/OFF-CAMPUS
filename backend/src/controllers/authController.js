@@ -1754,6 +1754,23 @@ exports.markNotificationRead = async (req, res) => {
   }
 };
 
+exports.markAllNotificationsRead = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const Notification = require('../models/Notification');
+
+    await Notification.update(
+      { is_read: true },
+      { where: { user_id: currentUserId, is_read: false } }
+    );
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[markAllNotificationsRead Error]:', error);
+    return res.status(500).json({ detail: 'Failed to mark all notifications read: ' + error.message });
+  }
+};
+
 exports.deleteNotification = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;

@@ -881,11 +881,11 @@ export default function Events() {
   };
 
   const categories = [
-    { key: 'party', label: 'parties and clubbin', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline' },
-    { key: 'fest', label: 'concerrt ad fest', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline' },
-    { key: 'workshop', label: 'workshop and tech', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline' },
-    { key: 'trip', label: 'trips', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline' },
-    { key: 'sports', label: 'sports', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline' },
+    { key: 'party', label: 'PARTIES AND\nCLUBBING', colors: ['#FF1B6B', '#FF7B00'], icon: 'wine-outline', image: require('../../assets/images/parties&clubbing.png'), activeColor: '#C084FC', iconWidth: 120, iconHeight: 120, iconTop: -45 },
+    { key: 'fest', label: 'CONCERT\nAND FEST', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline', image: require('../../assets/images/concert&fest.png'), activeColor: '#6366F1', iconWidth: 72, iconHeight: 72, iconTop: -25 },
+    { key: 'workshop', label: 'WORKSHOPS\nAND TECH', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline', image: require('../../assets/images/workshops&tech.png'), activeColor: '#F59E0B', iconWidth: 72, iconHeight: 72, iconTop: -25 },
+    { key: 'trip', label: 'TRIPS', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline', image: require('../../assets/images/trips.png'), activeColor: '#34D399', iconWidth: 96, iconHeight: 96, iconTop: -25 },
+    { key: 'sports', label: 'SPORTS', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline', image: require('../../assets/images/sports.png'), activeColor: '#FB923C', iconWidth: 96, iconHeight: 96, iconTop: -25 },
   ];
 
   const filtered = events.filter((e: any) => {
@@ -981,25 +981,35 @@ export default function Events() {
                     key={c.key}
                     style={[
                       styles.horizontalFilterPill,
-                      isSelected && styles.horizontalFilterPillActive
+                      isSelected ? { borderColor: c.activeColor, backgroundColor: 'rgba(255, 255, 255, 0.05)' } : null
                     ]}
                     activeOpacity={0.8}
                     onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
                   >
-                    <Ionicons
-                      name={c.icon as any}
-                      size={14}
-                      color={isSelected ? '#000' : 'rgba(255,255,255,0.7)'}
-                      style={{ marginRight: 6 }}
+                    <Image
+                      source={c.image}
+                      style={[
+                        styles.horizontalFilterIcon,
+                        {
+                          width: c.iconWidth,
+                          height: c.iconHeight,
+                          top: c.iconTop,
+                        }
+                      ]}
+                      resizeMode="contain"
                     />
                     <Text
                       style={[
                         styles.horizontalFilterText,
-                        isSelected && styles.horizontalFilterTextActive
+                        isSelected ? { color: c.activeColor, fontWeight: '800' } : null
                       ]}
+                      numberOfLines={2}
                     >
-                      {c.label}
+                      {c.label.toUpperCase()}
                     </Text>
+                    {isSelected && (
+                      <View style={[styles.activeIndicatorPill, { backgroundColor: c.activeColor }]} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -1232,7 +1242,7 @@ export default function Events() {
                 return (
                   <>
                     {/* Swipable cover image wrapper */}
-                    <View 
+                    <View
                       style={StyleSheet.absoluteFillObject}
                       {...panResponder.panHandlers}
                     >
@@ -2788,39 +2798,59 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Horizontal Category Filters
   horizontalFiltersScroll: {
-    marginVertical: 10,
-    maxHeight: 46,
+    marginTop: -16,
+    marginBottom: 14,
+    height: 165,
   },
   horizontalFiltersContainer: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 12,
     alignItems: 'center',
+    paddingTop: 48, // Create space for the larger overlapping icons sticking out the top
+    paddingBottom: 16, // Space for bottom indicator pill
   },
   horizontalFilterPill: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    width: 104,
+    height: 96,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+    paddingBottom: 14,
+    paddingHorizontal: 4,
+    overflow: 'visible', // Allows the icon to render outside the top border
   },
   horizontalFilterPillActive: {
-    backgroundColor: '#C2FF3D',
-    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  horizontalFilterIcon: {
+    position: 'absolute',
+    alignSelf: 'center',
   },
   horizontalFilterText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
     fontWeight: '700',
-    textTransform: 'capitalize',
+    textAlign: 'center',
+    lineHeight: 13,
+    textTransform: 'uppercase',
   },
   horizontalFilterTextActive: {
-    color: '#000',
+    color: '#FFF',
     fontWeight: '800',
+  },
+  activeIndicatorPill: {
+    position: 'absolute',
+    bottom: -6, // Centered indicator at the bottom edge
+    width: 22,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
   },
 
   // Top 5 Horizontal Event Cards
