@@ -791,7 +791,11 @@ exports.likeUser = async (req, res) => {
 
     const isPremium = currentUser ? currentUser.is_premium : false;
 
-    const todayDate = new Date().toISOString().split('T')[0]; // Resets at 00:00 UTC = 5:30 AM IST
+    // Daily reset shifted to 4:00 AM IST
+    const nowUtc = Date.now();
+    const nowIst = new Date(nowUtc + (5.5 * 60 * 60 * 1000));
+    const shiftedIst = new Date(nowIst.getTime() - (4 * 60 * 60 * 1000));
+    const todayDate = shiftedIst.toISOString().split('T')[0];
 
     let likesRemaining = null;
 
@@ -931,7 +935,11 @@ exports.getDailyLikesStatus = async (req, res) => {
       });
     }
 
-    const todayDate = new Date().toISOString().split('T')[0];
+    // Daily reset shifted to 4:00 AM IST
+    const nowUtc = Date.now();
+    const nowIst = new Date(nowUtc + (5.5 * 60 * 60 * 1000));
+    const shiftedIst = new Date(nowIst.getTime() - (4 * 60 * 60 * 1000));
+    const todayDate = shiftedIst.toISOString().split('T')[0];
     const record = await DailyLikeCount.findOne({
       where: { user_id: currentUserId, reset_date: todayDate }
     });

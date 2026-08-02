@@ -57,7 +57,7 @@ const MOCK_STORIES = [
 ];
 
 export default function CampusLive() {
-  const { user, sessionToken } = useAuth();
+  const { user, sessionToken, socket } = useAuth();
   const router = useRouter();
   const [confessions, setConfessions] = useState<any[]>([]);
   const [stories, setStories] = useState<any[]>([]);
@@ -327,69 +327,68 @@ export default function CampusLive() {
     }
   }, [user?.college_id]);
 
-  // Connect to socket.io on confessions screen for real-time stories
+  // Listen to socket.io events via global socket connection
   useEffect(() => {
-    if (sessionToken && sessionToken !== 'dummy_token') {
-      console.log('[Socket Stories] Connecting to socket.io...');
-      const socket = io(EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
-        transports: ['websocket'],
-        forceNew: true
-      });
+    if (!socket) return;
 
-      socket.on('connect', () => {
-        console.log('[Socket Stories] Connected, joining room:', user?.user_id);
-        socket.emit('join_room', user?.user_id);
-      });
+    const handleNewStory = (data: any) => {
+      console.log('[Socket Stories] Received new story:', data);
+      if (data.user_id !== user?.user_id) {
+        setStories(prev => {
+          const updated = [...prev];
+          const existingUserIdx = updated.findIndex(u => u.user_id === data.user_id);
+          const newStoryItem = {
+            story_id: data.story_id,
+            image: data.image,
+            caption: data.caption,
+            audience: data.audience,
+            views: data.views,
+            createdAt: data.createdAt
+          };
 
-      socket.on('new_story', (data: any) => {
-        console.log('[Socket Stories] Received new story:', data);
-        // If it's a story from another user, append to stories feed
-        if (data.user_id !== user?.user_id) {
-          setStories(prev => {
-            const updated = [...prev];
-            const existingUserIdx = updated.findIndex(u => u.user_id === data.user_id);
-            const newStoryItem = {
-              story_id: data.story_id,
-              image: data.image,
-              caption: data.caption,
-              audience: data.audience,
-              views: data.views,
-              createdAt: data.createdAt
-            };
-
-            if (existingUserIdx > -1) {
-              // Prevent duplicates
-              if (updated[existingUserIdx].stories.some((st: any) => st.story_id === data.story_id)) {
-                return prev;
-              }
-              updated[existingUserIdx] = {
-                ...updated[existingUserIdx],
-                has_unviewed: true,
-                stories: [...(updated[existingUserIdx].stories || []), newStoryItem]
-              };
-            } else {
-              updated.push({
-                user_id: data.user_id,
-                user_name: data.user_name,
-                user_picture: data.user_picture,
-                has_unviewed: true,
-                stories: [newStoryItem]
-              });
+          if (existingUserIdx > -1) {
+            // Prevent duplicates
+            if (updated[existingUserIdx].stories.some((st: any) => st.story_id === data.story_id)) {
+              return prev;
             }
-            return sortStoriesList(updated, user?.user_id);
-          });
+            updated[existingUserIdx] = {
+              ...updated[existingUserIdx],
+              has_unviewed: true,
+              stories: [...(updated[existingUserIdx].stories || []), newStoryItem]
+            };
+          } else {
+            updated.push({
+              user_id: data.user_id,
+              user_name: data.user_name,
+              user_picture: data.user_picture,
+              has_unviewed: true,
+              stories: [newStoryItem]
+            });
+          }
+          return sortStoriesList(updated, user?.user_id);
+        });
+      }
+    };
+
+    const handleNewNotification = (data: any) => {
+      console.log('[Socket Notification] Received new notification:', data);
+      setNotifications(prev => {
+        // Prevent duplicate notification objects
+        if (prev.some(n => n.notification_id === data.notification_id)) {
+          return prev;
         }
+        return [data, ...prev];
       });
+    };
 
-      socket.on('disconnect', () => {
-        console.log('[Socket Stories] Disconnected');
-      });
+    socket.on('new_story', handleNewStory);
+    socket.on('new_notification', handleNewNotification);
 
-      return () => {
-        socket.disconnect();
-      };
-    }
-  }, [sessionToken, user]);
+    return () => {
+      socket.off('new_story', handleNewStory);
+      socket.off('new_notification', handleNewNotification);
+    };
+  }, [socket, user]);
 
   const fetchAll = async () => {
     if (sessionToken === 'dummy_token') {
@@ -762,7 +761,16 @@ export default function CampusLive() {
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to post confession' }));
-        Alert.alert('Error', errorData.detail || 'Failed to post confession');
+        const detailMsg = errorData.detail || '';
+        if (detailMsg.includes('Inappropriate content detected') || detailMsg.includes('content moderation')) {
+          Alert.alert(
+            'Inappropriate Content Detected',
+            'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Error', detailMsg || 'Failed to post confession');
+        }
         setPosting(false);
         return;
       }
@@ -960,6 +968,9 @@ export default function CampusLive() {
       return;
     }
 
+    // Dismiss the selector sheet immediately so the global overlay loader is visible
+    closeAudienceModal(undefined, false);
+
     setPosting(true);
     try {
       if (sessionToken === 'dummy_token') {
@@ -1002,7 +1013,7 @@ export default function CampusLive() {
         });
 
         Alert.alert('Story posted!', 'Your story will be live for 24 hours');
-        closeAudienceModal();
+        setStoryImage(null);
         return;
       }
 
@@ -1015,22 +1026,32 @@ export default function CampusLive() {
       if (response.status === 403) {
         const errData = await response.json();
         if (errData.error === 'premium_required') {
-          closeAudienceModal(() => {
-            setShowBuyPremiumPopup(true);
-          }, false);
+          setStoryImage(null);
+          setShowBuyPremiumPopup(true);
           return;
         }
       }
 
-      if (!response.ok) throw new Error('Failed to post story');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to post story' }));
+        throw new Error(errorData.detail || 'Failed to post story');
+      }
       Alert.alert('Story posted!', 'Your story will be live for 24 hours');
-      closeAudienceModal(async () => {
-        await fetchAll();
-      });
-    } catch (e) {
+      setStoryImage(null);
+      await fetchAll();
+    } catch (e: any) {
       console.error(e);
-      closeAudienceModal();
-      Alert.alert('Error', 'Failed to upload story');
+      setStoryImage(null);
+      const errorMsg = e.message || '';
+      if (errorMsg.includes('Inappropriate content detected') || errorMsg.includes('content moderation')) {
+        Alert.alert(
+          'Inappropriate Content Detected',
+          'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to upload story');
+      }
     } finally {
       setPosting(false);
     }
@@ -2991,6 +3012,21 @@ export default function CampusLive() {
           </SafeAreaView>
         </Modal>
 
+        {/* GLOBAL FULL SCREEN POSTING LOADER OVERLAY */}
+        {posting && (
+          <Modal transparent={true} animationType="fade" visible={posting}>
+            <View style={styles.loaderOverlay}>
+              <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={styles.loaderCard}>
+                <ActivityIndicator size="large" color="#C2FF3D" style={{ marginBottom: 16 }} />
+                <Text style={styles.loaderText}>
+                  {storyImage ? 'Uploading Story...' : 'Posting Confession...'}
+                </Text>
+              </View>
+            </View>
+          </Modal>
+        )}
+
       </SafeAreaView>
     </View>
   );
@@ -4794,5 +4830,33 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     textAlign: 'center',
     marginTop: 30,
+  },
+  loaderOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  loaderCard: {
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: 'rgba(30, 22, 37, 0.95)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(157, 78, 221, 0.2)',
+    alignItems: 'center',
+    width: '80%',
+    maxWidth: 300,
+  },
+  loaderText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  loaderSubtext: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

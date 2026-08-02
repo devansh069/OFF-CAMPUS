@@ -502,10 +502,31 @@ export default function ProfileSetup() {
             console.warn('Failed to refresh user or fetch updated profile:', meError);
           }
         } else {
+          const errData = await response.json().catch(() => ({ detail: '' }));
+          const detailMsg = errData.detail || '';
+          if (detailMsg.includes('Inappropriate content detected') || detailMsg.includes('content moderation')) {
+            Alert.alert(
+              'Inappropriate Content Detected',
+              'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+              [{ text: 'OK' }]
+            );
+            setLoading(false);
+            return;
+          }
           console.warn(`Backend returned non-ok status: ${response.status}. Falling back to local success.`);
           isSuccess = true;
         }
-      } catch (fetchError) {
+      } catch (fetchError: any) {
+        const errorMsg = fetchError.message || '';
+        if (errorMsg.includes('Inappropriate content detected') || errorMsg.includes('content moderation')) {
+          Alert.alert(
+            'Inappropriate Content Detected',
+            'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
+        }
         console.warn('Backend update failed/timed out, falling back to local update:', fetchError);
         isSuccess = true;
       }
@@ -525,9 +546,18 @@ export default function ProfileSetup() {
       } else {
         Alert.alert('Error', 'Failed to update profile');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Something went wrong');
+      const errorMsg = error.message || '';
+      if (errorMsg.includes('Inappropriate content detected') || errorMsg.includes('content moderation')) {
+        Alert.alert(
+          'Inappropriate Content Detected',
+          'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }

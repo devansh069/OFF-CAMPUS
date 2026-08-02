@@ -22,7 +22,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import io from 'socket.io-client';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -443,7 +442,7 @@ function WhatsAppVoicePreviewBar({
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user, sessionToken } = useAuth();
+  const { user, sessionToken, socket } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<any[]>([]);
   const [otherUser, setOtherUser] = useState<any>(null);
@@ -827,22 +826,11 @@ export default function ChatScreen() {
     fetchMessages();
     fetchOtherUser();
 
-    if (sessionToken && sessionToken !== 'dummy_token') {
-      console.log('[Socket] Connecting to:', EXPO_PUBLIC_BACKEND_URL);
-      const socket = io(EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
-        transports: ['websocket'],
-        forceNew: true
-      });
-
+    if (socket) {
       socketRef.current = socket;
 
-      socket.on('connect', () => {
-        console.log('[Socket] Connected! Registering room for user:', user?.user_id);
-        socket.emit('join_room', user?.user_id);
-      });
-
-      socket.on('new_message', (newMessage: any) => {
-        console.log('[Socket] Received new message:', newMessage);
+      const handleNewMessage = (newMessage: any) => {
+        console.log('[Socket] Received new message in chat screen:', newMessage);
         // Only append messages from the current conversation partner
         if (newMessage.from_user_id === id) {
           setMessages(prev => {
@@ -854,17 +842,15 @@ export default function ChatScreen() {
           });
           setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
         }
-      });
+      };
 
-      socket.on('disconnect', () => {
-        console.log('[Socket] Disconnected');
-      });
+      socket.on('new_message', handleNewMessage);
 
       return () => {
-        socket.disconnect();
+        socket.off('new_message', handleNewMessage);
       };
     }
-  }, [id, sessionToken, user]);
+  }, [id, socket]);
 
   const fetchOtherUser = async () => {
     const fallbackUsers = [

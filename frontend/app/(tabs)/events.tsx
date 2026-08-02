@@ -249,7 +249,7 @@ const splitTitle = (title: string) => {
 };
 
 export default function Events() {
-  const { user, sessionToken } = useAuth();
+  const { user, sessionToken, socket } = useAuth();
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -627,6 +627,21 @@ export default function Events() {
   }, [sessionToken]);
 
   useEffect(() => {
+    if (socket) {
+      const handleNewEvent = (data: any) => {
+        console.log('[Socket Events Tab] Received new event, refreshing feed...', data);
+        fetchEvents();
+      };
+
+      socket.on('new_event', handleNewEvent);
+
+      return () => {
+        socket.off('new_event', handleNewEvent);
+      };
+    }
+  }, [socket]);
+
+  useEffect(() => {
     if (user) {
       if (user.name) setFormHost(user.name);
       if (user.email) setFormContactEmail(user.email);
@@ -744,7 +759,7 @@ export default function Events() {
         throw new Error(errData.detail || 'Failed to create event');
       }
 
-      alert('Event submitted successfully! It will be visible once approved by an administrator.');
+      Alert.alert('Success 🎉', 'Event submitted successfully! It will be visible once approved by an administrator.');
 
       // Reset form
       setFormTitle('');
@@ -763,7 +778,16 @@ export default function Events() {
       fetchEvents();
     } catch (e: any) {
       console.error(e);
-      alert(e.message || 'Failed to create event');
+      const errorMsg = e.message || '';
+      if (errorMsg.includes('Inappropriate content detected') || errorMsg.includes('content moderation')) {
+        Alert.alert(
+          'Inappropriate Content Detected',
+          'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to create event');
+      }
     } finally {
       setCreating(false);
     }
@@ -2079,6 +2103,19 @@ export default function Events() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* GLOBAL FULL SCREEN POSTING LOADER OVERLAY */}
+      {creating && (
+        <Modal transparent={true} animationType="fade" visible={creating}>
+          <View style={styles.loaderOverlay}>
+            <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <View style={styles.loaderCard}>
+              <ActivityIndicator size="large" color="#C2FF3D" style={{ marginBottom: 16 }} />
+              <Text style={styles.loaderText}>Uploading Event...</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -3489,5 +3526,33 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     textAlign: 'center',
     marginTop: 30,
+  },
+  loaderOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  loaderCard: {
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: 'rgba(30, 22, 37, 0.95)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(157, 78, 221, 0.2)',
+    alignItems: 'center',
+    width: '80%',
+    maxWidth: 300,
+  },
+  loaderText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  loaderSubtext: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

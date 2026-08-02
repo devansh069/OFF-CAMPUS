@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  Share,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -76,6 +77,30 @@ export default function Profile() {
       setCollege(data.college);
     } catch (error) {
       console.error('Error fetching college:', error);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!user?.is_premium) {
+      Alert.alert(
+        'Premium Feature 👑',
+        'Sharing your profile via link is a premium feature. Upgrade now to share your profile with students across all campuses!',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade to Premium', onPress: () => router.push('/premium') }
+        ]
+      );
+      return;
+    }
+
+    try {
+      const shareUrl = `https://offcampus.in/profile/${user.user_id}`;
+      await Share.share({
+        message: `Check out my profile on Off-Campus! 🎓✨\n\nSee it here: ${shareUrl}`,
+        url: shareUrl
+      });
+    } catch (e) {
+      console.error('[ShareProfile Error]:', e);
     }
   };
 
@@ -315,6 +340,9 @@ export default function Profile() {
               />
             </View>
             <View style={styles.headerRight}>
+              <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={handleShareProfile}>
+                <Ionicons name="share-social-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
               <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
                 <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
               </TouchableOpacity>

@@ -158,6 +158,11 @@ exports.createEvent = async (req, res) => {
       contact_phone
     });
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_event', newEvent.toJSON());
+    }
+
     return res.status(201).json({
       detail: 'Event created successfully and is pending administrator approval',
       event: newEvent

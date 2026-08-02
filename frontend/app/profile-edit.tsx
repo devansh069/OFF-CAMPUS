@@ -297,15 +297,25 @@ export default function ProfileEdit() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to update profile' }));
+        throw new Error(errorData.detail || 'Failed to update profile');
       }
 
       await refreshUser();
       Alert.alert('Saved! ✨', 'Your profile has been updated');
       router.back();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      Alert.alert('Error', 'Failed to update profile');
+      const errorMsg = e.message || '';
+      if (errorMsg.includes('Inappropriate content detected') || errorMsg.includes('content moderation')) {
+        Alert.alert(
+          'Inappropriate Content Detected',
+          'Our AI content filter flagged your image as inappropriate. Please upload a safe photo.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to update profile');
+      }
     } finally {
       setSaving(false);
     }

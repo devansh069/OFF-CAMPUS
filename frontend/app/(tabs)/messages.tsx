@@ -26,7 +26,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Messages() {
-  const { sessionToken, user } = useAuth();
+  const { sessionToken, user, socket } = useAuth();
   const router = useRouter();
   const [conversations, setConversations] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
@@ -439,13 +439,27 @@ export default function Messages() {
     fetchMatches();
     fetchStories();
     fetchMyChosenTags();
-    const interval = setInterval(() => {
-      fetchConversations();
-      fetchMatches();
-      fetchStories();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+
+    if (socket) {
+      const handleNewMessage = (newMessage: any) => {
+        console.log('[Socket Messages Tab] Received new message, refreshing conversations...', newMessage);
+        fetchConversations();
+      };
+
+      const handleNewStory = (storyData: any) => {
+        console.log('[Socket Messages Tab] Received new story, refreshing stories feed...', storyData);
+        fetchStories();
+      };
+
+      socket.on('new_message', handleNewMessage);
+      socket.on('new_story', handleNewStory);
+
+      return () => {
+        socket.off('new_message', handleNewMessage);
+        socket.off('new_story', handleNewStory);
+      };
+    }
+  }, [socket]);
 
   const fetchConversations = async () => {
     if (sessionToken === 'dummy_token') {

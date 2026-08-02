@@ -13,7 +13,8 @@ import {
   Modal,
   Switch,
   PanResponder,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -787,7 +788,7 @@ export default function Discover() {
           `Reason: "${user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}"\n\nPlease submit a valid photo of your ID card to unlock likes & profile visibility.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Verify ID', onPress: () => router.push('/profile-edit') }
+            { text: 'Verify ID', onPress: () => router.push('/onboarding/verification') }
           ]
         );
       } else if (user?.verification_status === 'pending') {
@@ -801,7 +802,7 @@ export default function Discover() {
           'You must verify your student profile before sending likes to anyone!',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Verify Now', onPress: () => router.push('/profile-edit') }
+            { text: 'Verify Now', onPress: () => router.push('/onboarding/verification') }
           ]
         );
       }
@@ -1351,23 +1352,23 @@ export default function Discover() {
           {/* Verification Status Warning Banner */}
           {user?.verification_status !== 'verified' && (
             <TouchableOpacity
-              style={styles.unverifiedBanner}
-              onPress={() => {
-                if (user?.verification_status === 'rejected') {
-                  Alert.alert(
-                    'Verification Rejected ❌',
-                    `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Verify ID', onPress: () => router.push('/profile-edit') }
-                    ]
-                  );
-                } else {
-                  router.push('/profile-edit');
-                }
-              }}
-              activeOpacity={0.85}
-            >
+               style={styles.unverifiedBanner}
+               onPress={() => {
+                 if (user?.verification_status === 'rejected') {
+                   Alert.alert(
+                     'Verification Rejected ❌',
+                     `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
+                     [
+                       { text: 'Cancel', style: 'cancel' },
+                       { text: 'Verify ID', onPress: () => router.push('/onboarding/verification') }
+                     ]
+                   );
+                 } else {
+                   router.push('/onboarding/verification');
+                 }
+               }}
+               activeOpacity={0.85}
+             >
               <BlurView intensity={80} tint="dark" style={styles.unverifiedBannerGlass}>
                 <Ionicons
                   name={user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}

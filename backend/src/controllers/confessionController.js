@@ -276,7 +276,7 @@ exports.likeConfession = async (req, res) => {
         if (confOwner && confOwner.user_id !== userId) {
           const Notification = require('../models/Notification');
           const notificationId = 'notif_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-          await Notification.create({
+          const notification = await Notification.create({
             notification_id: notificationId,
             user_id: confOwner.user_id,
             sender_id: userId,
@@ -284,6 +284,10 @@ exports.likeConfession = async (req, res) => {
             confession_id: id,
             content: confOwner.content
           });
+          const io = req.app.get('io');
+          if (io) {
+            io.to(confOwner.user_id).emit('new_notification', notification.toJSON());
+          }
         }
       } catch (notifErr) {
         console.error('[Confession Like Notification Error]:', notifErr);
@@ -404,7 +408,7 @@ exports.createComment = async (req, res) => {
       if (confOwner && confOwner.user_id !== userId) {
         const Notification = require('../models/Notification');
         const notificationId = 'notif_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-        await Notification.create({
+        const notification = await Notification.create({
           notification_id: notificationId,
           user_id: confOwner.user_id,
           sender_id: userId,
@@ -412,6 +416,10 @@ exports.createComment = async (req, res) => {
           confession_id: confessionId,
           content: content.trim()
         });
+        const io = req.app.get('io');
+        if (io) {
+          io.to(confOwner.user_id).emit('new_notification', notification.toJSON());
+        }
       }
     } catch (notifErr) {
       console.error('[Confession Comment Notification Error]:', notifErr);

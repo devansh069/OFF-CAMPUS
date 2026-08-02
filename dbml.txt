@@ -124,3 +124,28 @@ Running terminal commands:
 <USER_SETTINGS_CHANGE>
 The user changed setting `Model Selection` from None to Gemini 3.5 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
 </USER_SETTINGS_CHANGE>
+
+
+
+
+
+
+
+[12:20 pm, 30/07/2026] Krish: hot fix : events detils swipe 
+hot fix: share confession
+[12:20 pm, 30/07/2026] Krish: hot fix : add loader in posting story / confession
+[12:20 pm, 30/07/2026] Krish: Confesiion like nd comment notification ( whenver a user het like or comment on there confession they willl get a notiffication for that similar to tha )
+[12:20 pm, 30/07/2026] Krish: Share in dm too
+[12:20 pm, 30/07/2026] Krish: Profile share - premium
+[12:20 pm, 30/07/2026] Krish: Filters global or clg wise
+[12:20 pm, 30/07/2026] Krish: Notifications
+[12:20 pm, 30/07/2026] Krish: Master data
+[12:20 pm, 30/07/2026] Krish: 1. story hold pause skip issue 
+2. ⁠cover image (event flyer)
+[12:20 pm, 30/07/2026] Krish: Verificarion ( mail + otp )
+[12:20 pm, 30/07/2026] Krish: Spotify
+[12:20 pm, 30/07/2026] Krish: Paymebt on website
+[12:20 pm, 30/07/2026] Krish: Nsfw layer
+[12:20 pm, 30/07/2026] Krish: Events share
+[12:20 pm, 30/07/2026] Krish: Create account ( phone otp ) 
+If i link my account with my mail ( then i can login with mail too )

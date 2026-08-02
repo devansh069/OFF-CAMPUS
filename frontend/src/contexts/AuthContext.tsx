@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Platform, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import io from 'socket.io-client';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
@@ -59,6 +60,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   sessionToken: string | null;
   updateUser?: (updatedFields: Partial<User>) => void;
+  socket: any | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -253,6 +255,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   };
+  const [socket, setSocket] = useState<any>(null);
+
+  useEffect(() => {
+    if (user && sessionToken) {
+      console.log('[Global Socket] Connecting to:', EXPO_PUBLIC_BACKEND_URL);
+      const newSocket = io(EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
+        transports: ['websocket'],
+      });
+
+      newSocket.on('connect', () => {
+        console.log('[Global Socket] Connected! Joining room:', user.user_id);
+        newSocket.emit('join_room', user.user_id);
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('[Global Socket] Disconnected');
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        console.log('[Global Socket] Disconnecting...');
+        newSocket.disconnect();
+      };
+    } else {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    }
+  }, [user, sessionToken]);
+
   const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -331,7 +365,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, sessionToken, updateUser, socket }}>
       {children}
     </AuthContext.Provider>
   );
