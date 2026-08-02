@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -52,7 +52,6 @@ export default function ProfileEdit() {
   const { user, sessionToken, refreshUser } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'edit' | 'view'>('edit');
   
   // Fields state
   const [name, setName] = useState(user?.name || '');
@@ -321,20 +320,6 @@ export default function ProfileEdit() {
     }
   };
 
-  const getScrollableItems = () => {
-    return [
-      gender && { icon: 'person-outline', text: gender.toUpperCase() },
-      religion && { icon: 'heart-outline', text: religion },
-      drink && { icon: 'wine-outline', text: `Drinks: ${drink.toUpperCase()}` },
-      smoke && { icon: 'logo-no-smoking', text: `Smokes: ${smoke.toUpperCase()}` },
-      weed && { icon: 'leaf-outline', text: `Weed: ${weed.toUpperCase()}` },
-    ].filter(Boolean);
-  };
-
-  const getCollegeName = () => {
-    const selected = colleges.find(c => c.college_id === collegeId);
-    return selected ? selected.name : 'College Student';
-  };
 
   return (
     <SafeAreaView style={styles.c}>
@@ -345,33 +330,14 @@ export default function ProfileEdit() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={28} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headT}>Profile Center</Text>
+          <Text style={styles.headT}>Edit Profile</Text>
           <TouchableOpacity onPress={save} disabled={saving}>
             {saving ? <ActivityIndicator color="#C2FF3D" /> : <Text style={styles.save}>Save</Text>}
           </TouchableOpacity>
         </View>
 
-        {/* Tab Selection Navigation */}
-        <View style={styles.tabsRow}>
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'edit' && styles.tabButtonActive]} 
-            onPress={() => setActiveTab('edit')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'edit' && styles.tabButtonTextActive]}>Edit Profile</Text>
-            {activeTab === 'edit' && <View style={styles.tabIndicator} />}
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'view' && styles.tabButtonActive]} 
-            onPress={() => setActiveTab('view')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'view' && styles.tabButtonTextActive]}>View Profile</Text>
-            {activeTab === 'view' && <View style={styles.tabIndicator} />}
-          </TouchableOpacity>
-        </View>
-
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          {activeTab === 'edit' ? (
-            <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
+          <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
               
               {/* SECTION 1: BASICS */}
               <Text style={styles.sectionHeader}>Basics</Text>
@@ -633,144 +599,7 @@ export default function ProfileEdit() {
 
               <View style={{ height: 60 }} />
             </ScrollView>
-          ) : (
-            /* VIEW PROFILE TAB: Displaying profile card mockup dynamically */
-            <ScrollView contentContainerStyle={styles.viewContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
-              <View style={styles.profileCard}>
-                <View style={styles.mainPhotoCard}>
-                  {photos[0] ? (
-                    <Image
-                      source={{ uri: photos[0] }}
-                      style={StyleSheet.absoluteFillObject}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1A0F2A', alignItems: 'center', justifyContent: 'center' }]}>
-                      <Ionicons name="image-outline" size={60} color="rgba(255,255,255,0.1)" />
-                    </View>
-                  )}
-
-                  {/* Glass Details Card Overlay */}
-                  <BlurView intensity={80} tint="dark" style={styles.glassDetailsCard}>
-                    <View style={styles.profileDetails}>
-                      {/* Name & Age */}
-                      <View style={styles.cardNameRow}>
-                        <Text style={styles.cardName}>{name}, {age || '20'}</Text>
-                        {user?.verification_status === 'verified' && (
-                          <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" style={{ marginLeft: 6 }} />
-                        )}
-                        <View style={{ flex: 1 }} />
-                        <View style={styles.innovativeVibeBadge}>
-                          <Ionicons name="sparkles" size={13} color="#FFD700" />
-                          <Text style={styles.innovativeVibeText}>{(user?.vibe_score || 8.5).toFixed(1)}</Text>
-                        </View>
-                      </View>
-
-                      {/* College / Course / Year */}
-                      <View style={styles.cardCollegeRow}>
-                        <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
-                        <Text style={styles.cardCollegeText} numberOfLines={1}>
-                          {[getCollegeName(), course, year].filter(Boolean).join(' • ')}
-                        </Text>
-                      </View>
-
-                      {/* Bio */}
-                      {bio ? <Text style={styles.cardBio}>{bio}</Text> : null}
-
-                      {/* Characteristics Scrollable Row */}
-                      <View style={styles.scrollWrapper}>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.scrollContentContainer}
-                        >
-                          {getScrollableItems().map((item: any, idx: number) => (
-                            <React.Fragment key={idx}>
-                              <View style={styles.scrollItem}>
-                                <Ionicons name={item.icon} size={13} color="rgba(255, 255, 255, 0.7)" style={{ marginRight: 4 }} />
-                                <Text style={styles.scrollItemText}>{item.text}</Text>
-                              </View>
-                              {idx < getScrollableItems().length - 1 && (
-                                <View style={styles.scrollSeparator} />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </ScrollView>
-                      </View>
-
-                      {/* Interests / Tags */}
-                      {interests.length > 0 && (
-                        <View style={styles.cardTagsRow}>
-                          {interests.map((i: string) => (
-                            <View key={i} style={styles.cardTag}>
-                              <Text style={styles.cardTagText}>{i}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                  </BlurView>
-                </View>
-
-                {/* Spotify Card */}
-                <View style={styles.spotifyCard}>
-                  <View style={styles.spotifyHeader}>
-                    <MaterialCommunityIcons name="spotify" size={20} color="#1DB954" style={{ marginRight: 6 }} />
-                    <Text style={styles.spotifyCardTitle}>TOP SPOTIFY TRACKS</Text>
-                  </View>
-                  {(user?.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0) ? (
-                    user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
-                      const parts = track.split(' - ');
-                      return (
-                        <View key={idx} style={styles.spotifyTrackRow}>
-                          <Ionicons name="play" size={14} color="#C2FF3D" style={{ marginRight: 8 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.spotifyTrackName}>{parts[0]}</Text>
-                            <Text style={styles.spotifyArtistName}>{parts[1] || 'Spotify Connection'}</Text>
-                          </View>
-                        </View>
-                      );
-                    })
-                  ) : (
-                    ['Starboy - The Weeknd', 'Levitating - Dua Lipa', 'Peaches - Justin Bieber'].map((track, idx) => {
-                      const parts = track.split(' - ');
-                      return (
-                        <View key={idx} style={styles.spotifyTrackRow}>
-                          <Ionicons name="play" size={14} color="#C2FF3D" style={{ marginRight: 8 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.spotifyTrackName}>{parts[0]}</Text>
-                            <Text style={styles.spotifyArtistName}>{parts[1]}</Text>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-
-                {/* Secondary Photos & Prompts Section */}
-                {photos.slice(1).map((photoUri, index) => {
-                  const photoIndex = index + 1;
-                  const promptText = photoPrompts[photoIndex];
-
-                  return (
-                    <BlurView intensity={35} tint="dark" key={photoIndex} style={styles.secondaryPhotoCard}>
-                      {promptText && (
-                        <View style={styles.promptHeader}>
-                          <Text style={styles.promptQuestion}>MY PROMPT</Text>
-                          <Text style={styles.promptTitle}>{promptText}</Text>
-                        </View>
-                      )}
-                      <View style={styles.secondaryPhotoContainer}>
-                        <Image source={{ uri: photoUri }} style={styles.profilePhoto} />
-                      </View>
-                    </BlurView>
-                  );
-                })}
-              </View>
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          )}
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
 
         {/* Prompt Selection Modal */}
         {showPromptModal && (

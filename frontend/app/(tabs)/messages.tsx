@@ -14,6 +14,8 @@ import {
   Alert,
   Modal,
   Animated,
+  Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,14 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [swipedUserId, setSwipedUserId] = useState<string | null>(null);
+  const swipeableRefs = useRef<{ [key: string]: any }>({});
+
+  useEffect(() => {
+    if (swipedUserId === null) {
+      Object.values(swipeableRefs.current).forEach(ref => ref?.close());
+    }
+  }, [swipedUserId]);
 
   // Report Modal States
   const [showReportModal, setShowReportModal] = useState(false);
@@ -62,7 +72,7 @@ export default function Messages() {
   const [selectedAssignPartnerCurrentTag, setSelectedAssignPartnerCurrentTag] = useState<string | null>(null);
 
   // Filters State
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'colleges' | 'tags'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'colleges' | 'global' | 'tags'>('all');
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [showTagFilterDropdown, setShowTagFilterDropdown] = useState(false);
 
@@ -157,7 +167,7 @@ export default function Messages() {
   // Submit report to backend
   const handleReportSubmit = async () => {
     if (!reportTargetUserId) return;
-    
+
     let finalReason = selectedReason;
     if (selectedReason.startsWith('Other') && !customReason.trim()) {
       Alert.alert('Reason Required', 'Please type a reason for your report.');
@@ -206,14 +216,20 @@ export default function Messages() {
       <View style={styles.rightActionsContainer}>
         <TouchableOpacity
           style={[styles.actionButton, styles.unmatchButton]}
-          onPress={() => handleUnmatch(targetUser.user_id, targetUser.name)}
+          onPress={() => {
+            setSwipedUserId(null);
+            handleUnmatch(targetUser.user_id, targetUser.name);
+          }}
         >
           <Ionicons name="close-circle-outline" size={20} color="#FFF" />
           <Text style={styles.actionButtonText}>Unmatch</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.reportButton]}
-          onPress={() => handleReportPress(targetUser.user_id)}
+          onPress={() => {
+            setSwipedUserId(null);
+            handleReportPress(targetUser.user_id);
+          }}
         >
           <Ionicons name="flag-outline" size={20} color="#FFF" />
           <Text style={styles.actionButtonText}>Report</Text>
@@ -244,6 +260,12 @@ export default function Messages() {
       const data = await response.json();
       const tags = data.tags || [];
       setMyChosenTags(tags);
+      if (tags.length > 0) {
+        setAvailableTags(prev => {
+          const unique = new Set([...prev, ...tags]);
+          return Array.from(unique);
+        });
+      }
     } catch (e) {
       console.error('Error fetching chosen tags:', e);
     }
@@ -622,52 +644,180 @@ export default function Messages() {
         </View>
 
         {/* Filters Row */}
-        <View style={styles.filtersContainer}>
-          <TouchableOpacity
-            style={[styles.filterTab, selectedFilter === 'all' && styles.filterTabActive]}
-            onPress={() => {
-              setSelectedFilter('all');
-              setSelectedTagFilter(null);
-            }}
+        <View style={styles.filtersScrollWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersScrollContent}
           >
-            <Text style={[styles.filterTabText, selectedFilter === 'all' && styles.filterTabTextActive]}>All</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, selectedFilter === 'all' && styles.filterTabActive]}
+              onPress={() => {
+                setSelectedFilter('all');
+                setSelectedTagFilter(null);
+              }}
+            >
+              <Text style={[styles.filterTabText, selectedFilter === 'all' && styles.filterTabTextActive]}>All</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterTab, selectedFilter === 'colleges' && styles.filterTabActive]}
-            onPress={() => {
-              setSelectedFilter('colleges');
-              setSelectedTagFilter(null);
-            }}
-          >
-            <Text style={[styles.filterTabText, selectedFilter === 'colleges' && styles.filterTabTextActive]}>Colleges</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, selectedFilter === 'colleges' && styles.filterTabActive]}
+              onPress={() => {
+                setSelectedFilter('colleges');
+                setSelectedTagFilter(null);
+              }}
+            >
+              <Text style={[styles.filterTabText, selectedFilter === 'colleges' && styles.filterTabTextActive]}>My College</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterTab, selectedFilter === 'tags' && styles.filterTabActive]}
-            onPress={() => {
-              setSelectedFilter('tags');
-              setShowTagFilterDropdown(true);
-            }}
-          >
-            <Text style={[styles.filterTabText, selectedFilter === 'tags' && styles.filterTabTextActive]}>
-              {selectedTagFilter ? `Tag: ${selectedTagFilter}` : 'Tags'}
-            </Text>
-            <Ionicons name="chevron-down" size={12} color={selectedFilter === 'tags' ? '#C2FF3D' : 'rgba(255,255,255,0.4)'} style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, selectedFilter === 'global' && styles.filterTabActive]}
+              onPress={() => {
+                setSelectedFilter('global');
+                setSelectedTagFilter(null);
+              }}
+            >
+              <Text style={[styles.filterTabText, selectedFilter === 'global' && styles.filterTabTextActive]}>Global</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.manageTagsBtn}
-            onPress={() => setShowTagsSetupModal(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="settings-outline" size={14} color="#FFF" />
-            <Text style={styles.manageTagsBtnText}>Tags</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, selectedFilter === 'tags' && styles.filterTabActive]}
+              onPress={() => {
+                setSelectedFilter('tags');
+                setShowTagFilterDropdown(true);
+              }}
+            >
+              <Text style={[styles.filterTabText, selectedFilter === 'tags' && styles.filterTabTextActive]}>
+                {selectedTagFilter ? `Tag: ${selectedTagFilter}` : 'Tags'}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color={selectedFilter === 'tags' ? '#C2FF3D' : 'rgba(255,255,255,0.4)'} style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.manageTagsBtn}
+              onPress={() => setShowTagsSetupModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="settings-outline" size={14} color="#FFF" />
+              <Text style={styles.manageTagsBtnText}>Tags</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* Chats feed list */}
         {(() => {
+          const sortConversations = (arr: any[]) => {
+            return arr.sort((a, b) => {
+              const timeA = a.last_message?.created_at
+                ? new Date(a.last_message.created_at).getTime()
+                : new Date(a.created_at || a.matched_at || 0).getTime();
+              const timeB = b.last_message?.created_at
+                ? new Date(b.last_message.created_at).getTime()
+                : new Date(b.created_at || b.matched_at || 0).getTime();
+              return timeB - timeA;
+            });
+          };
+
+          const renderConversationRow = (conv: any) => {
+            const hasUnread = conv.unread_count > 0;
+            return (
+              <View key={conv.user.user_id}>
+                <Swipeable
+                  ref={(el) => {
+                    if (el) {
+                      swipeableRefs.current[conv.user.user_id] = el;
+                    } else {
+                      delete swipeableRefs.current[conv.user.user_id];
+                    }
+                  }}
+                  renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, conv.user)}
+                  containerStyle={styles.swipeContainer}
+                  onSwipeableWillOpen={() => {
+                    if (swipedUserId && swipedUserId !== conv.user.user_id) {
+                      swipeableRefs.current[swipedUserId]?.close();
+                    }
+                    setSwipedUserId(conv.user.user_id);
+                  }}
+                  onSwipeableClose={() => {
+                    if (swipedUserId === conv.user.user_id) {
+                      setSwipedUserId(null);
+                    }
+                  }}
+                >
+                  <TouchableOpacity
+                    style={styles.conversationItem}
+                    onPress={() => {
+                      if (swipedUserId) {
+                        setSwipedUserId(null);
+                      } else {
+                        router.push(`/chat/${conv.user.user_id}`);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.avatarWrapper}>
+                      <Image
+                        source={{
+                          uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
+                        }}
+                        style={styles.avatar}
+                      />
+                      {conv.user.is_on_campus && (
+                        <View style={styles.onlineBadge} />
+                      )}
+                    </View>
+                    <View style={styles.convInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.convName}>{conv.user.name}</Text>
+                        {conv.assigned_tag && (
+                          <View style={styles.assignedTagBadge}>
+                            <Text style={styles.assignedTagBadgeText}>{conv.assigned_tag}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.convPreviewRow}>
+                        <Text
+                          style={[
+                            styles.convMessage,
+                            hasUnread && styles.convMessageUnread
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {conv.last_message?.content || 'Say hi! 👋'}
+                        </Text>
+                        <Text style={styles.convDotSep}>•</Text>
+                        <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
+                          {conv.last_message?.created_at ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false }).replace('about', '').trim() : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      {hasUnread && (
+                        <View style={styles.unreadBadgeDot} />
+                      )}
+                      <TouchableOpacity
+                        style={styles.assignTagTriggerBtn}
+                        onPress={() => {
+                          if (swipedUserId) {
+                            setSwipedUserId(null);
+                          } else {
+                            setSelectedAssignPartnerId(conv.user.user_id);
+                            setSelectedAssignPartnerName(conv.user.name);
+                            setSelectedAssignPartnerCurrentTag(conv.assigned_tag || null);
+                            setShowAssignTagModal(true);
+                          }
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="pricetag-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </Swipeable>
+              </View>
+            );
+          };
+
           const filteredConversations = conversations.filter(conv => {
             const matchesSearch = conv.user.name.toLowerCase().includes(searchQuery.toLowerCase());
             if (!matchesSearch) return false;
@@ -675,12 +825,29 @@ export default function Messages() {
             if (selectedFilter === 'colleges') {
               return conv.user.college_id === user?.college_id;
             }
+            if (selectedFilter === 'global') {
+              return conv.user.college_id !== user?.college_id;
+            }
             if (selectedFilter === 'tags') {
               if (!selectedTagFilter) return true;
               return conv.assigned_tag === selectedTagFilter;
             }
             return true;
           });
+
+          const yourTurnList = sortConversations(
+            filteredConversations.filter(conv => {
+              const noMessage = !conv.last_message;
+              const lastIsTheirs = conv.last_message && conv.last_message.from_user_id !== user?.user_id;
+              return noMessage || lastIsTheirs;
+            })
+          );
+
+          const theirTurnList = sortConversations(
+            filteredConversations.filter(conv => {
+              return conv.last_message && conv.last_message.from_user_id === user?.user_id;
+            })
+          );
 
           return filteredConversations.length === 0 ? (
             <ScrollView
@@ -709,84 +876,29 @@ export default function Messages() {
               </View>
             </ScrollView>
           ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              contentContainerStyle={styles.glassListScrollContent}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
-            >
-              {filteredConversations.map((conv: any) => {
-                const hasUnread = conv.unread_count > 0;
-                return (
-                  <View key={conv.user.user_id}>
-                    <Swipeable
-                      renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, conv.user)}
-                      containerStyle={styles.swipeContainer}
-                    >
-                      <TouchableOpacity
-                        style={styles.conversationItem}
-                        onPress={() => router.push(`/chat/${conv.user.user_id}`)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.avatarWrapper}>
-                          <Image
-                            source={{
-                              uri: conv.user.photos?.[0] || conv.user.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAyIiBoZWlnaHQ9IjYwMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg=='
-                            }}
-                            style={styles.avatar}
-                          />
-                          {conv.user.is_on_campus && (
-                            <View style={styles.onlineBadge} />
-                          )}
-                        </View>
-                        <View style={styles.convInfo}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={styles.convName}>{conv.user.name}</Text>
-                            {conv.assigned_tag && (
-                              <View style={styles.assignedTagBadge}>
-                                <Text style={styles.assignedTagBadgeText}>{conv.assigned_tag}</Text>
-                              </View>
-                            )}
-                          </View>
-                          <View style={styles.convPreviewRow}>
-                            <Text
-                              style={[
-                                styles.convMessage,
-                                hasUnread && styles.convMessageUnread
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {conv.last_message?.content || 'Say hi! 👋'}
-                            </Text>
-                            <Text style={styles.convDotSep}>•</Text>
-                            <Text style={[styles.convTime, hasUnread && styles.convTimeUnread]}>
-                              {conv.last_message?.created_at ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false }).replace('about', '').trim() : ''}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          {hasUnread && (
-                            <View style={styles.unreadBadgeDot} />
-                          )}
-                          <TouchableOpacity
-                            style={styles.assignTagTriggerBtn}
-                            onPress={() => {
-                              setSelectedAssignPartnerId(conv.user.user_id);
-                              setSelectedAssignPartnerName(conv.user.name);
-                              setSelectedAssignPartnerCurrentTag(conv.assigned_tag || null);
-                              setShowAssignTagModal(true);
-                            }}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                          >
-                            <Ionicons name="pricetag-outline" size={16} color="rgba(255, 255, 255, 0.4)" />
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
-                    </Swipeable>
+            <Pressable style={{ flex: 1 }} onPress={() => setSwipedUserId(null)}>
+              <ScrollView
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                contentContainerStyle={styles.glassListScrollContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ee4d4d" />}
+                onScrollBeginDrag={() => setSwipedUserId(null)}
+              >
+                {yourTurnList.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.turnSectionHeader}>YOUR TURN</Text>
+                    {yourTurnList.map((conv: any) => renderConversationRow(conv))}
                   </View>
-                );
-              })}
-            </ScrollView>
+                )}
+
+                {theirTurnList.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.turnSectionHeader}>THEIR TURN</Text>
+                    {theirTurnList.map((conv: any) => renderConversationRow(conv))}
+                  </View>
+                )}
+              </ScrollView>
+            </Pressable>
           );
         })()}
       </SafeAreaView>
@@ -798,72 +910,77 @@ export default function Messages() {
         animationType="slide"
         onRequestClose={() => setShowReportModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Report User 🛡️</Text>
-              <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-              <Text style={styles.modalDesc}>
-                Help us keep Off-Campus safe. Tell us why you are reporting this user. They will be unmatched and blocked instantly.
-              </Text>
-
-              <Text style={styles.reasonLabel}>SELECT A REASON</Text>
-              {reportReasons.map((reason) => {
-                const isSelected = selectedReason === reason;
-                return (
-                  <TouchableOpacity
-                    key={reason}
-                    style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
-                    onPress={() => setSelectedReason(reason)}
-                  >
-                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                      {isSelected && <View style={styles.radioInner} />}
-                    </View>
-                    <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
-                      {reason}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-
-              <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
-              <TextInput
-                style={styles.reasonInput}
-                placeholder="Enter details here..."
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                multiline={true}
-                numberOfLines={4}
-                value={customReason}
-                onChangeText={setCustomReason}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setShowReportModal(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.submitBtn, submittingReport && { opacity: 0.5 }]}
-                  onPress={handleReportSubmit}
-                  disabled={submittingReport}
-                >
-                  {submittingReport ? (
-                    <ActivityIndicator color="#000" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>Submit Report</Text>
-                  )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Report User 🛡️</Text>
+                <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
-          </BlurView>
-        </View>
+
+              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+                <Text style={styles.modalDesc}>
+                  Help us keep Off-Campus safe. Tell us why you are reporting this user. They will be unmatched and blocked instantly.
+                </Text>
+
+                <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                {reportReasons.map((reason) => {
+                  const isSelected = selectedReason === reason;
+                  return (
+                    <TouchableOpacity
+                      key={reason}
+                      style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                      onPress={() => setSelectedReason(reason)}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                        {isSelected && <View style={styles.radioInner} />}
+                      </View>
+                      <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                        {reason}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder="Enter details here..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  multiline={true}
+                  numberOfLines={4}
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                />
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowReportModal(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submittingReport && { opacity: 0.5 }]}
+                    onPress={handleReportSubmit}
+                    disabled={submittingReport}
+                  >
+                    {submittingReport ? (
+                      <ActivityIndicator color="#000" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>Submit Report</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </BlurView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Tag Filter Dropdown Modal */}
@@ -932,100 +1049,119 @@ export default function Messages() {
         animationType="slide"
         onRequestClose={() => setShowTagsSetupModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>My Tags ✏️</Text>
-              <TouchableOpacity onPress={() => setShowTagsSetupModal(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-              <Text style={styles.modalDesc}>
-                Choose up to 5 tags to categorize your matches. You can assign one tag to each match later.
-              </Text>
-              <View style={styles.tagsCounterRow}>
-                <Text style={styles.tagsCounterText}>
-                  {myChosenTags.length}/5 selected
-                </Text>
-                <TouchableOpacity
-                  style={styles.addCustomTagIconBtn}
-                  onPress={() => setShowCustomInput(!showCustomInput)}
-                >
-                  <Ionicons name={showCustomInput ? 'close-circle' : 'add-circle'} size={24} color="#C2FF3D" />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <BlurView intensity={90} tint="dark" style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>My Tags </Text>
+                <TouchableOpacity onPress={() => setShowTagsSetupModal(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
-              {showCustomInput && (
-                <View style={styles.customTagInputRow}>
-                  <TextInput
-                    style={styles.customTagTextInput}
-                    placeholder="Type custom tag..."
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    value={newCustomTagText}
-                    onChangeText={setNewCustomTagText}
-                    maxLength={20}
-                  />
+              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+                <Text style={styles.modalDesc}>
+                  Choose up to 5 tags to categorize your matches. You can assign one tag to each match later.
+                </Text>
+                <View style={styles.tagsCounterRow}>
+                  <Text style={styles.tagsCounterText}>
+                    {myChosenTags.length}/5 selected
+                  </Text>
                   <TouchableOpacity
-                    style={[styles.addCustomTagBtn, !newCustomTagText.trim() && { opacity: 0.4 }]}
-                    disabled={!newCustomTagText.trim()}
-                    onPress={() => {
-                      const trimmed = newCustomTagText.trim().toLowerCase();
-                      if (trimmed && !availableTags.includes(trimmed)) {
-                        setAvailableTags(prev => [...prev, trimmed]);
-                      }
-                      if (trimmed && !myChosenTags.includes(trimmed) && myChosenTags.length < 5) {
-                        setMyChosenTags(prev => [...prev, trimmed]);
-                      }
-                      setNewCustomTagText('');
-                      setShowCustomInput(false);
-                    }}
+                    style={styles.addCustomTagIconBtn}
+                    onPress={() => setShowCustomInput(!showCustomInput)}
                   >
-                    <Text style={styles.addCustomTagBtnText}>Add</Text>
+                    <Ionicons name={showCustomInput ? 'close-circle' : 'add-circle'} size={24} color="#C2FF3D" />
                   </TouchableOpacity>
                 </View>
-              )}
-              <View style={styles.tagsSelectionGrid}>
-                {availableTags.map((tag) => {
-                  const isSelected = myChosenTags.includes(tag);
-                  return (
+                {showCustomInput && (
+                  <View style={styles.customTagInputRow}>
+                    <TextInput
+                      style={styles.customTagTextInput}
+                      placeholder="Type custom tag..."
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={newCustomTagText}
+                      onChangeText={setNewCustomTagText}
+                      maxLength={20}
+                    />
                     <TouchableOpacity
-                      key={tag}
-                      style={[styles.tagSelectBubble, isSelected && styles.tagSelectBubbleActive]}
+                      style={[styles.addCustomTagBtn, !newCustomTagText.trim() && { opacity: 0.4 }]}
+                      disabled={!newCustomTagText.trim()}
                       onPress={() => {
-                        if (isSelected) {
-                          setMyChosenTags(prev => prev.filter(t => t !== tag));
-                        } else if (myChosenTags.length < 5) {
-                          setMyChosenTags(prev => [...prev, tag]);
-                        } else {
-                          Alert.alert('Limit Reached', 'You can select up to 5 tags.');
+                        const trimmed = newCustomTagText.trim().toLowerCase();
+                        if (trimmed && !availableTags.includes(trimmed)) {
+                          setAvailableTags(prev => [...prev, trimmed]);
                         }
+                        if (trimmed && !myChosenTags.includes(trimmed) && myChosenTags.length < 5) {
+                          setMyChosenTags(prev => [...prev, trimmed]);
+                        }
+                        setNewCustomTagText('');
+                        setShowCustomInput(false);
                       }}
                     >
-                      <Text style={[styles.tagSelectBubbleText, isSelected && styles.tagSelectBubbleTextActive]}>
-                        {tag}
-                      </Text>
-                      {isSelected && <Ionicons name="checkmark" size={14} color="#000" style={{ marginLeft: 4 }} />}
+                      <Text style={styles.addCustomTagBtnText}>Add</Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setShowTagsSetupModal(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.submitBtn, { backgroundColor: '#C2FF3D' }]}
-                  onPress={() => handleSaveChosenTags(myChosenTags)}
-                >
-                  <Text style={[styles.submitBtnText, { color: '#000' }]}>Save Tags</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </BlurView>
-        </View>
+                  </View>
+                )}
+                <View style={styles.tagsSelectionGrid}>
+                  {availableTags.map((tag) => {
+                    const isSelected = myChosenTags.includes(tag);
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[styles.tagSelectBubble, isSelected && styles.tagSelectBubbleActive]}
+                        onPress={() => {
+                          if (isSelected) {
+                            setMyChosenTags(prev => prev.filter(t => t !== tag));
+                          } else if (myChosenTags.length < 5) {
+                            setMyChosenTags(prev => [...prev, tag]);
+                          } else {
+                            Alert.alert('Limit Reached', 'You can select up to 5 tags.');
+                          }
+                        }}
+                      >
+                        <Text style={[styles.tagSelectBubbleText, isSelected && styles.tagSelectBubbleTextActive]}>
+                          {tag}
+                        </Text>
+                        {isSelected ? (
+                          <Ionicons name="checkmark" size={14} color="#000" style={{ marginLeft: 4 }} />
+                        ) : (
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              setAvailableTags(prev => prev.filter(t => t !== tag));
+                              setMyChosenTags(prev => prev.filter(t => t !== tag));
+                            }}
+                            style={{ marginLeft: 6, padding: 2 }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="close" size={12} color="rgba(255,255,255,0.4)" />
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowTagsSetupModal(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, { backgroundColor: '#C2FF3D' }]}
+                    onPress={() => handleSaveChosenTags(myChosenTags)}
+                  >
+                    <Text style={[styles.submitBtnText, { color: '#000' }]}>Save Tags</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </BlurView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Assign Tag to Match Modal */}
@@ -1284,6 +1420,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.5,
   },
+  turnSectionHeader: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 8,
+  },
   searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.04)', marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)', height: 44 },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '500' },
@@ -1370,7 +1515,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
   },
-  filtersContainer: {
+  filtersScrollWrapper: {
+    width: '100%',
+  },
+  filtersScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

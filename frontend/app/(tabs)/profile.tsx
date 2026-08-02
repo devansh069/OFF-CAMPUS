@@ -33,6 +33,8 @@ export default function Profile() {
   const [college, setCollege] = useState<any>(user?.college || null);
   const [vibeModalVisible, setVibeModalVisible] = useState(false);
   const [vibeHistory, setVibeHistory] = useState<any[]>([]);
+  const [activeProfileTab, setActiveProfileTab] = useState<'view' | 'premium'>('view');
+  const [premiumLoading, setPremiumLoading] = useState(false);
 
   useEffect(() => {
     if (user?.college) {
@@ -109,6 +111,119 @@ export default function Profile() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: logout },
     ]);
+  };
+
+  const premiumFeatures = [
+    { icon: 'infinite-outline', text: 'Unlimited swiping & likes on Vibe deck', color: '#C2FF3D' },
+    { icon: 'eye-outline', text: 'See everyone who likes you in Likes page', color: '#FF6B9D' },
+    { icon: 'flash-outline', text: '2x Profile Visibility in campus recommendations', color: '#FFD700' },
+    { icon: 'refresh-outline', text: 'Revisit & rewind skipped profiles anytime', color: '#7C5CFC' },
+    { icon: 'globe-outline', text: 'Post stories to the Global campus feed', color: '#4FC3F7' },
+    { icon: 'school-outline', text: `All Access to all Delhi colleges (including ${college?.short_name || 'VIPS'}, IITD, LSR & more)`, color: '#FF8A65' },
+    { icon: 'shield-checkmark-outline', text: 'Priority support & verified premium badge', color: '#69F0AE' },
+  ];
+
+  const pricingPlans = [
+    { months: 1, price: 99, label: '1 Month', perMonth: 99 },
+    { months: 3, price: 249, label: '3 Months', perMonth: 83, bestValue: true },
+    { months: 6, price: 499, label: '6 Months', perMonth: 83 },
+    { months: 12, price: 699, label: '12 Months', perMonth: 58 },
+  ];
+
+  const [selectedPlan, setSelectedPlan] = useState(1);
+
+  const handlePremiumPayment = async (amount: number) => {
+    setPremiumLoading(true);
+    try {
+      if (sessionToken === 'dummy_token') {
+        Alert.alert('Demo Mode 👑', `Simulating ₹${amount} Premium Activation!`);
+        setPremiumLoading(false);
+        return;
+      }
+
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/payment/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ amount }),
+      });
+
+      if (!r.ok) {
+        const errData = await r.json();
+        Alert.alert('Payment Error', errData.detail || 'Failed to create payment order');
+        setPremiumLoading(false);
+        return;
+      }
+
+      const orderData = await r.json();
+      const { order_id, amount: orderAmount, key_id } = orderData;
+
+      if (Platform.OS === 'web') {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => {
+          const options = {
+            key: key_id,
+            amount: orderAmount,
+            currency: 'INR',
+            name: 'Off Campus Premium',
+            description: `Student Pass - ₹${amount}`,
+            order_id: order_id,
+            prefill: {
+              name: user?.name || '',
+              email: user?.email || '',
+              contact: user?.phone_number || ''
+            },
+            theme: { color: '#C2FF3D' },
+            handler: async (response: any) => {
+              await verifyPremiumPayment(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              );
+            },
+            modal: { ondismiss: () => setPremiumLoading(false) }
+          };
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+        };
+        document.body.appendChild(script);
+      } else {
+        const checkoutUrl = `${EXPO_PUBLIC_BACKEND_URL}/api/payment/checkout-page?order_id=${order_id}&key_id=${key_id}&amount=${orderAmount}&token=${sessionToken}`;
+        await WebBrowser.openBrowserAsync(checkoutUrl);
+        await refreshUser();
+        setPremiumLoading(false);
+      }
+    } catch (e: any) {
+      console.error('[Premium Payment Error]:', e);
+      Alert.alert('Error', e.message || 'Could not initiate payment');
+      setPremiumLoading(false);
+    }
+  };
+
+  const verifyPremiumPayment = async (orderId: string, paymentId: string, signature: string) => {
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/payment/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentId,
+          razorpay_signature: signature
+        })
+      });
+      const data = await r.json();
+      if (data.success || data.is_premium) {
+        await refreshUser();
+        Alert.alert('Welcome to Premium! 👑', 'Your Off Campus Student Pass is now active!');
+      } else {
+        Alert.alert('Verification Failed', data.detail || 'Could not verify payment');
+      }
+    } catch (e: any) {
+      console.error('[Verify Payment Error]:', e);
+      Alert.alert('Error', 'Payment verification failed');
+    } finally {
+      setPremiumLoading(false);
+    }
   };
 
   const addPhoto = async () => {
@@ -343,11 +458,8 @@ export default function Profile() {
               <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={handleShareProfile}>
                 <Ionicons name="share-social-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.settingsIcon, { marginRight: 10 }]} onPress={() => router.push('/settings')}>
+              <TouchableOpacity style={styles.settingsIcon} onPress={() => router.push('/settings')}>
                 <Ionicons name="settings-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.settingsIcon} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={22} color="rgba(255, 255, 255, 0.6)" />
               </TouchableOpacity>
             </View>
           </View>
@@ -401,6 +513,248 @@ export default function Profile() {
               <Ionicons name="pencil" size={12} color="#000" style={{ marginRight: 6 }} />
               <Text style={styles.editProfilePencilText}>Edit Profile</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Toggle Bar + Content Container */}
+          <View style={styles.toggleContentBox}>
+            {/* Toggle Bar */}
+            <View style={styles.toggleBarRow}>
+              <TouchableOpacity
+                style={[styles.toggleBarTab, activeProfileTab === 'view' && styles.toggleBarTabActive]}
+                onPress={() => setActiveProfileTab('view')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-outline" size={16} color={activeProfileTab === 'view' ? '#000' : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
+                <Text style={[styles.toggleBarTabText, activeProfileTab === 'view' && styles.toggleBarTabTextActive]}>View Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBarTab, activeProfileTab === 'premium' && styles.toggleBarTabActivePremium]}
+                onPress={() => setActiveProfileTab('premium')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="diamond-outline" size={16} color={activeProfileTab === 'premium' ? '#000' : '#FFD700'} style={{ marginRight: 6 }} />
+                <Text style={[styles.toggleBarTabText, activeProfileTab === 'premium' && styles.toggleBarTabTextActive]}>OutThere Plus</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Tab Content */}
+            <ScrollView
+              style={styles.toggleContentScroll}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
+              {activeProfileTab === 'view' ? (
+                /* VIEW PROFILE TAB */
+                <View style={styles.viewProfileContainer}>
+                  <View style={styles.previewProfileCard}>
+                    {/* Main Photo Card */}
+                    <View style={styles.previewMainPhoto}>
+                      {user.photos?.[0] ? (
+                        <Image
+                          source={{ uri: user.photos[0] }}
+                          style={StyleSheet.absoluteFillObject}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1A0F2A', alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="image-outline" size={60} color="rgba(255,255,255,0.1)" />
+                        </View>
+                      )}
+
+                      {/* Glass overlay at bottom */}
+                      <BlurView intensity={80} tint="dark" style={styles.previewGlassOverlay}>
+                        <View style={styles.previewDetailsInner}>
+                          <View style={styles.previewNameRow}>
+                            <Text style={styles.previewName}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
+                            {user.verification_status === 'verified' && (
+                              <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" style={{ marginLeft: 6 }} />
+                            )}
+                            <View style={{ flex: 1 }} />
+                            <View style={styles.previewVibeBadge}>
+                              <Ionicons name="sparkles" size={13} color="#FFD700" />
+                              <Text style={styles.previewVibeText}>{(user.vibe_score || 8.5).toFixed(1)}</Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.previewCollegeRow}>
+                            <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
+                            <Text style={styles.previewCollegeText} numberOfLines={1}>
+                              {college?.name || user?.college?.name || 'College Student'}
+                              {user.course ? ` • ${user.course}` : ''}
+                              {user.year ? ` • ${user.year}` : ''}
+                            </Text>
+                          </View>
+
+                          {user.bio ? <Text style={styles.previewBio}>{user.bio}</Text> : null}
+
+                          {/* Characteristics row */}
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewChipsRow}>
+                            {user.gender && (
+                              <View style={styles.previewChip}>
+                                <Ionicons name="person-outline" size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                                <Text style={styles.previewChipText}>{user.gender.toUpperCase()}</Text>
+                              </View>
+                            )}
+                            {user.religion && (
+                              <View style={styles.previewChip}>
+                                <Ionicons name="heart-outline" size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                                <Text style={styles.previewChipText}>{user.religion}</Text>
+                              </View>
+                            )}
+                            {user.drink && (
+                              <View style={styles.previewChip}>
+                                <Ionicons name="wine-outline" size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                                <Text style={styles.previewChipText}>Drinks: {user.drink.toUpperCase()}</Text>
+                              </View>
+                            )}
+                            {user.smoke && (
+                              <View style={styles.previewChip}>
+                                <Ionicons name="logo-no-smoking" size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                                <Text style={styles.previewChipText}>Smokes: {user.smoke.toUpperCase()}</Text>
+                              </View>
+                            )}
+                          </ScrollView>
+
+                          {/* Interest tags */}
+                          {user.interests && user.interests.length > 0 && (
+                            <View style={styles.previewTagsRow}>
+                              {user.interests.map((i: string) => (
+                                <View key={i} style={styles.previewTag}>
+                                  <Text style={styles.previewTagText}>{i}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      </BlurView>
+                    </View>
+
+                    {/* Spotify preview */}
+                    {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 && (
+                      <View style={styles.previewSpotifyCard}>
+                        <View style={styles.previewSpotifyHeader}>
+                          <MaterialCommunityIcons name="spotify" size={20} color="#1DB954" style={{ marginRight: 6 }} />
+                          <Text style={styles.previewSpotifyTitle}>TOP SPOTIFY TRACKS</Text>
+                        </View>
+                        {user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
+                          const parts = track.split(' - ');
+                          return (
+                            <View key={idx} style={styles.previewSpotifyTrackRow}>
+                              <Ionicons name="play" size={14} color="#C2FF3D" style={{ marginRight: 8 }} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.previewSpotifyTrackName}>{parts[0]}</Text>
+                                <Text style={styles.previewSpotifyArtistName}>{parts[1] || 'Spotify'}</Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+
+                    {/* Secondary Photos & Prompts */}
+                    {user.photos?.slice(1).map((photoUri: string, index: number) => {
+                      const photoIndex = index + 1;
+                      const promptText = user.prompts && typeof user.prompts === 'object' ? (user.prompts as any)[photoIndex] : null;
+                      return (
+                        <BlurView intensity={35} tint="dark" key={photoIndex} style={styles.previewSecondaryCard}>
+                          {promptText && (
+                            <View style={styles.previewPromptHeader}>
+                              <Text style={styles.previewPromptLabel}>MY PROMPT</Text>
+                              <Text style={styles.previewPromptText}>{promptText}</Text>
+                            </View>
+                          )}
+                          <View style={styles.previewSecondaryPhotoWrap}>
+                            <Image source={{ uri: photoUri }} style={styles.previewSecondaryPhoto} />
+                          </View>
+                        </BlurView>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                /* OUTTHERE PLUS PREMIUM TAB */
+                <View style={styles.premiumTabContainer}>
+                  {/* Premium Hero */}
+                  <View style={styles.premiumHero}>
+                    <LinearGradient colors={['#C2FF3D', '#76A30E']} style={styles.premiumDiamondCircle}>
+                      <Ionicons name="diamond" size={36} color="#000" />
+                    </LinearGradient>
+                    <Text style={styles.premiumHeroTitle}>OutThere Plus</Text>
+                    <Text style={styles.premiumHeroSub}>Unlock every feature. Stand out on campus.</Text>
+                  </View>
+
+                  {/* Features List */}
+                  <View style={styles.premiumFeaturesList}>
+                    {premiumFeatures.map((f, i) => (
+                      <View key={i} style={styles.premiumFeatureItem}>
+                        <View style={[styles.premiumFeatureIcon, { backgroundColor: `${f.color}15`, borderColor: `${f.color}40` }]}>
+                          <Ionicons name={f.icon as any} size={20} color={f.color} />
+                        </View>
+                        <Text style={styles.premiumFeatureText}>{f.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Pricing Cards - Horizontal Scroll */}
+                  <Text style={styles.pricingSectionTitle}>CHOOSE YOUR PLAN</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.pricingScrollContent}
+                  >
+                    {pricingPlans.map((plan, idx) => {
+                      const isSelected = selectedPlan === idx;
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.pricingCard,
+                            isSelected && styles.pricingCardSelected,
+                            plan.bestValue && styles.pricingCardBestValue,
+                          ]}
+                          onPress={() => setSelectedPlan(idx)}
+                          activeOpacity={0.85}
+                        >
+                          {plan.bestValue && (
+                            <View style={styles.bestValueBadge}>
+                              <Ionicons name="star" size={10} color="#000" />
+                              <Text style={styles.bestValueText}>BEST VALUE</Text>
+                            </View>
+                          )}
+                          <Text style={[styles.pricingMonths, isSelected && styles.pricingMonthsSelected]}>{plan.label}</Text>
+                          <Text style={[styles.pricingPrice, isSelected && styles.pricingPriceSelected]}>₹{plan.price}</Text>
+                          <Text style={styles.pricingPerMonth}>₹{plan.perMonth}/mo</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {/* Buy Button */}
+                  <TouchableOpacity
+                    style={styles.premiumBuyBtn}
+                    onPress={() => handlePremiumPayment(pricingPlans[selectedPlan].price)}
+                    disabled={premiumLoading || user?.is_premium}
+                    activeOpacity={0.9}
+                  >
+                    <LinearGradient colors={['#C2FF3D', '#9BDC20']} style={styles.premiumBuyBtnGrad}>
+                      {premiumLoading ? <ActivityIndicator color="#000" /> : (
+                        <>
+                          <Ionicons name="diamond" size={20} color="#000" />
+                          <Text style={styles.premiumBuyBtnText}>
+                            {user?.is_premium ? 'Already Premium ✨' : `Get OutThere Plus — ₹${pricingPlans[selectedPlan].price}`}
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <Text style={styles.premiumDisclaimer}>
+                    ⚡ Fast & Secure payment via Razorpay
+                  </Text>
+                </View>
+              )}
+              <View style={{ height: 16 }} />
+            </ScrollView>
           </View>
 
           <View style={styles.statsRow}>
@@ -483,21 +837,6 @@ export default function Profile() {
                 <View style={{ flex: 1, marginLeft: 14 }}>
                   <Text style={styles.cardTitle}>Refer Friends</Text>
                   <Text style={styles.cardSubtitle}>Spread the word & invite classmates!</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-              </View>
-            </TouchableOpacity>
-
-
-
-            <TouchableOpacity style={[styles.glassCardButton, styles.logoutCardButton]} onPress={handleLogout}>
-              <View style={styles.glassButtonContent}>
-                <View style={[styles.cardIconBox, styles.logoutIconBox]}>
-                  <Ionicons name="log-out-outline" size={20} color="#FF5252" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={[styles.cardTitle, { color: '#FF5252' }]}>Log Out</Text>
-                  <Text style={styles.cardSubtitle}>Sign out of your account</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
               </View>
@@ -1324,5 +1663,385 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10,
     marginTop: 4,
+  },
+
+  // Toggle Bar + Content Box
+  toggleContentBox: {
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 6,
+    height: 520,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    padding: 6,
+  },
+  toggleContentScroll: {
+    flex: 1,
+    marginTop: 6,
+  },
+  toggleBarRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  toggleBarTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  toggleBarTabActive: {
+    backgroundColor: '#C2FF3D',
+  },
+  toggleBarTabActivePremium: {
+    backgroundColor: '#FFD700',
+  },
+  toggleBarTabText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  toggleBarTabTextActive: {
+    color: '#000',
+  },
+
+  // View Profile Preview
+  viewProfileContainer: {
+    paddingHorizontal: 4,
+  },
+  previewProfileCard: {
+    backgroundColor: '#0F0817',
+    borderRadius: 28,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  previewMainPhoto: {
+    width: '100%',
+    height: 480,
+    position: 'relative',
+    justifyContent: 'flex-end',
+  },
+  previewGlassOverlay: {
+    padding: 18,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  previewDetailsInner: {
+    gap: 8,
+  },
+  previewNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewName: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  previewVibeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    gap: 4,
+  },
+  previewVibeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  previewCollegeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  previewCollegeText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  previewBio: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  previewChipsRow: {
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 6,
+  },
+  previewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewChipText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  previewTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  previewTag: {
+    backgroundColor: 'rgba(194, 255, 61, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.2)',
+  },
+  previewTagText: {
+    color: '#C2FF3D',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  previewSpotifyCard: {
+    backgroundColor: '#000000',
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#1DB954',
+    borderRadius: 20,
+    margin: 16,
+  },
+  previewSpotifyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  previewSpotifyTitle: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  previewSpotifyTrackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  previewSpotifyTrackName: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  previewSpotifyArtistName: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  previewSecondaryCard: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  previewPromptHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  previewPromptLabel: {
+    color: '#C2FF3D',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  previewPromptText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 6,
+    lineHeight: 22,
+  },
+  previewSecondaryPhotoWrap: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+  },
+  previewSecondaryPhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+
+  // OutThere Plus Premium Tab
+  premiumTabContainer: {
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  premiumHero: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  premiumDiamondCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  premiumHeroTitle: {
+    color: '#FFD700',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  premiumHeroSub: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 14,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  premiumFeaturesList: {
+    gap: 10,
+    marginBottom: 24,
+  },
+  premiumFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  premiumFeatureIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  premiumFeatureText: {
+    color: '#FFF',
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  pricingSectionTitle: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 14,
+  },
+  pricingScrollContent: {
+    gap: 12,
+    paddingRight: 4,
+  },
+  pricingCard: {
+    width: 130,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pricingCardSelected: {
+    borderColor: '#C2FF3D',
+    backgroundColor: 'rgba(194, 255, 61, 0.06)',
+  },
+  pricingCardBestValue: {
+    borderColor: '#FFD700',
+  },
+  bestValueBadge: {
+    position: 'absolute',
+    top: -10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  bestValueText: {
+    color: '#000',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  pricingMonths: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  pricingMonthsSelected: {
+    color: '#C2FF3D',
+  },
+  pricingPrice: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  pricingPriceSelected: {
+    color: '#C2FF3D',
+  },
+  pricingPerMonth: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  premiumBuyBtn: {
+    marginTop: 24,
+    borderRadius: 30,
+    overflow: 'hidden',
+  },
+  premiumBuyBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 18,
+  },
+  premiumBuyBtnText: {
+    color: '#000',
+    fontWeight: '900',
+    fontSize: 18,
+  },
+  premiumDisclaimer: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

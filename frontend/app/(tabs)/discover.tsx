@@ -914,11 +914,11 @@ export default function Discover() {
     const R = 6371; // Radius of the earth in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km
   };
 
@@ -993,7 +993,7 @@ export default function Discover() {
   const getCards = () => {
     if (!hasProfile || !currentProfile) return [];
     const list = [];
-    
+
     // 1. Main card (index 0)
     list.push({
       type: 'main',
@@ -1004,8 +1004,8 @@ export default function Discover() {
     let topTracks = [];
     try {
       if (currentProfile.spotify_data) {
-        const sData = typeof currentProfile.spotify_data === 'string' 
-          ? JSON.parse(currentProfile.spotify_data) 
+        const sData = typeof currentProfile.spotify_data === 'string'
+          ? JSON.parse(currentProfile.spotify_data)
           : currentProfile.spotify_data;
         if (sData && sData.top_tracks) {
           topTracks = sData.top_tracks;
@@ -1050,618 +1050,618 @@ export default function Discover() {
         />
       </View>
 
-        {/* Profiles Container / Card stack */}
-        {hasProfile ? (
-          <View style={styles.cardWrapper}>
-            <Animated.View style={[styles.cardContainer, { transform: [{ translateX: slideAnim }] }]}>
-              <View 
-                style={styles.profileCard}
-                onLayout={(e) => {
-                  const { height } = e.nativeEvent.layout;
-                  if (height > 0) {
-                    setCardHeight(height);
-                  }
-                }}
-              >
-                <Animated.ScrollView
-                  ref={scrollViewRef}
-                  style={styles.profileScrollView}
-                  contentContainerStyle={{ height: cards.length * cardHeight }}
-                  showsVerticalScrollIndicator={false}
-                  pagingEnabled={true}
-                  decelerationRate="fast"
-                  scrollEventThrottle={8}
-                  onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                    { useNativeDriver: true }
-                  )}
-                >
-                  {cards.map((card, i) => {
-                    const translateY = scrollY.interpolate({
-                      inputRange: [
-                        (i - 1) * cardHeight,
-                        i * cardHeight,
-                        i * cardHeight + 1
-                      ],
-                      outputRange: [0, 0, 1],
-                      extrapolateLeft: 'clamp'
-                    });
-
-                    const scale = scrollY.interpolate({
-                      inputRange: [
-                        i * cardHeight,
-                        (i + 1) * cardHeight
-                      ],
-                      outputRange: [1, 0.98],
-                      extrapolate: 'clamp'
-                    });
-
-                    const opacity = scrollY.interpolate({
-                      inputRange: [
-                        i * cardHeight,
-                        (i + 1) * cardHeight
-                      ],
-                      outputRange: [1, 0.85],
-                      extrapolate: 'clamp'
-                    });
-
-                    return (
-                      <Animated.View
-                        key={i}
-                        style={[
-                          styles.animatedCardItem,
-                          {
-                            height: cardHeight,
-                            zIndex: i,
-                            transform: [{ translateY }, { scale }],
-                            opacity: opacity,
-                          }
-                        ]}
-                      >
-                        {card.type === 'main' && (
-                          <View style={styles.mainCardInner}>
-                            <Image
-                              source={{ uri: getBWPhotoUrl(card.photo) }}
-                              style={StyleSheet.absoluteFillObject}
-                              resizeMode="cover"
-                            />
-                            
-                            {/* Glass Details Card Overlay */}
-                            <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.glassDetailsCard}>
-                              <View style={styles.profileDetails}>
-                                {/* Name & Age Row */}
-                                <View style={[styles.cardNameRow, { justifyContent: 'space-between' }]}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
-                                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">
-                                      {currentProfile.name}, {currentProfile.age}
-                                    </Text>
-                                    {currentProfile.verification_status === 'verified' && (
-                                      <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6, flexShrink: 0 }} />
-                                    )}
-                                  </View>
-                                  <View style={[styles.innovativeVibeBadge, { flexShrink: 0 }]}>
-                                    <Ionicons name="sparkles" size={13} color="#FFD700" />
-                                    <Text style={styles.innovativeVibeText}>{currentProfile.vibe_score?.toFixed(1)}</Text>
-                                  </View>
-                                </View>
-
-                                {/* College / Course / Year */}
-                                <View style={styles.cardCollegeRow}>
-                                  <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
-                                  <Text style={styles.cardCollegeText}>
-                                    {[
-                                      getCollegeName(currentProfile),
-                                      currentProfile.course,
-                                      currentProfile.year
-                                    ].filter(Boolean).join(' • ')}
-                                  </Text>
-                                </View>
-
-                                {/* Bio */}
-                                {currentProfile.bio && <Text style={styles.cardBio}>{currentProfile.bio}</Text>}
-
-                                {/* Characteristics Scrollable Row */}
-                                <View style={styles.scrollWrapper}>
-                                  <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.scrollContentContainer}
-                                  >
-                                    {getScrollableItems(currentProfile).map((item, idx) => (
-                                      <React.Fragment key={idx}>
-                                        <View style={styles.scrollItem}>
-                                          <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
-                                          <Text style={styles.scrollItemText}>{item.text}</Text>
-                                        </View>
-                                        {idx < getScrollableItems(currentProfile).length - 1 && (
-                                          <View style={styles.scrollSeparator} />
-                                        )}
-                                      </React.Fragment>
-                                    ))}
-                                  </ScrollView>
-                                </View>
-
-                                {/* Interests / Tags */}
-                                {currentProfile.interests?.length > 0 && (
-                                  <View style={styles.cardTagsRow}>
-                                    {currentProfile.interests.map((interest: string) => (
-                                      <View key={interest} style={styles.cardTag}>
-                                        <Text style={styles.cardTagText}>{interest}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                )}
-                              </View>
-                            </BlurView>
-                          </View>
-                        )}
-
-                        {card.type === 'spotify' && (
-                          <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight, padding: 24 }]}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                              <MaterialCommunityIcons name="spotify" size={26} color="#1DB954" style={{ marginRight: 8 }} />
-                              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>My Spotify Vibe</Text>
-                            </View>
-                            
-                            <View style={{ gap: 16, flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
-                              {card.tracks.slice(0, 3).map((track: any, idx: number) => (
-                                <View key={idx} style={styles.spotifyTrackRow}>
-                                  <Text style={styles.trackIndex}>{idx + 1}</Text>
-                                  <View style={styles.trackArt}>
-                                    <Ionicons name="musical-note" size={14} color="#1DB954" />
-                                  </View>
-                                  <View style={styles.spotifyTrackInfo}>
-                                    <Text style={styles.spotifyTrackName} numberOfLines={1}>{track.name}</Text>
-                                    <Text style={styles.spotifyArtistName} numberOfLines={1}>{track.artist}</Text>
-                                  </View>
-                                  <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
-                                </View>
-                              ))}
-                            </View>
-                          </BlurView>
-                        )}
-
-                        {card.type === 'secondary' && (
-                          <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight }]}>
-                            {card.prompt ? (
-                              <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
-                                {/* Prompt text at the top (Hinge style) */}
-                                <View style={{ marginTop: 10 }}>
-                                  <Text style={styles.promptQuestion}>My Answer to</Text>
-                                  <Text style={styles.promptTitle}>{card.prompt.title}</Text>
-                                </View>
-
-                                {/* Photo with rounded frame below the prompt text */}
-                                <View style={styles.hingePhotoContainer}>
-                                  <Image source={{ uri: card.photo }} style={styles.hingePhoto} />
-                                </View>
-                              </View>
-                            ) : (
-                              <View style={{ flex: 1 }}>
-                                <Image source={{ uri: card.photo }} style={styles.profilePhoto} />
-                              </View>
-                            )}
-                          </BlurView>
-                        )}
-                      </Animated.View>
-                    );
-                  })}
-                </Animated.ScrollView>
-              </View>
-            </Animated.View>
-
-            {/* Floating Daily Likes Counter Pill */}
-            {!user?.is_premium && (
-              <TouchableOpacity
-                style={styles.dailyLikesPill}
-                onPress={() => {
-                  setUpsellTitle('Daily Free Likes Limit ⚡');
-                  setUpsellFeature('6 Likes Daily Limit');
-                  setUpsellVisible(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="sparkles" size={12} color="#C2FF3D" />
-                <Text style={styles.dailyLikesPillText}>
-                  {likesRemaining > 0 ? `${likesRemaining}/6 Free Likes Left` : '0 Free Likes Left — Get Premium'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Floating Action Overlay Buttons */}
-            <View style={styles.floatingActionsContainer}>
-              {user?.is_premium && (
-                <TouchableOpacity
-                  style={[styles.floatingBtn, styles.floatingRewind]}
-                  onPress={handleRewindSkipped}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="refresh" size={22} color="#FFD700" />
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={[styles.floatingBtn, styles.floatingNope]}
-                onPress={() => handlePassAndNext(currentProfile.user_id)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close" size={24} color="#FF453A" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.floatingBtn, styles.floatingLike]}
-                onPress={() => handleLikeAndNext(currentProfile.user_id)}
-                activeOpacity={0.8}
-              >
-                {fromNearby ? (
-                  <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
-                ) : (
-                  <Ionicons name="heart" size={24} color="#C2FF3D" />
+      {/* Profiles Container / Card stack */}
+      {hasProfile ? (
+        <View style={styles.cardWrapper}>
+          <Animated.View style={[styles.cardContainer, { transform: [{ translateX: slideAnim }] }]}>
+            <View
+              style={styles.profileCard}
+              onLayout={(e) => {
+                const { height } = e.nativeEvent.layout;
+                if (height > 0) {
+                  setCardHeight(height);
+                }
+              }}
+            >
+              <Animated.ScrollView
+                ref={scrollViewRef}
+                style={styles.profileScrollView}
+                contentContainerStyle={{ height: cards.length * cardHeight }}
+                showsVerticalScrollIndicator={false}
+                pagingEnabled={true}
+                decelerationRate="fast"
+                scrollEventThrottle={8}
+                onScroll={Animated.event(
+                  [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                  { useNativeDriver: true }
                 )}
-              </TouchableOpacity>
+              >
+                {cards.map((card, i) => {
+                  const translateY = scrollY.interpolate({
+                    inputRange: [
+                      (i - 1) * cardHeight,
+                      i * cardHeight,
+                      i * cardHeight + 1
+                    ],
+                    outputRange: [0, 0, 1],
+                    extrapolateLeft: 'clamp'
+                  });
+
+                  const scale = scrollY.interpolate({
+                    inputRange: [
+                      i * cardHeight,
+                      (i + 1) * cardHeight
+                    ],
+                    outputRange: [1, 0.98],
+                    extrapolate: 'clamp'
+                  });
+
+                  const opacity = scrollY.interpolate({
+                    inputRange: [
+                      i * cardHeight,
+                      (i + 1) * cardHeight
+                    ],
+                    outputRange: [1, 0.85],
+                    extrapolate: 'clamp'
+                  });
+
+                  return (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        styles.animatedCardItem,
+                        {
+                          height: cardHeight,
+                          zIndex: i,
+                          transform: [{ translateY }, { scale }],
+                          opacity: opacity,
+                        }
+                      ]}
+                    >
+                      {card.type === 'main' && (
+                        <View style={styles.mainCardInner}>
+                          <Image
+                            source={{ uri: getBWPhotoUrl(card.photo) }}
+                            style={StyleSheet.absoluteFillObject}
+                            resizeMode="cover"
+                          />
+
+                          {/* Glass Details Card Overlay */}
+                          <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint="dark" style={styles.glassDetailsCard}>
+                            <View style={styles.profileDetails}>
+                              {/* Name & Age Row */}
+                              <View style={[styles.cardNameRow, { justifyContent: 'space-between' }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
+                                  <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">
+                                    {currentProfile.name}, {currentProfile.age}
+                                  </Text>
+                                  {currentProfile.verification_status === 'verified' && (
+                                    <Ionicons name="checkmark-circle" size={18} color="#00B0FF" style={{ marginLeft: 6, flexShrink: 0 }} />
+                                  )}
+                                </View>
+                                <View style={[styles.innovativeVibeBadge, { flexShrink: 0 }]}>
+                                  <Ionicons name="sparkles" size={13} color="#FFD700" />
+                                  <Text style={styles.innovativeVibeText}>{currentProfile.vibe_score?.toFixed(1)}</Text>
+                                </View>
+                              </View>
+
+                              {/* College / Course / Year */}
+                              <View style={styles.cardCollegeRow}>
+                                <Ionicons name="school-outline" size={14} color="rgba(255, 255, 255, 0.4)" />
+                                <Text style={styles.cardCollegeText}>
+                                  {[
+                                    getCollegeName(currentProfile),
+                                    currentProfile.course,
+                                    currentProfile.year
+                                  ].filter(Boolean).join(' • ')}
+                                </Text>
+                              </View>
+
+                              {/* Bio */}
+                              {currentProfile.bio && <Text style={styles.cardBio}>{currentProfile.bio}</Text>}
+
+                              {/* Characteristics Scrollable Row */}
+                              <View style={styles.scrollWrapper}>
+                                <ScrollView
+                                  horizontal
+                                  showsHorizontalScrollIndicator={false}
+                                  contentContainerStyle={styles.scrollContentContainer}
+                                >
+                                  {getScrollableItems(currentProfile).map((item, idx) => (
+                                    <React.Fragment key={idx}>
+                                      <View style={styles.scrollItem}>
+                                        <Ionicons name={item.icon as any} size={15} color="rgba(255, 255, 255, 0.7)" />
+                                        <Text style={styles.scrollItemText}>{item.text}</Text>
+                                      </View>
+                                      {idx < getScrollableItems(currentProfile).length - 1 && (
+                                        <View style={styles.scrollSeparator} />
+                                      )}
+                                    </React.Fragment>
+                                  ))}
+                                </ScrollView>
+                              </View>
+
+                              {/* Interests / Tags */}
+                              {currentProfile.interests?.length > 0 && (
+                                <View style={styles.cardTagsRow}>
+                                  {currentProfile.interests.map((interest: string) => (
+                                    <View key={interest} style={styles.cardTag}>
+                                      <Text style={styles.cardTagText}>{interest}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          </BlurView>
+                        </View>
+                      )}
+
+                      {card.type === 'spotify' && (
+                        <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight, padding: 24 }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                            <MaterialCommunityIcons name="spotify" size={26} color="#1DB954" style={{ marginRight: 8 }} />
+                            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>My Spotify Vibe</Text>
+                          </View>
+
+                          <View style={{ gap: 16, flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
+                            {card.tracks.slice(0, 3).map((track: any, idx: number) => (
+                              <View key={idx} style={styles.spotifyTrackRow}>
+                                <Text style={styles.trackIndex}>{idx + 1}</Text>
+                                <View style={styles.trackArt}>
+                                  <Ionicons name="musical-note" size={14} color="#1DB954" />
+                                </View>
+                                <View style={styles.spotifyTrackInfo}>
+                                  <Text style={styles.spotifyTrackName} numberOfLines={1}>{track.name}</Text>
+                                  <Text style={styles.spotifyArtistName} numberOfLines={1}>{track.artist}</Text>
+                                </View>
+                                <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
+                              </View>
+                            ))}
+                          </View>
+                        </BlurView>
+                      )}
+
+                      {card.type === 'secondary' && (
+                        <BlurView intensity={25} tint="dark" style={[styles.secondaryPhotoCard, { height: cardHeight }]}>
+                          {card.prompt ? (
+                            <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
+                              {/* Prompt text at the top (Hinge style) */}
+                              <View style={{ marginTop: 10 }}>
+                                <Text style={styles.promptQuestion}>My Answer to</Text>
+                                <Text style={styles.promptTitle}>{card.prompt.title}</Text>
+                              </View>
+
+                              {/* Photo with rounded frame below the prompt text */}
+                              <View style={styles.hingePhotoContainer}>
+                                <Image source={{ uri: card.photo }} style={styles.hingePhoto} />
+                              </View>
+                            </View>
+                          ) : (
+                            <View style={{ flex: 1 }}>
+                              <Image source={{ uri: card.photo }} style={styles.profilePhoto} />
+                            </View>
+                          )}
+                        </BlurView>
+                      )}
+                    </Animated.View>
+                  );
+                })}
+              </Animated.ScrollView>
             </View>
-          </View>
-        ) : (
-          <View style={styles.empty}>
-            <Ionicons name="people-outline" size={80} color="rgba(255, 255, 255, 0.15)" />
-            <Text style={styles.emptyT}>No more profiles found</Text>
-            <Text style={styles.emptyS}>Try changing your filter settings or hit refresh to check again</Text>
+          </Animated.View>
+
+          {/* Floating Daily Likes Counter Pill */}
+          {!user?.is_premium && (
             <TouchableOpacity
-              style={styles.refreshBtn}
-              onPress={async () => {
-                setLoading(true);
-                await fetchProfiles();
-                setCurrentIndex(0);
+              style={styles.dailyLikesPill}
+              onPress={() => {
+                setUpsellTitle('Daily Free Likes Limit ⚡');
+                setUpsellFeature('6 Likes Daily Limit');
+                setUpsellVisible(true);
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={16} color="#000" />
-              <Text style={styles.refreshText}>Refresh Feed</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Floating Header Overlay at the top */}
-        <SafeAreaView style={styles.headerFloatingOverlay} pointerEvents="box-none">
-          {/* Top Header Bar */}
-          <View style={styles.topBar}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>off campus</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.likesTriggerBtn}
-              onPress={() => router.push('/(tabs)/likes')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="heart-outline" size={24} color="#FFF" />
-              {likesCount > 0 && (
-                <View style={styles.likesBadgeContainer}>
-                  <LinearGradient
-                    colors={['#C2FF3D', '#A5D62B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.likesBadgeGradient}
-                  >
-                    <Text style={styles.likesBadgeText}>{likesCount}</Text>
-                  </LinearGradient>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Verification Status Warning Banner */}
-          {user?.verification_status !== 'verified' && (
-            <TouchableOpacity
-               style={styles.unverifiedBanner}
-               onPress={() => {
-                 if (user?.verification_status === 'rejected') {
-                   Alert.alert(
-                     'Verification Rejected ❌',
-                     `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
-                     [
-                       { text: 'Cancel', style: 'cancel' },
-                       { text: 'Verify ID', onPress: () => router.push('/onboarding/verification') }
-                     ]
-                   );
-                 } else {
-                   router.push('/onboarding/verification');
-                 }
-               }}
-               activeOpacity={0.85}
-             >
-              <BlurView intensity={80} tint="dark" style={styles.unverifiedBannerGlass}>
-                <Ionicons
-                  name={user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}
-                  size={16}
-                  color={user?.verification_status === 'rejected' ? '#FF4B4B' : '#FFD700'}
-                />
-                <Text style={styles.unverifiedBannerText} numberOfLines={1}>
-                  {user?.verification_status === 'rejected'
-                    ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
-                    : user?.verification_status === 'pending'
-                    ? 'Verification Pending ⏳ Under Review'
-                    : 'Verify your ID to send likes & show your profile!'}
-                </Text>
-                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
-              </BlurView>
+              <Ionicons name="sparkles" size={12} color="#C2FF3D" />
+              <Text style={styles.dailyLikesPillText}>
+                {likesRemaining > 0 ? `${likesRemaining}/6 Free Likes Left` : '0 Free Likes Left — Get Premium'}
+              </Text>
             </TouchableOpacity>
           )}
 
-          {/* Top Controls Row */}
-          <View style={styles.topControlsRow}>
+          {/* Floating Action Overlay Buttons */}
+          <View style={styles.floatingActionsContainer}>
+            {user?.is_premium && (
+              <TouchableOpacity
+                style={[styles.floatingBtn, styles.floatingRewind]}
+                onPress={handleRewindSkipped}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={22} color="#FFD700" />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={styles.filterMainBtn}
-              onPress={() => setShowFilterModal(true)}
+              style={[styles.floatingBtn, styles.floatingNope]}
+              onPress={() => handlePassAndNext(currentProfile.user_id)}
               activeOpacity={0.8}
             >
-              <Ionicons name="options-outline" size={16} color="#FFD700" />
-              <Text style={styles.filterMainBtnText}>Filter</Text>
+              <Ionicons name="close" size={24} color="#FF453A" />
             </TouchableOpacity>
 
-            <View style={styles.globalToggleContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.globalToggleOption,
-                  !globalMode && styles.globalToggleActive
-                ]}
-                onPress={() => handleGlobalToggle(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.globalToggleText,
-                  !globalMode && styles.globalToggleTextActive
-                ]}>In Campus</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.globalToggleOption,
-                  globalMode && styles.globalToggleActive
-                ]}
-                onPress={() => handleGlobalToggle(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.globalToggleText,
-                  globalMode && styles.globalToggleTextActive
-                ]}>Go Global</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Likes Remaining Count Pill */}
-          <View style={styles.likesPillContainer}>
-            <TouchableOpacity 
-              style={styles.likesPill}
+            <TouchableOpacity
+              style={[styles.floatingBtn, styles.floatingLike]}
+              onPress={() => handleLikeAndNext(currentProfile.user_id)}
               activeOpacity={0.8}
-              onPress={() => {
+            >
+              {fromNearby ? (
+                <MaterialCommunityIcons name="handshake" size={24} color="#C2FF3D" />
+              ) : (
+                <Ionicons name="heart" size={24} color="#C2FF3D" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.empty}>
+          <Ionicons name="people-outline" size={80} color="rgba(255, 255, 255, 0.15)" />
+          <Text style={styles.emptyT}>No more profiles found</Text>
+          <Text style={styles.emptyS}>Try changing your filter settings or hit refresh to check again</Text>
+          <TouchableOpacity
+            style={styles.refreshBtn}
+            onPress={async () => {
+              setLoading(true);
+              await fetchProfiles();
+              setCurrentIndex(0);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="refresh" size={16} color="#000" />
+            <Text style={styles.refreshText}>Refresh Feed</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Floating Header Overlay at the top */}
+      <SafeAreaView style={styles.headerFloatingOverlay} pointerEvents="box-none">
+        {/* Top Header Bar */}
+        <View style={styles.topBar}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>off campus</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.likesTriggerBtn}
+            onPress={() => router.push('/(tabs)/likes')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="heart-outline" size={24} color="#FFF" />
+            {likesCount > 0 && (
+              <View style={styles.likesBadgeContainer}>
+                <LinearGradient
+                  colors={['#C2FF3D', '#A5D62B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.likesBadgeGradient}
+                >
+                  <Text style={styles.likesBadgeText}>{likesCount}</Text>
+                </LinearGradient>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Verification Status Warning Banner */}
+        {user?.verification_status !== 'verified' && (
+          <TouchableOpacity
+            style={styles.unverifiedBanner}
+            onPress={() => {
+              if (user?.verification_status === 'rejected') {
                 Alert.alert(
-                  'Daily Likes 💖',
-                  user?.is_premium 
-                    ? 'You are a Premium member and have Unlimited daily likes! 🎉'
-                    : `You have ${likesRemaining} free daily like${likesRemaining === 1 ? '' : 's'} remaining. Upgrade to Premium for unlimited daily likes!`
+                  'Verification Rejected ❌',
+                  `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Verify ID', onPress: () => router.push('/onboarding/verification') }
+                  ]
                 );
-              }}
-            >
-              <Ionicons name="heart" size={14} color="#FF2D55" style={{ marginRight: 4 }} />
-              <Text style={styles.likesPillText}>
-                {user?.is_premium ? 'Unlimited' : likesRemaining}
+              } else {
+                router.push('/onboarding/verification');
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <BlurView intensity={80} tint="dark" style={styles.unverifiedBannerGlass}>
+              <Ionicons
+                name={user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}
+                size={16}
+                color={user?.verification_status === 'rejected' ? '#FF4B4B' : '#FFD700'}
+              />
+              <Text style={styles.unverifiedBannerText} numberOfLines={1}>
+                {user?.verification_status === 'rejected'
+                  ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
+                  : user?.verification_status === 'pending'
+                    ? 'Verification Pending ⏳ Under Review'
+                    : 'Verify your ID to send likes & show your profile!'}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-
-        {/* Filter Modal Overlay */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showFilterModal}
-          onRequestClose={() => setShowFilterModal(false)}
-        >
-          <BlurView intensity={70} tint="dark" style={styles.modalBlurContainer}>
-            <SafeAreaView style={styles.modalSafeArea}>
-              <View style={styles.modalContent}>
-
-                {/* Modal Header */}
-                <View style={styles.modalHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="options-outline" size={20} color="#C2FF3D" />
-                    <Text style={styles.modalTitle}>Discovery Filters</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setShowFilterModal(false)}
-                    style={styles.modalCloseBtn}
-                  >
-                    <Ionicons name="close" size={22} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.modalScrollContent}
-                >
-                  {/* Gender Filter */}
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterSectionTitle}>Gender Preferred</Text>
-                    <View style={styles.genderOptions}>
-                      {(['male', 'female', 'both'] as const).map((option) => {
-                        const isActive = filterGender === option;
-                        const label = option === 'male' ? 'Male' : option === 'female' ? 'Female' : 'Both';
-                        return (
-                          <TouchableOpacity
-                            key={option}
-                            style={[styles.genderBtn, isActive && styles.genderBtnActive]}
-                            onPress={() => setFilterGender(option)}
-                          >
-                            {isActive ? (
-                              <LinearGradient
-                                colors={['#FFFFFF', '#FFFFFF']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.genderBtnGrad}
-                              >
-                                <Text style={styles.genderBtnTextActive}>{label}</Text>
-                              </LinearGradient>
-                            ) : (
-                              <Text style={styles.genderBtnText}>{label}</Text>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-
-                  {/* Age Filter */}
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterSectionTitle}>Age Range</Text>
-                    <RangeSlider
-                      min={18}
-                      max={100}
-                      minVal={filterAgeMin}
-                      maxVal={filterAgeMax}
-                      onChange={(minVal, maxVal) => {
-                        setFilterAgeMin(minVal);
-                        setFilterAgeMax(maxVal);
-                      }}
-                      suffix=" yrs"
-                    />
-                  </View>
-
-                  {/* Height Filter */}
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterSectionTitle}>Height Range</Text>
-                    <RangeSlider
-                      min={120}
-                      max={220}
-                      minVal={filterHeightMin}
-                      maxVal={filterHeightMax}
-                      onChange={(minVal, maxVal) => {
-                        setFilterHeightMin(minVal);
-                        setFilterHeightMax(maxVal);
-                      }}
-                      formatLabel={cmToFeetInches}
-                    />
-                  </View>
-
-                  {/* Distance Filter */}
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterSectionTitle}>Distance Range</Text>
-                    <RangeSlider
-                      min={1}
-                      max={100}
-                      minVal={filterDistanceMin}
-                      maxVal={filterDistanceMax}
-                      onChange={(minVal, maxVal) => {
-                        setFilterDistanceMin(minVal);
-                        setFilterDistanceMax(maxVal);
-                      }}
-                      suffix=" km"
-                    />
-                  </View>
-
-
-                  {/* Verified Accounts Switch */}
-                  <View style={styles.switchRow}>
-                    <View>
-                      <Text style={styles.switchTitle}>Verified Members Only</Text>
-                      <Text style={styles.switchSub}>Show only verified student profiles</Text>
-                    </View>
-                    <Switch
-                      value={filterVerifiedOnly}
-                      onValueChange={setFilterVerifiedOnly}
-                      trackColor={{ false: '#FFFFFF', true: '#C2FF3D' }}
-                      thumbColor="#FFF"
-                    />
-                  </View>
-                </ScrollView>
-
-                {/* Modal Footer */}
-                <View style={styles.modalFooter}>
-                  <TouchableOpacity
-                    style={styles.resetBtn}
-                    onPress={() => {
-                      setFilterGender('both');
-                      setFilterAgeMin(18);
-                      setFilterAgeMax(25);
-                      setFilterHeightMin(150);
-                      setFilterHeightMax(190);
-                      setFilterDistanceMin(1);
-                      setFilterDistanceMax(50);
-                      setFilterLookingFor('both');
-                      setFilterVerifiedOnly(false);
-                      setGenderFilter('both');
-                      setCurrentIndex(0);
-                    }}
-                  >
-                    <Text style={styles.resetBtnText}>Reset</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.applyBtn}
-                    onPress={() => {
-                      setGenderFilter(filterGender);
-                      setCurrentIndex(0);
-                      setShowFilterModal(false);
-                    }}
-                  >
-                    <LinearGradient
-                      colors={['#FFFFFF', '#FFFFFF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.applyBtnGrad}
-                    >
-                      <Text style={styles.applyBtnText}>Apply Filters</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-
-              </View>
-            </SafeAreaView>
-          </BlurView>
-        </Modal>
-
-        {/* Match Screen Overlay */}
-        {showMatch && (
-          <View style={styles.matchOverlay}>
-            <LinearGradient
-              colors={['#ee4d4d', '#780505']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.matchInner}
-            >
-              <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
-              <Text style={styles.matchSub}>You and {showMatch.name} liked each other</Text>
-              <Image source={{ uri: showMatch.photos?.[0] || showMatch.picture }} style={styles.matchPic} />
-              <View style={styles.matchActions}>
-                <TouchableOpacity
-                  style={styles.matchBtn}
-                  onPress={() => {
-                    setShowMatch(null);
-                    router.push(`/chat/${showMatch.user_id}`);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.matchBtnText}>Say Hi 👋</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.matchBtnSecondary}
-                  onPress={() => setShowMatch(null)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.matchBtnTextSecondary}>Keep Swiping</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
+              <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
+            </BlurView>
+          </TouchableOpacity>
         )}
 
-        {/* Premium Upsell Bottom Sheet */}
-        <PremiumUpsellSheet
-          visible={upsellVisible}
-          onClose={() => setUpsellVisible(false)}
-          title={upsellTitle}
-          featureName={upsellFeature}
-        />
+        {/* Top Controls Row */}
+        <View style={styles.topControlsRow}>
+          <TouchableOpacity
+            style={styles.filterMainBtn}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="options-outline" size={16} color="#FFD700" />
+            <Text style={styles.filterMainBtnText}>Filter</Text>
+          </TouchableOpacity>
+
+          <View style={styles.globalToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.globalToggleOption,
+                !globalMode && styles.globalToggleActive
+              ]}
+              onPress={() => handleGlobalToggle(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[
+                styles.globalToggleText,
+                !globalMode && styles.globalToggleTextActive
+              ]}>In Campus</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.globalToggleOption,
+                globalMode && styles.globalToggleActive
+              ]}
+              onPress={() => handleGlobalToggle(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[
+                styles.globalToggleText,
+                globalMode && styles.globalToggleTextActive
+              ]}>Off Campus</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Likes Remaining Count Pill */}
+        <View style={styles.likesPillContainer}>
+          <TouchableOpacity
+            style={styles.likesPill}
+            activeOpacity={0.8}
+            onPress={() => {
+              Alert.alert(
+                'Daily Likes ',
+                user?.is_premium
+                  ? 'You are a Premium member and have Unlimited daily likes! 🎉'
+                  : `You have ${likesRemaining} free daily like${likesRemaining === 1 ? '' : 's'} remaining. Upgrade to Premium for unlimited daily likes!`
+              );
+            }}
+          >
+            <Ionicons name="heart" size={14} color="#FF2D55" style={{ marginRight: 4 }} />
+            <Text style={styles.likesPillText}>
+              {user?.is_premium ? 'Unlimited' : likesRemaining}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      {/* Filter Modal Overlay */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showFilterModal}
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <BlurView intensity={70} tint="dark" style={styles.modalBlurContainer}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalContent}>
+
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="options-outline" size={20} color="#C2FF3D" />
+                  <Text style={styles.modalTitle}>Discovery Filters</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowFilterModal(false)}
+                  style={styles.modalCloseBtn}
+                >
+                  <Ionicons name="close" size={22} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+              >
+                {/* Gender Filter */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Gender Preferred</Text>
+                  <View style={styles.genderOptions}>
+                    {(['male', 'female', 'both'] as const).map((option) => {
+                      const isActive = filterGender === option;
+                      const label = option === 'male' ? 'Male' : option === 'female' ? 'Female' : 'Both';
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          style={[styles.genderBtn, isActive && styles.genderBtnActive]}
+                          onPress={() => setFilterGender(option)}
+                        >
+                          {isActive ? (
+                            <LinearGradient
+                              colors={['#FFFFFF', '#FFFFFF']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.genderBtnGrad}
+                            >
+                              <Text style={styles.genderBtnTextActive}>{label}</Text>
+                            </LinearGradient>
+                          ) : (
+                            <Text style={styles.genderBtnText}>{label}</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Age Filter */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Age Range</Text>
+                  <RangeSlider
+                    min={18}
+                    max={100}
+                    minVal={filterAgeMin}
+                    maxVal={filterAgeMax}
+                    onChange={(minVal, maxVal) => {
+                      setFilterAgeMin(minVal);
+                      setFilterAgeMax(maxVal);
+                    }}
+                    suffix=" yrs"
+                  />
+                </View>
+
+                {/* Height Filter */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Height Range</Text>
+                  <RangeSlider
+                    min={120}
+                    max={220}
+                    minVal={filterHeightMin}
+                    maxVal={filterHeightMax}
+                    onChange={(minVal, maxVal) => {
+                      setFilterHeightMin(minVal);
+                      setFilterHeightMax(maxVal);
+                    }}
+                    formatLabel={cmToFeetInches}
+                  />
+                </View>
+
+                {/* Distance Filter */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Distance Range</Text>
+                  <RangeSlider
+                    min={1}
+                    max={100}
+                    minVal={filterDistanceMin}
+                    maxVal={filterDistanceMax}
+                    onChange={(minVal, maxVal) => {
+                      setFilterDistanceMin(minVal);
+                      setFilterDistanceMax(maxVal);
+                    }}
+                    suffix=" km"
+                  />
+                </View>
+
+
+                {/* Verified Accounts Switch */}
+                <View style={styles.switchRow}>
+                  <View>
+                    <Text style={styles.switchTitle}>Verified Members Only</Text>
+                    <Text style={styles.switchSub}>Show only verified student profiles</Text>
+                  </View>
+                  <Switch
+                    value={filterVerifiedOnly}
+                    onValueChange={setFilterVerifiedOnly}
+                    trackColor={{ false: '#FFFFFF', true: '#C2FF3D' }}
+                    thumbColor="#FFF"
+                  />
+                </View>
+              </ScrollView>
+
+              {/* Modal Footer */}
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.resetBtn}
+                  onPress={() => {
+                    setFilterGender('both');
+                    setFilterAgeMin(18);
+                    setFilterAgeMax(25);
+                    setFilterHeightMin(150);
+                    setFilterHeightMax(190);
+                    setFilterDistanceMin(1);
+                    setFilterDistanceMax(50);
+                    setFilterLookingFor('both');
+                    setFilterVerifiedOnly(false);
+                    setGenderFilter('both');
+                    setCurrentIndex(0);
+                  }}
+                >
+                  <Text style={styles.resetBtnText}>Reset</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.applyBtn}
+                  onPress={() => {
+                    setGenderFilter(filterGender);
+                    setCurrentIndex(0);
+                    setShowFilterModal(false);
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#FFFFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.applyBtnGrad}
+                  >
+                    <Text style={styles.applyBtnText}>Apply Filters</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </SafeAreaView>
+        </BlurView>
+      </Modal>
+
+      {/* Match Screen Overlay */}
+      {showMatch && (
+        <View style={styles.matchOverlay}>
+          <LinearGradient
+            colors={['#ee4d4d', '#780505']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.matchInner}
+          >
+            <Text style={styles.matchTitle}>{"IT'S A MATCH! 💥"}</Text>
+            <Text style={styles.matchSub}>You and {showMatch.name} liked each other</Text>
+            <Image source={{ uri: showMatch.photos?.[0] || showMatch.picture }} style={styles.matchPic} />
+            <View style={styles.matchActions}>
+              <TouchableOpacity
+                style={styles.matchBtn}
+                onPress={() => {
+                  setShowMatch(null);
+                  router.push(`/chat/${showMatch.user_id}`);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.matchBtnText}>Say Hi 👋</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.matchBtnSecondary}
+                onPress={() => setShowMatch(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.matchBtnTextSecondary}>Keep Swiping</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      )}
+
+      {/* Premium Upsell Bottom Sheet */}
+      <PremiumUpsellSheet
+        visible={upsellVisible}
+        onClose={() => setUpsellVisible(false)}
+        title={upsellTitle}
+        featureName={upsellFeature}
+      />
     </View>
   );
 }

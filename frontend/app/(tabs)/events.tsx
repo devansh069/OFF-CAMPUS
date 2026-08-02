@@ -31,6 +31,14 @@ import * as Clipboard from 'expo-clipboard';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const MOCK_EVENTS = [
   {
     event_id: 'evt_vips_pulse',
@@ -885,7 +893,7 @@ export default function Events() {
     { key: 'fest', label: 'CONCERT\nAND FEST', colors: ['#9D4EDD', '#5E17EB'], icon: 'musical-notes-outline', image: require('../../assets/images/concert&fest.png'), activeColor: '#6366F1', iconWidth: 72, iconHeight: 72, iconTop: -25 },
     { key: 'workshop', label: 'WORKSHOPS\nAND TECH', colors: ['#FFC300', '#FF5733'], icon: 'code-working-outline', image: require('../../assets/images/workshops&tech.png'), activeColor: '#F59E0B', iconWidth: 72, iconHeight: 72, iconTop: -25 },
     { key: 'trip', label: 'TRIPS', colors: ['#00B4DB', '#0083B0'], icon: 'airplane-outline', image: require('../../assets/images/trips.png'), activeColor: '#34D399', iconWidth: 96, iconHeight: 96, iconTop: -25 },
-    { key: 'sports', label: 'SPORTS', colors: ['#118AB2', '#06D6A0'], icon: 'football-outline', image: require('../../assets/images/sports.png'), activeColor: '#FB923C', iconWidth: 96, iconHeight: 96, iconTop: -25 },
+    { key: 'sports', label: 'SPORTS', colors: ['#FB923C', '#FF7B00'], icon: 'football-outline', image: require('../../assets/images/sports.png'), activeColor: '#FB923C', iconWidth: 96, iconHeight: 96, iconTop: -25 },
   ];
 
   const filtered = events.filter((e: any) => {
@@ -981,11 +989,20 @@ export default function Events() {
                     key={c.key}
                     style={[
                       styles.horizontalFilterPill,
-                      isSelected ? { borderColor: c.activeColor, backgroundColor: 'rgba(255, 255, 255, 0.05)' } : null
+                      {
+                        borderColor: isSelected ? hexToRgba(c.activeColor, 0.85) : hexToRgba(c.activeColor, 0.2),
+                        backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.02)'
+                      }
                     ]}
                     activeOpacity={0.8}
                     onPress={() => setActiveCategory(activeCategory === c.key ? null : c.key)}
                   >
+                    <LinearGradient
+                      colors={[hexToRgba(c.colors[0], 0.25), hexToRgba(c.colors[1], 0.03), 'transparent']}
+                      start={{ x: 0.5, y: 0 }}
+                      end={{ x: 0.5, y: 1 }}
+                      style={styles.filterCardTopGradient}
+                    />
                     <Image
                       source={c.image}
                       style={[
@@ -2824,6 +2841,14 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     paddingHorizontal: 4,
     overflow: 'visible', // Allows the icon to render outside the top border
+  },
+  filterCardTopGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 18,
   },
   horizontalFilterPillActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',

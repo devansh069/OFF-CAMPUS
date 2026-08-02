@@ -22,19 +22,25 @@ exports.createOrder = async (req, res) => {
     const userId = req.user?.user_id || 'user_demo';
     const key_id = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_So8xjAeHrh3cic';
 
+    let reqAmount = 99;
+    if (req.body && req.body.amount) {
+      reqAmount = Number(req.body.amount);
+    }
+    const finalAmountInPaise = reqAmount * 100;
+
     let orderId = `order_${userId.substring(0, 8)}_${Date.now()}`;
-    let amount = 9900;
+    let amount = finalAmountInPaise;
     let currency = 'INR';
 
     try {
       const razorpay = getRazorpayInstance();
       const options = {
-        amount: 9900, // ₹99 in paise
+        amount: finalAmountInPaise,
         currency: 'INR',
         receipt: `rcpt_${userId.substring(0, 8)}_${Date.now()}`,
         notes: {
           user_id: userId,
-          plan: 'Student Pass Premium'
+          plan: `Student Pass Premium - ₹${reqAmount}`
         }
       };
 

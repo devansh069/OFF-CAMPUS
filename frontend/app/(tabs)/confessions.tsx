@@ -178,6 +178,8 @@ export default function CampusLive() {
     "Other"
   ];
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const innerReportScrollRef = useRef<ScrollView>(null);
+  const outerReportScrollRef = useRef<ScrollView>(null);
 
   // Story transitions and sorting
   const storyFadeAnim = useRef(new Animated.Value(1)).current;
@@ -2091,72 +2093,86 @@ export default function CampusLive() {
               animationType="slide"
               onRequestClose={() => setShowReportModal(false)}
             >
-              <View style={styles.reportModalOverlay}>
-                <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
-                  <View style={styles.reportModalHeader}>
-                    <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
-                    <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
-                      <Ionicons name="close" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
-                    <Text style={styles.reportModalDesc}>
-                      Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
-                    </Text>
-
-                    <Text style={styles.reasonLabel}>SELECT A REASON</Text>
-                    {reportReasons.map((reason) => {
-                      const isSelected = selectedReason === reason;
-                      return (
-                        <TouchableOpacity
-                          key={reason}
-                          style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
-                          onPress={() => setSelectedReason(reason)}
-                        >
-                          <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                            {isSelected && <View style={styles.radioInner} />}
-                          </View>
-                          <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
-                            {reason}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-
-                    <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
-                    <TextInput
-                      style={styles.reasonInput}
-                      placeholder="Enter details here..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                      multiline={true}
-                      numberOfLines={4}
-                      value={customReason}
-                      onChangeText={setCustomReason}
-                    />
-
-                    <View style={styles.reportModalActions}>
-                      <TouchableOpacity
-                        style={styles.reportCancelBtn}
-                        onPress={() => setShowReportModal(false)}
-                      >
-                        <Text style={styles.reportCancelBtnText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
-                        onPress={handleReportSubmit}
-                        disabled={submittingReport}
-                      >
-                        {submittingReport ? (
-                          <ActivityIndicator color="#000" />
-                        ) : (
-                          <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
-                        )}
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+              >
+                <View style={styles.reportModalOverlay}>
+                  <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+                    <View style={styles.reportModalHeader}>
+                      <Text style={styles.reportModalTitle}>Report Confession </Text>
+                      <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
+                        <Ionicons name="close" size={24} color="#FFF" />
                       </TouchableOpacity>
                     </View>
-                  </ScrollView>
-                </BlurView>
-              </View>
+
+                    <ScrollView
+                      ref={innerReportScrollRef}
+                      contentContainerStyle={styles.reportModalContent}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      <Text style={styles.reportModalDesc}>
+                        Help us keep OutThere safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                      </Text>
+
+                      <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                      {reportReasons.map((reason) => {
+                        const isSelected = selectedReason === reason;
+                        return (
+                          <TouchableOpacity
+                            key={reason}
+                            style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                            onPress={() => setSelectedReason(reason)}
+                          >
+                            <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                              {isSelected && <View style={styles.radioInner} />}
+                            </View>
+                            <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                              {reason}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                      <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                      <TextInput
+                        style={styles.reasonInput}
+                        placeholder="Enter details here..."
+                        placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                        multiline={true}
+                        numberOfLines={4}
+                        value={customReason}
+                        onChangeText={setCustomReason}
+                        onFocus={() => {
+                          setTimeout(() => {
+                            innerReportScrollRef.current?.scrollToEnd({ animated: true });
+                          }, 150);
+                        }}
+                      />
+
+                      <View style={styles.reportModalActions}>
+                        <TouchableOpacity
+                          style={styles.reportCancelBtn}
+                          onPress={() => setShowReportModal(false)}
+                        >
+                          <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                          onPress={handleReportSubmit}
+                          disabled={submittingReport}
+                        >
+                          {submittingReport ? (
+                            <ActivityIndicator color="#000" />
+                          ) : (
+                            <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </ScrollView>
+                  </BlurView>
+                </View>
+              </KeyboardAvoidingView>
             </Modal>
 
             {/* CUSTOM OPTIONS MENU BOTTOM SHEET MODAL (INNER) */}
@@ -2609,72 +2625,86 @@ export default function CampusLive() {
           animationType="slide"
           onRequestClose={() => setShowReportModal(false)}
         >
-          <View style={styles.reportModalOverlay}>
-            <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
-              <View style={styles.reportModalHeader}>
-                <Text style={styles.reportModalTitle}>Report Confession 🛡️</Text>
-                <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
-                  <Ionicons name="close" size={24} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView contentContainerStyle={styles.reportModalContent} keyboardShouldPersistTaps="handled">
-                <Text style={styles.reportModalDesc}>
-                  Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
-                </Text>
-
-                <Text style={styles.reasonLabel}>SELECT A REASON</Text>
-                {reportReasons.map((reason) => {
-                  const isSelected = selectedReason === reason;
-                  return (
-                    <TouchableOpacity
-                      key={reason}
-                      style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
-                      onPress={() => setSelectedReason(reason)}
-                    >
-                      <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                        {isSelected && <View style={styles.radioInner} />}
-                      </View>
-                      <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
-                        {reason}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
-                <TextInput
-                  style={styles.reasonInput}
-                  placeholder="Enter details here..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  multiline={true}
-                  numberOfLines={4}
-                  value={customReason}
-                  onChangeText={setCustomReason}
-                />
-
-                <View style={styles.reportModalActions}>
-                  <TouchableOpacity
-                    style={styles.reportCancelBtn}
-                    onPress={() => setShowReportModal(false)}
-                  >
-                    <Text style={styles.reportCancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
-                    onPress={handleReportSubmit}
-                    disabled={submittingReport}
-                  >
-                    {submittingReport ? (
-                      <ActivityIndicator color="#000" />
-                    ) : (
-                      <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
-                    )}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.reportModalOverlay}>
+              <BlurView intensity={90} tint="dark" style={styles.reportModalContainer}>
+                <View style={styles.reportModalHeader}>
+                  <Text style={styles.reportModalTitle}>Report Confession </Text>
+                  <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportModalCloseBtn}>
+                    <Ionicons name="close" size={24} color="#FFF" />
                   </TouchableOpacity>
                 </View>
-              </ScrollView>
-            </BlurView>
-          </View>
+
+                <ScrollView
+                  ref={outerReportScrollRef}
+                  contentContainerStyle={styles.reportModalContent}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <Text style={styles.reportModalDesc}>
+                    Help us keep Off-Campus safe. Tell us why you are reporting this confession. The author's vibe score will be penalized.
+                  </Text>
+
+                  <Text style={styles.reasonLabel}>SELECT A REASON</Text>
+                  {reportReasons.map((reason) => {
+                    const isSelected = selectedReason === reason;
+                    return (
+                      <TouchableOpacity
+                        key={reason}
+                        style={[styles.reasonOption, isSelected && styles.reasonOptionActive]}
+                        onPress={() => setSelectedReason(reason)}
+                      >
+                        <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                          {isSelected && <View style={styles.radioInner} />}
+                        </View>
+                        <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>
+                          {reason}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  <Text style={styles.reasonLabel}>DETAILED DETAILS (OPTIONAL)</Text>
+                  <TextInput
+                    style={styles.reasonInput}
+                    placeholder="Enter details here..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    multiline={true}
+                    numberOfLines={4}
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        outerReportScrollRef.current?.scrollToEnd({ animated: true });
+                      }, 150);
+                    }}
+                  />
+
+                  <View style={styles.reportModalActions}>
+                    <TouchableOpacity
+                      style={styles.reportCancelBtn}
+                      onPress={() => setShowReportModal(false)}
+                    >
+                      <Text style={styles.reportCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.reportSubmitBtn, submittingReport && { opacity: 0.5 }]}
+                      onPress={handleReportSubmit}
+                      disabled={submittingReport}
+                    >
+                      {submittingReport ? (
+                        <ActivityIndicator color="#000" />
+                      ) : (
+                        <Text style={styles.reportSubmitBtnText}>Submit Report</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </BlurView>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* FILTER POPUP MODAL */}
@@ -2795,7 +2825,7 @@ export default function CampusLive() {
             <BlurView intensity={90} tint="dark" style={styles.optionsModalContainer}>
               <View style={styles.optionsHeader}>
                 <View style={styles.optionsHeaderBar} />
-                <Text style={styles.optionsTitle}>Confession Options 🛡️</Text>
+                <Text style={styles.optionsTitle}>Confession Options </Text>
               </View>
 
               <TouchableOpacity
@@ -2979,7 +3009,10 @@ export default function CampusLive() {
           visible={upsellVisible}
           onClose={() => setUpsellVisible(false)}
           title={upsellTitle}
-                  {/* Notifications Modal */}
+          featureName={upsellFeature}
+        />
+
+        {/* Notifications Modal */}
         <Modal
           visible={showNotificationsModal}
           animationType="slide"
