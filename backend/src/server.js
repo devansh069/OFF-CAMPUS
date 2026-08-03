@@ -144,6 +144,11 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN google_email VARCHAR(255) NULL UNIQUE;");
+      console.log('[Patch] Manually added google_email column to users table');
+    } catch (e) {}
+
+    try {
       await sequelize.query("ALTER TABLE users ADD COLUMN chosen_tags JSON NULL;");
       console.log('[Patch] Manually added chosen_tags column to users');
     } catch (e) {}
