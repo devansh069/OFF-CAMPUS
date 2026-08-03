@@ -884,15 +884,28 @@ export default function Profile() {
                     <Text style={styles.auditSectionTitle}>How to Increase Score</Text>
                   </View>
 
-                  <View style={styles.auditTextWrap}>
-                    <Text style={styles.auditItemDesc}>
-                      • 1 Referral: <Text style={{ color: '#C2FF3D', fontWeight: '800' }}>+2 Vibe Score</Text>{'\n'}
-                      • 3 Referrals: 1.5x Profile Boost{'\n'}
-                      • 5 Referrals: Instant 10/10 Max Score{'\n'}
-                      • 7 Referrals: 2.0x Ultimate Visibility{'\n'}
-                      • 10 Referrals: Free Off-Campus Event Pass{'\n'}
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>*Maximum score is capped at 10.</Text>
-                    </Text>
+                  <View style={styles.auditRulesContainer}>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="sparkles-outline" size={15} color="#C2FF3D" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>1 Referral: <Text style={{ color: '#C2FF3D', fontWeight: '900' }}>+2 Vibe Score</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="eye-outline" size={15} color="#7C5CFC" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>3 Referrals: <Text style={{ color: '#FFF', fontWeight: '700' }}>1.5x Profile Boost</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="star-outline" size={15} color="#FFD700" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>5 Referrals: <Text style={{ color: '#FFD700', fontWeight: '900' }}>Instant 10/10 Max Score</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="rocket-outline" size={15} color="#FF6B9D" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>7 Referrals: <Text style={{ color: '#FFF', fontWeight: '700' }}>2.0x Ultimate Visibility</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="ticket-outline" size={15} color="#4FC3F7" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>10 Referrals: <Text style={{ color: '#FFF', fontWeight: '700' }}>Free Off-Campus Event Pass</Text></Text>
+                    </View>
+                    <Text style={styles.auditDisclaimer}>* Maximum score is capped at 10.</Text>
                   </View>
                 </View>
 
@@ -904,15 +917,25 @@ export default function Profile() {
                     <Text style={[styles.auditSectionTitle, { color: '#FF1B6B' }]}>How it Decreases</Text>
                   </View>
 
-                  <View style={styles.auditTextWrap}>
-                    <Text style={styles.auditItemDesc}>
-                      When users report suspicious behavior, your score drops progressively:{'\n'}
-                      • 1st Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-1 point</Text>{'\n'}
-                      • 2nd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-2 points</Text>{'\n'}
-                      • 3rd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-3 points</Text>{'\n'}
-                      • 4th Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-4 points</Text>{'\n'}
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>*Minimum score is clamped at 0.</Text>
-                    </Text>
+                  <View style={styles.auditRulesContainer}>
+                    <Text style={styles.auditIntroText}>When users report suspicious behavior, your score drops progressively:</Text>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="alert-circle-outline" size={15} color="#FF1B6B" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>1st Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-1 point</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="alert-circle-outline" size={15} color="#FF1B6B" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>2nd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-2 points</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="alert-circle-outline" size={15} color="#FF1B6B" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>3rd Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-3 points</Text></Text>
+                    </View>
+                    <View style={styles.auditRuleItem}>
+                      <Ionicons name="alert-circle-outline" size={15} color="#FF1B6B" style={{ marginRight: 10 }} />
+                      <Text style={styles.auditRuleText}>4th Report: <Text style={{ color: '#FF1B6B', fontWeight: '800' }}>-4 points</Text></Text>
+                    </View>
+                    <Text style={styles.auditDisclaimer}>* Minimum score is clamped at 0.</Text>
                   </View>
                 </View>
 
@@ -1420,8 +1443,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  auditTextWrap: { flex: 1 },
-  auditItemDesc: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, lineHeight: 21 },
+  auditRulesContainer: {
+    marginTop: 8,
+    gap: 10,
+  },
+  auditRuleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  auditRuleText: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  auditIntroText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  auditDisclaimer: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   emptyHistoryGlass: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 16,

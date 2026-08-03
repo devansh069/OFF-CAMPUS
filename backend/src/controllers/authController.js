@@ -84,6 +84,24 @@ const generateToken = (userId, phoneNumber) => {
   );
 };
 
+// Helper to generate a unique random 6-character alphanumeric referral code
+const generateUniqueReferralCode = async () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let attempts = 0;
+  while (attempts < 100) {
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const existingUser = await User.findOne({ where: { referral_code: code } });
+    if (!existingUser) {
+      return code;
+    }
+    attempts++;
+  }
+  return 'REF' + Math.random().toString(36).substring(2, 5).toUpperCase();
+};
+
 const emailOtps = new Map();
 
 // 1. Verify OTP token from Firebase Client and handle initial login
@@ -155,7 +173,7 @@ exports.verifyOTP = async (req, res) => {
       exists = !!(user.college_id && user.age);
     } else {
       // Create a shell user record
-      const uniqueSuffix = Math.random().toString(36).substring(2, 9);
+      const uniqueCode = await generateUniqueReferralCode();
       user = await User.create({
         user_id: uid,
         firebase_uid: uid,
@@ -170,7 +188,7 @@ exports.verifyOTP = async (req, res) => {
         spotify_data: {},
         is_premium: false,
         is_on_campus: false,
-        referral_code: `REF_${phone_number ? phone_number.replace(/\D/g, '') : uniqueSuffix}`
+        referral_code: uniqueCode
       });
     }
 

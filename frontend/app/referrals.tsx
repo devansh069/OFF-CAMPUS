@@ -121,7 +121,7 @@ export default function Referrals() {
   const howItWorks = [
     { step: '1', title: 'Share Your Code', desc: 'Copy or share your unique referral code with friends', icon: 'share-social' },
     { step: '2', title: 'Friends Sign Up', desc: 'They enter your code during registration', icon: 'person-add' },
-    { step: '3', title: 'Both Get Rewarded', desc: 'You both receive +2 Vibe Score boost instantly', icon: 'gift' },
+    { step: '3', title: 'You Get Rewarded', desc: 'You receive +2 Vibe Score boost instantly', icon: 'gift' },
   ];
 
   return (
