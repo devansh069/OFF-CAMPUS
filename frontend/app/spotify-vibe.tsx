@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,27 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Audio } from 'expo-av';
 
 export default function SpotifyVibe() {
   const { user } = useAuth();
   const router = useRouter();
+
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
 
   if (!user) return null;
 
@@ -33,6 +46,37 @@ export default function SpotifyVibe() {
         'Good 4 U - Olivia Rodrigo',
         'Kiss Me More - Doja Cat',
       ];
+
+  const handlePlayPause = async (url: string) => {
+    try {
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      if (playingUrl === url) {
+        setPlayingUrl(null);
+        return;
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true }
+      );
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+          setPlayingUrl(null);
+          setSound(null);
+        }
+      });
+
+      setSound(newSound);
+      playingUrl === url ? setPlayingUrl(null) : setPlayingUrl(url);
+    } catch (e) {
+      console.warn('Failed to play preview', e);
+    }
+  };
 
   const spotifyUsername = `@${user.name.toLowerCase().replace(/ /g, '_')}`;
 
@@ -54,15 +98,28 @@ export default function SpotifyVibe() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.titleSection}>
-            <Text style={styles.title}>Your Top 10 Songs</Text>
+            <Text style={styles.title}>Your Top Songs</Text>
             <Text style={styles.subtitle}>These tracks are boosting your Vibe Score right now</Text>
           </View>
 
           <View style={styles.tracksList}>
-            {topTracks.slice(0, 10).map((track: string, index: number) => {
-              const parts = track.split(' - ');
-              const title = parts[0] || track;
-              const artist = parts[1] || 'Spotify Artist';
+            {topTracks.map((track: any, index: number) => {
+              let title = '';
+              let artist = 'Spotify Artist';
+              let previewUrl = null;
+
+              if (typeof track === 'string') {
+                const parts = track.split(' - ');
+                title = parts[0] || track;
+                artist = parts[1] || 'Spotify Artist';
+              } else if (track && typeof track === 'object') {
+                title = track.name || '';
+                artist = track.artist || '';
+                previewUrl = track.preview_url;
+              }
+
+              const isPlaying = previewUrl && playingUrl === previewUrl;
+
               return (
                 <View key={index} style={styles.trackItem}>
                   <Text style={styles.trackIndex}>{index + 1}</Text>
@@ -70,9 +127,22 @@ export default function SpotifyVibe() {
                     <Ionicons name="musical-notes" size={16} color="#C2FF3D" />
                   </View>
                   <View style={styles.trackMeta}>
-                    <Text style={styles.trackTitle}>{title}</Text>
-                    <Text style={styles.trackArtist}>{artist}</Text>
+                    <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
+                    <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
                   </View>
+                  {previewUrl && (
+                    <TouchableOpacity
+                      onPress={() => handlePlayPause(previewUrl)}
+                      activeOpacity={0.8}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons
+                        name={isPlaying ? 'pause-circle' : 'play-circle'}
+                        size={28}
+                        color="#C2FF3D"
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}

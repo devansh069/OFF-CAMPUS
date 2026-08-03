@@ -1278,19 +1278,31 @@ export default function Discover() {
                           </View>
 
                           <View style={{ gap: 16, flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
-                            {card.tracks.slice(0, 3).map((track: any, idx: number) => (
-                              <View key={idx} style={styles.spotifyTrackRow}>
-                                <Text style={styles.trackIndex}>{idx + 1}</Text>
-                                <View style={styles.trackArt}>
-                                  <Ionicons name="musical-note" size={14} color="#1DB954" />
+                            {card.tracks.slice(0, 3).map((track: any, idx: number) => {
+                              let title = '';
+                              let artist = '';
+                              if (typeof track === 'string') {
+                                const parts = track.split(' - ');
+                                title = parts[0] || track;
+                                artist = parts[1] || '';
+                              } else if (track && typeof track === 'object') {
+                                title = track.name || '';
+                                artist = track.artist || '';
+                              }
+                              return (
+                                <View key={idx} style={styles.spotifyTrackRow}>
+                                  <Text style={styles.trackIndex}>{idx + 1}</Text>
+                                  <View style={styles.trackArt}>
+                                    <Ionicons name="musical-note" size={14} color="#1DB954" />
+                                  </View>
+                                  <View style={styles.spotifyTrackInfo}>
+                                    <Text style={styles.spotifyTrackName} numberOfLines={1}>{title}</Text>
+                                    <Text style={styles.spotifyArtistName} numberOfLines={1}>{artist}</Text>
+                                  </View>
+                                  <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
                                 </View>
-                                <View style={styles.spotifyTrackInfo}>
-                                  <Text style={styles.spotifyTrackName} numberOfLines={1}>{track.name}</Text>
-                                  <Text style={styles.spotifyArtistName} numberOfLines={1}>{track.artist}</Text>
-                                </View>
-                                <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
-                              </View>
-                            ))}
+                              );
+                            })}
                           </View>
                         </BlurView>
                       )}

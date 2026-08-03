@@ -775,15 +775,27 @@ export default function Likes() {
                   {likes[activeProfileIndex].spotify_data?.top_tracks?.length > 0 && (
                     <View style={styles.spotifyCard}>
                       <Text style={styles.sectionTitle}>Top Spotify Tracks 🎵</Text>
-                      {likes[activeProfileIndex].spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => (
-                        <View key={idx} style={styles.spotifyTrackRow}>
-                          <Ionicons name="play" size={16} color="#1DB954" />
-                          <View style={styles.spotifyTrackInfo}>
-                            <Text style={styles.spotifyTrackName}>{track.name}</Text>
-                            <Text style={styles.spotifyArtistName}>{track.artist}</Text>
+                      {likes[activeProfileIndex].spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => {
+                        let title = '';
+                        let artist = '';
+                        if (typeof track === 'string') {
+                          const parts = track.split(' - ');
+                          title = parts[0] || track;
+                          artist = parts[1] || '';
+                        } else if (track && typeof track === 'object') {
+                          title = track.name || '';
+                          artist = track.artist || '';
+                        }
+                        return (
+                          <View key={idx} style={styles.spotifyTrackRow}>
+                            <Ionicons name="play" size={16} color="#1DB954" />
+                            <View style={styles.spotifyTrackInfo}>
+                              <Text style={styles.spotifyTrackName}>{title}</Text>
+                              <Text style={styles.spotifyArtistName}>{artist}</Text>
+                            </View>
                           </View>
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
 

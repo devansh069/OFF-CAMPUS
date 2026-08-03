@@ -42,20 +42,30 @@ exports.exchangeCode = async (req, res) => {
       return res.status(400).json({ detail: 'Failed to obtain access token from Spotify.' });
     }
 
-    // 2. Fetch top tracks
+    // 2. Fetch top tracks (limit 10)
     console.log('[Spotify] Fetching top tracks...');
-    const tracksResponse = await axios.get('https://api.spotify.com/v1/me/top/tracks?limit=5', {
+    const tracksResponse = await axios.get('https://api.spotify.com/v1/me/top/tracks?limit=10', {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
 
     const topTracks = (tracksResponse.data.items || []).map(track => {
       const artistNames = (track.artists || []).map(a => a.name).join(', ');
-      return `${track.name} - ${artistNames}`;
+      const albumArt = track.album && track.album.images && track.album.images.length > 0
+        ? track.album.images[0].url
+        : null;
+      return {
+        name: track.name,
+        artist: artistNames,
+        album_art: albumArt,
+        preview_url: track.preview_url,
+        spotify_url: track.external_urls ? track.external_urls.spotify : null,
+        uri: track.uri
+      };
     });
 
-    // 3. Fetch top artists
+    // 3. Fetch top artists (limit 10)
     console.log('[Spotify] Fetching top artists...');
-    const artistsResponse = await axios.get('https://api.spotify.com/v1/me/top/artists?limit=5', {
+    const artistsResponse = await axios.get('https://api.spotify.com/v1/me/top/artists?limit=10', {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
 

@@ -645,13 +645,22 @@ export default function Profile() {
 
               {user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0 ? (
                 <View style={styles.spotifyTrackList}>
-                  {user.spotify_data.top_tracks.slice(0, 3).map((track: string, idx: number) => {
-                    const parts = track.split(' - ');
+                  {user.spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => {
+                    let title = '';
+                    let artist = '';
+                    if (typeof track === 'string') {
+                      const parts = track.split(' - ');
+                      title = parts[0] || track;
+                      artist = parts[1] || '';
+                    } else if (track && typeof track === 'object') {
+                      title = track.name || '';
+                      artist = track.artist || '';
+                    }
                     return (
                       <View key={idx} style={styles.spotifyTrackRowInline}>
                         <Ionicons name="musical-note" size={14} color="#1DB954" style={{ marginRight: 8 }} />
                         <Text style={styles.spotifyTrackText} numberOfLines={1}>
-                          <Text style={{ fontWeight: '700', color: '#FFF' }}>{parts[0]}</Text> {parts[1] ? `• ${parts[1]}` : ''}
+                          <Text style={{ fontWeight: '700', color: '#FFF' }}>{title}</Text> {artist ? `• ${artist}` : ''}
                         </Text>
                       </View>
                     );
