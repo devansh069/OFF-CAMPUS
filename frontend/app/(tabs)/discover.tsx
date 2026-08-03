@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -510,6 +511,47 @@ export default function Discover() {
   const router = useRouter();
   const [showRejectWarning, setShowRejectWarning] = useState(true);
   const [rejectExpanded, setRejectExpanded] = useState(false);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
+
+  const handlePlayPause = async (url: string) => {
+    try {
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      if (playingUrl === url) {
+        setPlayingUrl(null);
+        return;
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true }
+      );
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+          setPlayingUrl(null);
+          setSound(null);
+        }
+      });
+
+      setSound(newSound);
+      setPlayingUrl(url);
+    } catch (e) {
+      console.warn('Failed to play preview', e);
+    }
+  };
   const params = useLocalSearchParams();
   const targetUserId = params.targetUserId as string | undefined;
   const fromNearby = params.fromNearby === 'true';
@@ -1281,6 +1323,7 @@ export default function Discover() {
                             {card.tracks.slice(0, 3).map((track: any, idx: number) => {
                               let title = '';
                               let artist = '';
+                              let previewUrl = null;
                               if (typeof track === 'string') {
                                 const parts = track.split(' - ');
                                 title = parts[0] || track;
@@ -1288,7 +1331,9 @@ export default function Discover() {
                               } else if (track && typeof track === 'object') {
                                 title = track.name || '';
                                 artist = track.artist || '';
+                                previewUrl = track.preview_url;
                               }
+                              const isPlaying = previewUrl && playingUrl === previewUrl;
                               return (
                                 <View key={idx} style={styles.spotifyTrackRow}>
                                   <Text style={styles.trackIndex}>{idx + 1}</Text>
@@ -1299,7 +1344,21 @@ export default function Discover() {
                                     <Text style={styles.spotifyTrackName} numberOfLines={1}>{title}</Text>
                                     <Text style={styles.spotifyArtistName} numberOfLines={1}>{artist}</Text>
                                   </View>
-                                  <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.8 }} />
+                                  {previewUrl ? (
+                                    <TouchableOpacity 
+                                      onPress={() => handlePlayPause(previewUrl)}
+                                      activeOpacity={0.7}
+                                      style={{ padding: 4 }}
+                                    >
+                                      <Ionicons 
+                                        name={isPlaying ? 'pause' : 'play'} 
+                                        size={16} 
+                                        color="#1DB954" 
+                                      />
+                                    </TouchableOpacity>
+                                  ) : (
+                                    <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.3 }} />
+                                  )}
                                 </View>
                               );
                             })}

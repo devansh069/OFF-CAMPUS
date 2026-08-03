@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,46 +37,71 @@ export default function SpotifyVibe() {
   const topTracks = user.spotify_data?.top_tracks && user.spotify_data.top_tracks.length > 0
     ? user.spotify_data.top_tracks
     : [
-        'Starboy - The Weeknd',
-        'Levitating - Dua Lipa',
-        'Peaches - Justin Bieber',
-        'Blinding Lights - The Weeknd',
-        'Stay - Kid LAROI & Justin Bieber',
-        'Bad Habits - Ed Sheeran',
-        'Industry Baby - Lil Nas X & Jack Harlow',
-        'Save Your Tears - The Weeknd',
-        'Good 4 U - Olivia Rodrigo',
-        'Kiss Me More - Doja Cat',
+        { name: 'Starboy', artist: 'The Weeknd', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+        { name: 'Levitating', artist: 'Dua Lipa', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+        { name: 'Peaches', artist: 'Justin Bieber', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+        { name: 'Blinding Lights', artist: 'The Weeknd', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+        { name: 'Stay', artist: 'Kid LAROI & Justin Bieber', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
+        { name: 'Bad Habits', artist: 'Ed Sheeran', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+        { name: 'Industry Baby', artist: 'Lil Nas X & Jack Harlow', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
+        { name: 'Save Your Tears', artist: 'The Weeknd', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+        { name: 'Good 4 U', artist: 'Olivia Rodrigo', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+        { name: 'Kiss Me More', artist: 'Doja Cat', preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
       ];
 
-  const handlePlayPause = async (url: string) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-      }
-
-      if (playingUrl === url) {
-        setPlayingUrl(null);
-        return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: url },
-        { shouldPlay: true }
-      );
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
-          setPlayingUrl(null);
+  const handlePlayPause = async (track: any) => {
+    const previewUrl = track.preview_url;
+    if (previewUrl) {
+      try {
+        if (sound) {
+          await sound.unloadAsync();
           setSound(null);
         }
-      });
 
-      setSound(newSound);
-      playingUrl === url ? setPlayingUrl(null) : setPlayingUrl(url);
-    } catch (e) {
-      console.warn('Failed to play preview', e);
+        if (playingUrl === previewUrl) {
+          setPlayingUrl(null);
+          return;
+        }
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: previewUrl },
+          { shouldPlay: true }
+        );
+
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+            setPlayingUrl(null);
+            setSound(null);
+          }
+        });
+
+        setSound(newSound);
+        setPlayingUrl(previewUrl);
+      } catch (e) {
+        console.warn('Failed to play preview', e);
+      }
+    } else {
+      // Redirection fallback: Open in Spotify app directly
+      const targetUrl = track.spotify_url || track.uri;
+      if (targetUrl) {
+        try {
+          const supported = await Linking.canOpenURL(targetUrl);
+          if (supported) {
+            await Linking.openURL(targetUrl);
+          } else if (track.spotify_url) {
+            await Linking.openURL(track.spotify_url);
+          } else {
+            Alert.alert('Spotify App Not Found', 'Could not open Spotify app.');
+          }
+        } catch (e) {
+          console.warn('Could not open Spotify Link', e);
+          if (track.spotify_url) {
+            Linking.openURL(track.spotify_url);
+          }
+        }
+      } else {
+        Alert.alert('Playback Link Unavailable', 'Spotify playback link is not available for this track.');
+      }
     }
   };
 
@@ -130,19 +157,25 @@ export default function SpotifyVibe() {
                     <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
                     <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
                   </View>
-                  {previewUrl && (
-                    <TouchableOpacity
-                      onPress={() => handlePlayPause(previewUrl)}
-                      activeOpacity={0.8}
-                      style={{ padding: 4 }}
-                    >
+                  <TouchableOpacity
+                    onPress={() => handlePlayPause(track)}
+                    activeOpacity={0.8}
+                    style={{ padding: 4 }}
+                  >
+                    {previewUrl ? (
                       <Ionicons
                         name={isPlaying ? 'pause-circle' : 'play-circle'}
                         size={28}
                         color="#C2FF3D"
                       />
-                    </TouchableOpacity>
-                  )}
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="spotify"
+                        size={26}
+                        color="#1DB954"
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
               );
             })}

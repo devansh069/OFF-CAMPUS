@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import PremiumUpsellSheet from '@/src/components/PremiumUpsellSheet';
+import { Audio } from 'expo-av';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth * 0.68;
@@ -126,6 +127,47 @@ export default function Likes() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
   const [incomingLikes, setIncomingLikes] = useState<any[]>([]);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
+
+  const handlePlayPause = async (url: string) => {
+    try {
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      if (playingUrl === url) {
+        setPlayingUrl(null);
+        return;
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true }
+      );
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+          setPlayingUrl(null);
+          setSound(null);
+        }
+      });
+
+      setSound(newSound);
+      setPlayingUrl(url);
+    } catch (e) {
+      console.warn('Failed to play preview', e);
+    }
+  };
   const [activeTab, setActiveTab] = useState<'likes' | 'handshakes'>('likes');
   const [loading, setLoading] = useState(true);
   const [showMatch, setShowMatch] = useState<any | null>(null);
@@ -778,6 +820,7 @@ export default function Likes() {
                       {likes[activeProfileIndex].spotify_data.top_tracks.slice(0, 3).map((track: any, idx: number) => {
                         let title = '';
                         let artist = '';
+                        let previewUrl = null;
                         if (typeof track === 'string') {
                           const parts = track.split(' - ');
                           title = parts[0] || track;
@@ -785,10 +828,26 @@ export default function Likes() {
                         } else if (track && typeof track === 'object') {
                           title = track.name || '';
                           artist = track.artist || '';
+                          previewUrl = track.preview_url;
                         }
+                        const isPlaying = previewUrl && playingUrl === previewUrl;
                         return (
                           <View key={idx} style={styles.spotifyTrackRow}>
-                            <Ionicons name="play" size={16} color="#1DB954" />
+                            {previewUrl ? (
+                              <TouchableOpacity 
+                                onPress={() => handlePlayPause(previewUrl)}
+                                activeOpacity={0.7}
+                                style={{ padding: 4, marginRight: 8 }}
+                              >
+                                <Ionicons 
+                                  name={isPlaying ? 'pause-circle' : 'play-circle'} 
+                                  size={22} 
+                                  color="#1DB954" 
+                                />
+                              </TouchableOpacity>
+                            ) : (
+                              <Ionicons name="play" size={16} color="#1DB954" style={{ marginRight: 8, opacity: 0.4 }} />
+                            )}
                             <View style={styles.spotifyTrackInfo}>
                               <Text style={styles.spotifyTrackName}>{title}</Text>
                               <Text style={styles.spotifyArtistName}>{artist}</Text>
