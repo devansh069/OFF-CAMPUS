@@ -25,6 +25,7 @@ router.get('/users/all', authController.getAllUsersData);
 // Protected endpoints
 router.get('/auth/me', authMiddleware, authController.getCurrentUser);
 router.post('/auth/onboard', authMiddleware, authController.onboard);
+router.post('/auth/link-google', authMiddleware, authController.linkGoogleAccount);
 router.patch('/profile/update', authMiddleware, authController.onboard);
 router.post('/profile/photos', authMiddleware, authController.uploadPhoto);
 router.delete('/profile/photos/:index', authMiddleware, authController.deletePhoto);

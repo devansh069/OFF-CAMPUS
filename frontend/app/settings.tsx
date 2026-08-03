@@ -27,6 +27,90 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  const handleLinkGoogle = async () => {
+    let GoogleSigninModule: any = null;
+    try {
+      GoogleSigninModule = require('@react-native-google-signin/google-signin').GoogleSignin;
+    } catch { }
+
+    if (GoogleSigninModule && Platform.OS !== 'web') {
+      try {
+        setLinkingGoogle(true);
+        await GoogleSigninModule.hasPlayServices();
+        const response = await GoogleSigninModule.signIn();
+        const idToken = response.data?.idToken;
+        if (!idToken) throw new Error('Failed to retrieve Google ID Token.');
+
+        const authModule = require('@react-native-firebase/auth').default;
+        const googleCredential = authModule.GoogleAuthProvider.credential(idToken);
+        const userCredential = await authModule().signInWithCredential(googleCredential);
+        
+        const firebaseIdToken = await userCredential.user.getIdToken();
+        if (!firebaseIdToken) throw new Error('Failed to retrieve Firebase ID Token.');
+
+        const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/link-google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({ firebaseToken: firebaseIdToken })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || 'Failed to link Google account');
+        }
+
+        await refreshUser();
+        Alert.alert('Linked! 👑', 'Your Google account has been successfully linked.');
+      } catch (error: any) {
+        console.error('Google link failed:', error);
+        Alert.alert('Linking Failed', error.message || 'Failed to link Google account.');
+      } finally {
+        setLinkingGoogle(false);
+      }
+    } else {
+      console.log('[Dev Bypass] Mocking Google link in Expo Go...');
+      Alert.alert(
+        'Developer Mode 🛠️',
+        'Running inside Expo Go (Mock Mode). Real Google Link is disabled. Link with mock Google account: google-test-user@test.edu.in?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Link Mock Account',
+            onPress: async () => {
+              setLinkingGoogle(true);
+              try {
+                const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/link-google`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionToken}`
+                  },
+                  body: JSON.stringify({ firebaseToken: 'dev-token-google-test-user@test.edu.in' })
+                });
+
+                if (!res.ok) {
+                  const errData = await res.json();
+                  throw new Error(errData.detail || 'Failed to link Google account');
+                }
+
+                await refreshUser();
+                Alert.alert('Linked! 👑', 'Your Google account has been successfully linked.');
+              } catch (error: any) {
+                Alert.alert('Linking Failed', error.message || 'Failed to link.');
+              } finally {
+                setLinkingGoogle(false);
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -293,6 +377,42 @@ export default function SettingsScreen() {
                 <Ionicons name="cloud-download-outline" size={18} color="#000" style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnText}>Export</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* LINKED ACCOUNTS */}
+          <Text style={styles.sectionTitle}>Linked Accounts</Text>
+          <View style={styles.settingsGroup}>
+            <View style={styles.settingItemRow}>
+              <View style={{ flex: 1, marginRight: 16 }}>
+                <Text style={styles.settingItemLabel}>Google Account</Text>
+                <Text style={styles.settingItemSub}>
+                  {user?.google_email 
+                    ? `Linked: ${user.google_email}` 
+                    : 'Link your Gmail to log in via Google'}
+                </Text>
+              </View>
+              {user?.google_email ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(194, 255, 61, 0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(194, 255, 61, 0.3)' }}>
+                  <Ionicons name="checkmark-circle" size={16} color="#C2FF3D" />
+                  <Text style={{ color: '#C2FF3D', fontSize: 13, fontWeight: '700' }}>Linked</Text>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.actionBtn, { minWidth: 100 }]} 
+                  onPress={handleLinkGoogle}
+                  disabled={linkingGoogle}
+                >
+                  {linkingGoogle ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={14} color="#000" style={{ marginRight: 6 }} />
+                      <Text style={styles.actionBtnText}>Link</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 

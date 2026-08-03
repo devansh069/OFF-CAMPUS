@@ -287,7 +287,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, sessionToken]);
 
-  const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string) => {
+  const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string, mode?: 'login' | 'signup') => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -303,7 +303,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
         body: JSON.stringify({
           firebaseToken,
-          referralCode
+          referralCode,
+          mode
         }),
         signal: controller.signal,
       });

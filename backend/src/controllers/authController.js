@@ -21,6 +21,7 @@ const Op = {
 const { sequelize } = require('../config/db');
 const cloudinary = require('cloudinary').v2;
 const emailService = require('../utils/emailService');
+const { validateCollegeEmail } = require('../utils/emailValidator');
 
 if (process.env.CLOUDINARY_URL) {
   console.log('[Cloudinary] Configured automatically via CLOUDINARY_URL');
@@ -107,7 +108,8 @@ const emailOtps = new Map();
 // 1. Verify OTP token from Firebase Client and handle initial login
 exports.verifyOTP = async (req, res) => {
   try {
-    const { firebaseToken, referralCode } = req.body;
+    const { firebaseToken, referralCode, mode } = req.body;
+    const authMode = mode || 'signup'; // 'login' | 'signup'
 
     if (!firebaseToken) {
       return res.status(400).json({ detail: 'Firebase ID token is required' });
@@ -126,7 +128,7 @@ exports.verifyOTP = async (req, res) => {
         phone_number = devVal;
         uid = 'dev_user_' + phone_number.replace(/\D/g, '');
       }
-      console.log(`[Auth Dev Bypass] Logging in with dev bypass: ${devVal}`);
+      console.log(`[Auth Dev Bypass] Logging in with dev bypass: ${devVal} in mode: ${authMode}`);
     } else {
       // Verify token using Firebase Admin SDK
       const decodedToken = await auth.verifyIdToken(firebaseToken);
@@ -141,27 +143,34 @@ exports.verifyOTP = async (req, res) => {
       }
     }
 
-    // Check if user exists by firebase_uid, phone_number, or email
-    let user = await User.findOne({
-      where: { firebase_uid: uid }
-    });
+    let user = null;
 
-    if (!user) {
-      if (phone_number) {
-        user = await User.findOne({
-          where: { phone_number: phone_number }
-        });
-      } else if (email) {
-        user = await User.findOne({
-          where: { email: email }
+    if (email) {
+      // Google Login Flow: Look up strictly by google_email (personal linked Gmail)
+      user = await User.findOne({
+        where: { google_email: email }
+      });
+
+      if (!user) {
+        return res.status(444 || 404).json({
+          error: 'GOOGLE_ACCOUNT_NOT_LINKED',
+          detail: 'This Google account is not linked to any registered profile. Please sign up using your phone number first, then link your Google account in Settings.'
         });
       }
+    } else if (phone_number) {
+      // Phone Auth Flow (can be signup or login)
+      user = await User.findOne({
+        where: { phone_number: phone_number }
+      });
 
-      if (user) {
-        // Link firebase_uid if it wasn't set yet
-        user.firebase_uid = uid;
-        if (email && !user.email) user.email = email;
-        await user.save();
+      if (!user) {
+        if (authMode === 'login') {
+          return res.status(444 || 404).json({
+            error: 'PHONE_ACCOUNT_NOT_FOUND',
+            detail: 'No account found with this phone number. Please sign up first.'
+          });
+        }
+        // Otherwise, allow signup: create shell user below
       }
     }
 
@@ -172,13 +181,13 @@ exports.verifyOTP = async (req, res) => {
       // Check if profile is complete (using year / course as onboarding complete proxy, as name is pre-filled from Google)
       exists = !!(user.college_id && user.age);
     } else {
-      // Create a shell user record
+      // Create a shell user record (Only allowed via Phone signup path)
       const uniqueCode = await generateUniqueReferralCode();
       user = await User.create({
         user_id: uid,
         firebase_uid: uid,
         phone_number: phone_number || null,
-        email: email || null,
+        email: null, // Keep verified college email empty initially
         name: name || '',
         picture: picture || null,
         verification_status: 'pending',
@@ -299,6 +308,71 @@ exports.verifyOTP = async (req, res) => {
   } catch (error) {
     console.error('[verifyOTP Error]:', error);
     return res.status(401).json({ detail: 'Authentication failed: ' + error.message });
+  }
+};
+
+// 1b. Link Google account to current user profile
+exports.linkGoogleAccount = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { firebaseToken } = req.body;
+
+    if (!firebaseToken) {
+      return res.status(400).json({ detail: 'Firebase ID token is required' });
+    }
+
+    let email = null;
+
+    // Check for development bypass token
+    if ((!process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_BYPASS === 'true') && firebaseToken.startsWith('dev-token-')) {
+      const devVal = firebaseToken.replace('dev-token-', '');
+      if (devVal.includes('@')) {
+        email = devVal;
+      } else {
+        return res.status(400).json({ detail: 'Development bypass token must contain an email address' });
+      }
+    } else {
+      // Verify token using Firebase Admin SDK
+      const decodedToken = await auth.verifyIdToken(firebaseToken);
+      email = decodedToken.email;
+      if (!email) {
+        return res.status(400).json({ detail: 'Firebase token must contain a verified email address' });
+      }
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if this Google email is already linked to another account
+    const existingLink = await User.findOne({
+      where: {
+        google_email: normalizedEmail,
+        user_id: { [Op.ne]: currentUserId }
+      }
+    });
+
+    if (existingLink) {
+      return res.status(400).json({
+        detail: 'This Google account is already linked to another Off-Campus profile.'
+      });
+    }
+
+    // Update current user
+    const user = await User.findOne({ where: { user_id: currentUserId } });
+    if (!user) {
+      return res.status(404).json({ detail: 'User profile not found' });
+    }
+
+    user.google_email = normalizedEmail;
+    await user.save();
+
+    console.log(`[Google Linking] Successfully linked Google email ${normalizedEmail} to user ${currentUserId}`);
+    return res.status(200).json({
+      detail: 'Google account linked successfully!',
+      user
+    });
+  } catch (error) {
+    console.error('[Link Google Error]:', error);
+    return res.status(500).json({ detail: 'Failed to link Google account: ' + error.message });
   }
 };
 
@@ -498,13 +572,35 @@ exports.sendEmailOTP = async (req, res) => {
     const userId = req.user.user_id;
     const { email } = req.body;
 
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ detail: 'Please enter a valid college email address' });
+    const validation = validateCollegeEmail(email);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        error: validation.code,
+        detail: validation.message
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if this college email is already verified by another student account
+    const existingUser = await User.findOne({
+      where: {
+        email: normalizedEmail,
+        verification_status: 'verified',
+        user_id: { [Op.ne]: userId }
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'EMAIL_ALREADY_VERIFIED',
+        detail: 'This college email address is already verified by another student account.'
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     emailOtps.set(userId, {
-      email,
+      email: normalizedEmail,
       otp,
       expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
     });

@@ -63,8 +63,9 @@ export default function Welcome() {
   const { user, login, loading } = useAuth();
   const router = useRouter();
 
-  // Navigation steps: 'phone' | 'otp'
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  // Navigation steps: 'choice' | 'login_choice' | 'phone' | 'otp'
+  const [step, setStep] = useState<'choice' | 'login_choice' | 'phone' | 'otp'>('choice');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   
@@ -160,16 +161,16 @@ export default function Welcome() {
         // Get verified ID Token from Firebase
         const idToken = await firebaseAuth().currentUser?.getIdToken();
         if (idToken) {
-          await login(idToken, true, referralCode.trim());
+          await login(idToken, true, referralCode.trim(), isSignUp ? 'signup' : 'login');
         } else {
           throw new Error('Failed to retrieve Firebase ID Token.');
         }
       } catch (error: any) {
         console.error('Firebase OTP verification failed:', error);
-        Alert.alert('Verification Failed', 'The code you entered is invalid. Please try again.');
+        Alert.alert('Verification Failed', error.message || 'The code you entered is invalid. Please try again.');
       }
     } else {
-      await login(fullNumber, false, referralCode.trim());
+      await login(fullNumber, false, referralCode.trim(), isSignUp ? 'signup' : 'login');
     }
   };
 
@@ -211,7 +212,7 @@ export default function Welcome() {
         // Get verified Firebase ID Token (JWT)
         const firebaseIdToken = await userCredential.user.getIdToken();
         if (firebaseIdToken) {
-          await login(firebaseIdToken, true, referralCode.trim());
+          await login(firebaseIdToken, true, referralCode.trim(), 'login');
         } else {
           throw new Error('Failed to retrieve Firebase ID Token.');
         }
@@ -229,7 +230,7 @@ export default function Welcome() {
         [{ text: 'OK', onPress: async () => {
           setGoogleLoading(true);
           try {
-            await login('google-test-user@test.edu.in', false, referralCode.trim());
+            await login('google-test-user@test.edu.in', false, referralCode.trim(), 'login');
           } catch (error: any) {
             Alert.alert('Login Failed', error.message || 'Failed mock Google login.');
           } finally {
@@ -284,9 +285,20 @@ export default function Welcome() {
           >
             <View style={styles.content}>
               
-              {/* Back Button for OTP step */}
-              {step === 'otp' && (
-                <TouchableOpacity style={styles.backButton} onPress={() => setStep('phone')}>
+              {/* Back Button for multi-step auth */}
+              {step !== 'choice' && (
+                <TouchableOpacity 
+                  style={styles.backButton} 
+                  onPress={() => {
+                    if (step === 'otp') {
+                      setStep('phone');
+                    } else if (step === 'phone') {
+                      setStep(isSignUp ? 'choice' : 'login_choice');
+                    } else if (step === 'login_choice') {
+                      setStep('choice');
+                    }
+                  }}
+                >
                   <Ionicons name="arrow-back-outline" size={24} color="#94A3B8" />
                 </TouchableOpacity>
               )}
@@ -307,10 +319,72 @@ export default function Welcome() {
                 tint="dark" 
                 style={styles.glassCard}
               >
-                {step === 'phone' ? (
+                {step === 'choice' ? (
                   <View style={styles.formContainer}>
-                    <Text style={styles.cardHeader}>Login with Phone</Text>
-                    <Text style={styles.cardSub}>Enter your mobile number to get started</Text>
+                    <Text style={styles.cardHeader}>Get Started</Text>
+                    <Text style={styles.cardSub}>Choose how you want to join Off-Campus</Text>
+
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { marginBottom: 14 }]} 
+                      onPress={() => {
+                        setIsSignUp(true);
+                        setStep('phone');
+                      }}
+                    >
+                      <LinearGradient colors={['#C2FF3D', '#76A30E']} style={styles.btnGrad}>
+                        <Ionicons name="person-add" size={18} color="#000" />
+                        <Text style={[styles.btnText, { color: '#000' }]}>New User? Create Account</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <Text style={[styles.cardSub, { fontSize: 11, textAlign: 'center', marginTop: -8, marginBottom: 16 }]}>
+                      (Account creation is phone number verification only)
+                    </Text>
+
+                    <TouchableOpacity 
+                      style={styles.googleLoginBtn} 
+                      onPress={() => setStep('login_choice')}
+                    >
+                      <Ionicons name="log-in-outline" size={18} color="#FFF" style={{ marginRight: 10 }} />
+                      <Text style={styles.googleBtnText}>Already Registered? Log In</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : step === 'login_choice' ? (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.cardHeader}>Log In</Text>
+                    <Text style={styles.cardSub}>Select your preferred login method</Text>
+
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { marginBottom: 16 }]} 
+                      onPress={() => {
+                        setIsSignUp(false);
+                        setStep('phone');
+                      }}
+                    >
+                      <LinearGradient colors={['#8B5CF6', '#F43F5E']} style={styles.btnGrad}>
+                        <Ionicons name="call" size={18} color="#FFF" />
+                        <Text style={styles.btnText}>Log in with Phone</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.googleLoginBtn} 
+                      onPress={handleGoogleLogin}
+                      disabled={googleLoading}
+                    >
+                      {googleLoading ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="logo-google" size={18} color="#FFF" style={{ marginRight: 10 }} />
+                          <Text style={styles.googleBtnText}>Log in with Google</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : step === 'phone' ? (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.cardHeader}>{isSignUp ? "Create Account" : "Log In"}</Text>
+                    <Text style={styles.cardSub}>Enter your mobile number to receive verification code</Text>
 
                     <View style={styles.phoneInputRow}>
                       <View style={styles.prefixBox}>
@@ -333,29 +407,6 @@ export default function Welcome() {
                         <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
                         <Text style={styles.btnText}>Send Verification Code</Text>
                       </LinearGradient>
-                    </TouchableOpacity>
-
-                    {/* OR Divider */}
-                    <View style={styles.dividerRow}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>OR</Text>
-                      <View style={styles.dividerLine} />
-                    </View>
-
-                    {/* Google Login Button */}
-                    <TouchableOpacity 
-                      style={styles.googleLoginBtn} 
-                      onPress={handleGoogleLogin}
-                      disabled={googleLoading}
-                    >
-                      {googleLoading ? (
-                        <ActivityIndicator size="small" color="#FFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="logo-google" size={18} color="#FFF" style={{ marginRight: 10 }} />
-                          <Text style={styles.googleBtnText}>Continue with Google</Text>
-                        </>
-                      )}
                     </TouchableOpacity>
                   </View>
                 ) : (

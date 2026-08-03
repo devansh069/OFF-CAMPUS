@@ -40,10 +40,36 @@ export default function Verification() {
   const [idImage, setIdImage] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState(false);
 
+  // Client-side domain validation feedback
+  const getEmailDomainHint = (emailStr: string) => {
+    if (!emailStr || !emailStr.includes('@')) return null;
+    const domain = emailStr.split('@')[1]?.toLowerCase().trim();
+    if (!domain) return null;
+
+    const publicDomains = ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'outlook.com', 'hotmail.com', 'icloud.com', 'proton.me', 'protonmail.com', 'zoho.com', 'gmx.com', 'rediffmail.com'];
+    if (publicDomains.some(pd => domain.includes(pd))) {
+      return { type: 'error', text: `Personal emails (${domain}) are not allowed. Please enter your college email.` };
+    }
+
+    const allowedSuffixes = ['.ac.in', '.edu', '.edu.in', '.res.in', '.net.in'];
+    if (allowedSuffixes.some(s => domain.endsWith(s))) {
+      return { type: 'success', text: `Valid official college domain (@${domain})` };
+    }
+
+    return { type: 'warning', text: 'Must end with .ac.in or .edu (e.g. student@college.ac.in)' };
+  };
+
+  const domainHint = getEmailDomainHint(email);
+
   // Send Email OTP via Nodemailer
   const handleSendEmailOtp = async () => {
     if (!email || !email.includes('@')) {
       Alert.alert('Required', 'Please enter a valid college email address.');
+      return;
+    }
+
+    if (domainHint?.type === 'error') {
+      Alert.alert('Official Email Required 🎓', domainHint.text);
       return;
     }
 
@@ -73,7 +99,7 @@ export default function Verification() {
           );
         }
       } else {
-        Alert.alert('Error', data.detail || 'Failed to send OTP to email.');
+        Alert.alert('Verification Error 🎓', data.detail || 'Failed to send OTP to email.');
       }
     } catch (error) {
       console.error('Send Email OTP error:', error);
@@ -303,13 +329,26 @@ export default function Verification() {
                 </View>
 
                 <Text style={styles.boxDesc}>
-                  Enter your official college email address. We'll send a live OTP to your inbox.
+                  Enter your official college email address (.ac.in or .edu). We'll send a live OTP to your inbox.
                 </Text>
+
+                {/* Supported TLD Badges */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {['.ac.in', '.edu', '.edu.in'].map((tld, idx) => (
+                    <View key={idx} style={{ backgroundColor: 'rgba(59, 130, 246, 0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.25)' }}>
+                      <Text style={{ color: '#60A5FA', fontSize: 11, fontWeight: '700' }}>{tld}</Text>
+                    </View>
+                  ))}
+                </View>
 
                 {emailStep === 'input' ? (
                   <View style={styles.inputGroup}>
                     <TextInput
-                      style={styles.textInput}
+                      style={[
+                        styles.textInput,
+                        domainHint?.type === 'error' && { borderColor: '#EF4444', borderWidth: 1 },
+                        domainHint?.type === 'success' && { borderColor: '#10B981', borderWidth: 1 },
+                      ]}
                       placeholder="e.g. krish@iitd.ac.in"
                       placeholderTextColor="#64748B"
                       value={email}
@@ -318,10 +357,31 @@ export default function Verification() {
                       autoCapitalize="none"
                       autoCorrect={false}
                     />
+
+                    {domainHint && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 8, paddingHorizontal: 4 }}>
+                        <Ionicons
+                          name={domainHint.type === 'success' ? 'checkmark-circle' : domainHint.type === 'error' ? 'close-circle' : 'alert-circle'}
+                          size={14}
+                          color={domainHint.type === 'success' ? '#10B981' : domainHint.type === 'error' ? '#EF4444' : '#F59E0B'}
+                        />
+                        <Text style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: domainHint.type === 'success' ? '#10B981' : domainHint.type === 'error' ? '#EF4444' : '#F59E0B'
+                        }}>
+                          {domainHint.text}
+                        </Text>
+                      </View>
+                    )}
+
                     <TouchableOpacity
-                      style={[styles.actionBtn, sendingOtp && { opacity: 0.7 }]}
+                      style={[
+                        styles.actionBtn,
+                        (sendingOtp || domainHint?.type === 'error') && { opacity: 0.6 }
+                      ]}
                       onPress={handleSendEmailOtp}
-                      disabled={sendingOtp}
+                      disabled={sendingOtp || domainHint?.type === 'error'}
                     >
                       {sendingOtp ? (
                         <ActivityIndicator color="#FFF" />
