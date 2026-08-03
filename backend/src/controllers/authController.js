@@ -715,6 +715,22 @@ exports.deletePhoto = async (req, res) => {
   }
 };
 
+// 9. Self Account Deletion
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const deleted = await User.destroy({ where: { user_id: userId } });
+    if (!deleted) {
+      return res.status(404).json({ detail: 'Account not found' });
+    }
+    return res.status(200).json({ detail: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('[deleteAccount Error]:', error);
+    return res.status(500).json({ detail: 'Failed to delete account: ' + error.message });
+  }
+};
+
+
 // 6. Get discovery profiles to swipe
 exports.getDiscoveryProfiles = async (req, res) => {
   try {

@@ -28,6 +28,7 @@ router.post('/auth/onboard', authMiddleware, authController.onboard);
 router.patch('/profile/update', authMiddleware, authController.onboard);
 router.post('/profile/photos', authMiddleware, authController.uploadPhoto);
 router.delete('/profile/photos/:index', authMiddleware, authController.deletePhoto);
+router.delete('/profile/delete', authMiddleware, authController.deleteAccount);
 router.get('/profile/vibe-history', authMiddleware, authController.getVibeScoreHistory);
 router.post('/verification/submit', authMiddleware, authController.submitVerification);
 router.post('/verification/send-email-otp', authMiddleware, authController.sendEmailOTP);

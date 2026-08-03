@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -20,9 +22,81 @@ import { BlurView } from 'expo-blur';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function SettingsScreen() {
-  const { user, sessionToken, refreshUser } = useAuth();
+  const { user, sessionToken, logout, refreshUser } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out 🚪',
+      'Are you sure you want to sign out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/welcome');
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteReasons = [
+    "I found someone on Off Campus ",
+    "Not enough active users ",
+    "Too many notifications / spam ",
+    "App is buggy or runs slow ",
+    "Privacy concerns ",
+    "Other reasons",
+  ];
+
+  const handleDeleteReasonSelected = (reason: string) => {
+    setShowDeleteModal(false);
+    
+    // Final verification confirmation
+    Alert.alert(
+      'Permanently Delete Account? ⚠️',
+      `You selected: "${reason}".\n\nThis will permanently delete all your profile information, matches, photos, and messages forever. This action is irreversible.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: performDeleteAccount,
+        },
+      ]
+    );
+  };
+
+  const performDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
+      Alert.alert('Account Deleted 🗑️', 'Your profile and data have been permanently deleted.');
+      await logout();
+      router.replace('/welcome');
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to delete your account. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Profile preferences state
   const [gender, setGender] = useState(user?.gender || 'male');
@@ -236,8 +310,72 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* LOGOUT & DELETE ACCOUNT */}
+          <Text style={styles.sectionTitle}>Account Actions</Text>
+          <View style={styles.settingsGroup}>
+            {/* Logout Button */}
+            <TouchableOpacity style={styles.settingLink} onPress={handleLogout}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="log-out-outline" size={20} color="#F87171" style={{ marginRight: 10 }} />
+                <Text style={[styles.settingLinkLabel, { color: '#F87171' }]}>Log Out</Text>
+              </View>
+              {/* <Ionicons name="chevron-forward" size={18} color="rgba(248, 113, 113, 0.4)" /> */}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* Delete Account Button */}
+            <TouchableOpacity style={styles.settingLink} onPress={() => setShowDeleteModal(true)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="trash-outline" size={20} color="#EF4444" style={{ marginRight: 10 }} />
+                <Text style={[styles.settingLinkLabel, { color: '#EF4444', fontWeight: '800' }]}>Delete Account</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="rgba(239, 68, 68, 0.4)" />
+            </TouchableOpacity>
+          </View>
+
           <View style={{ height: 60 }} />
         </ScrollView>
+
+        {/* Account Deletion Reason Selector Modal */}
+        <Modal visible={showDeleteModal} transparent={true} animationType="slide">
+          <TouchableWithoutFeedback onPress={() => setShowDeleteModal(false)}>
+            <View style={styles.modalOverlay}>
+              <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContentGlass}>
+                  <View style={styles.modalDragHandle} />
+
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Reason for leaving?</Text>
+                    <TouchableOpacity onPress={() => setShowDeleteModal(false)} style={styles.modalCloseBtn}>
+                      <Ionicons name="close" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.modalIntro}>
+                    Please tell us why you want to delete your account. This feedback is display-only and won&apos;t be saved.
+                  </Text>
+
+                  <ScrollView style={{ marginTop: 8 }} showsVerticalScrollIndicator={false}>
+                    {deleteReasons.map((reason) => (
+                      <TouchableOpacity
+                        key={reason}
+                        style={styles.reasonBtn}
+                        onPress={() => handleDeleteReasonSelected(reason)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reasonBtnText}>{reason}</Text>
+                        <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+                      </TouchableOpacity>
+                    ))}
+                    <View style={{ height: 20 }} />
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -401,5 +539,45 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalContentGlass: {
+    backgroundColor: 'rgba(20, 20, 25, 0.95)',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  modalDragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  modalCloseBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20 },
+  modalIntro: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 13, lineHeight: 18, marginBottom: 20 },
+  reasonBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  reasonBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
