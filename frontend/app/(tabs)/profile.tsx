@@ -36,6 +36,8 @@ export default function Profile() {
   const [vibeHistory, setVibeHistory] = useState<any[]>([]);
   const [activeProfileTab, setActiveProfileTab] = useState<'view' | 'premium'>('view');
   const [premiumLoading, setPremiumLoading] = useState(false);
+  const [showRejectWarning, setShowRejectWarning] = useState(true);
+  const [rejectExpanded, setRejectExpanded] = useState(false);
 
   useEffect(() => {
     if (user?.college) {
@@ -434,6 +436,78 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
+      {/* Verification Rejected Warning Modal */}
+      <Modal
+        visible={user?.verification_status === 'rejected' && showRejectWarning}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRejectWarning(false)}
+      >
+        <View style={styles.warningOverlayBg}>
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
+          
+          <View style={styles.warningCardGlass}>
+            {/* Close Cross Button */}
+            <TouchableOpacity
+              style={styles.warningCrossBtn}
+              onPress={() => setShowRejectWarning(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color="rgba(255, 255, 255, 0.6)" />
+            </TouchableOpacity>
+
+            <View style={styles.warningIconCircle}>
+              <Ionicons name="alert-circle" size={32} color="#EF4444" />
+            </View>
+
+            {!rejectExpanded ? (
+              // Phase 1: Collapsed
+              <TouchableOpacity
+                onPress={() => setRejectExpanded(true)}
+                activeOpacity={0.85}
+                style={styles.warningMainLineClickable}
+              >
+                <Text style={styles.warningMainText}>
+                  Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
+                </Text>
+                <Text style={styles.warningTapHint}>Tap to view details</Text>
+              </TouchableOpacity>
+            ) : (
+              // Phase 2: Expanded
+              <View style={styles.warningExpandedContent}>
+                <Text style={styles.warningMainText}>
+                  Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
+                </Text>
+                
+                <Text style={styles.warningSubText}>
+                  You can&apos;t send likes until you are verified.
+                </Text>
+
+                <View style={styles.warningActionRow}>
+                  <TouchableOpacity
+                    style={styles.warningBtnVerify}
+                    onPress={() => {
+                      setShowRejectWarning(false);
+                      router.push('/onboarding/verification');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.warningBtnVerifyText}>Verify Again</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.warningBtnClose}
+                    onPress={() => setShowRejectWarning(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.warningBtnCloseText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
       {/* Top-Left Dark Purple Glow Ball */}
       <View style={styles.glowBallContainer}>
         <LinearGradient
@@ -1928,18 +2002,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 14,
   },
-  premiumHeroTitle: {
-    color: '#FFD700',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  premiumHeroSub: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 14,
-    marginTop: 6,
-    textAlign: 'center',
-  },
+
   premiumFeaturesList: {
     gap: 10,
     marginBottom: 24,
@@ -2547,5 +2610,113 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 12,
+  },
+
+  // WARNING POPUP OVERLAY STYLES
+  warningOverlayBg: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    padding: 24,
+  },
+  warningCardGlass: {
+    backgroundColor: 'rgba(25, 20, 30, 0.96)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  warningCrossBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 16,
+  },
+  warningIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  warningMainLineClickable: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  warningMainText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 4,
+  },
+  warningTapHint: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 10,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  warningExpandedContent: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  warningSubText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+  },
+  warningActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 22,
+    width: '100%',
+  },
+  warningBtnVerify: {
+    flex: 1,
+    backgroundColor: '#C2FF3D',
+    paddingVertical: 14,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningBtnVerifyText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  warningBtnClose: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningBtnCloseText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

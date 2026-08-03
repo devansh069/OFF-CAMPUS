@@ -508,6 +508,8 @@ const sliderStyles = StyleSheet.create({
 export default function Discover() {
   const { user, sessionToken } = useAuth();
   const router = useRouter();
+  const [showRejectWarning, setShowRejectWarning] = useState(true);
+  const [rejectExpanded, setRejectExpanded] = useState(false);
   const params = useLocalSearchParams();
   const targetUserId = params.targetUserId as string | undefined;
   const fromNearby = params.fromNearby === 'true';
@@ -784,7 +786,7 @@ export default function Discover() {
     if (user?.verification_status !== 'verified') {
       if (user?.verification_status === 'rejected') {
         Alert.alert(
-          'Verification Rejected ❌',
+          'Verification Rejected ',
           `Reason: "${user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}"\n\nPlease submit a valid photo of your ID card to unlock likes & profile visibility.`,
           [
             { text: 'Cancel', style: 'cancel' },
@@ -793,12 +795,12 @@ export default function Discover() {
         );
       } else if (user?.verification_status === 'pending') {
         Alert.alert(
-          'Verification Pending ⏳',
+          'Verification Pending ',
           'Your student ID card is currently under review by admin. You will be able to send likes once approved!'
         );
       } else {
         Alert.alert(
-          'Verification Required 🛡️',
+          'Verification Required ',
           'You must verify your student profile before sending likes to anyone!',
           [
             { text: 'Cancel', style: 'cancel' },
@@ -1040,6 +1042,78 @@ export default function Discover() {
 
   return (
     <View style={styles.container}>
+      {/* Verification Rejected Warning Modal */}
+      <Modal
+        visible={user?.verification_status === 'rejected' && showRejectWarning}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRejectWarning(false)}
+      >
+        <View style={styles.warningOverlayBg}>
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
+          
+          <View style={styles.warningCardGlass}>
+            {/* Close Cross Button */}
+            <TouchableOpacity
+              style={styles.warningCrossBtn}
+              onPress={() => setShowRejectWarning(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color="rgba(255, 255, 255, 0.6)" />
+            </TouchableOpacity>
+
+            <View style={styles.warningIconCircle}>
+              <Ionicons name="alert-circle" size={32} color="#EF4444" />
+            </View>
+
+            {!rejectExpanded ? (
+              // Phase 1: Collapsed
+              <TouchableOpacity
+                onPress={() => setRejectExpanded(true)}
+                activeOpacity={0.85}
+                style={styles.warningMainLineClickable}
+              >
+                <Text style={styles.warningMainText}>
+                  Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
+                </Text>
+                <Text style={styles.warningTapHint}>Tap to view details</Text>
+              </TouchableOpacity>
+            ) : (
+              // Phase 2: Expanded
+              <View style={styles.warningExpandedContent}>
+                <Text style={styles.warningMainText}>
+                  Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
+                </Text>
+                
+                <Text style={styles.warningSubText}>
+                  You can&apos;t send likes until you are verified.
+                </Text>
+
+                <View style={styles.warningActionRow}>
+                  <TouchableOpacity
+                    style={styles.warningBtnVerify}
+                    onPress={() => {
+                      setShowRejectWarning(false);
+                      router.push('/onboarding/verification');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.warningBtnVerifyText}>Verify Again</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.warningBtnClose}
+                    onPress={() => setShowRejectWarning(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.warningBtnCloseText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
       {/* Top-Left Dark Purple Glow Ball */}
       <View style={styles.glowBallContainer}>
         <LinearGradient
@@ -1356,7 +1430,7 @@ export default function Discover() {
             onPress={() => {
               if (user?.verification_status === 'rejected') {
                 Alert.alert(
-                  'Verification Rejected ❌',
+                  'Verification Rejected ',
                   `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
                   [
                     { text: 'Cancel', style: 'cancel' },
@@ -1379,7 +1453,7 @@ export default function Discover() {
                 {user?.verification_status === 'rejected'
                   ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
                   : user?.verification_status === 'pending'
-                    ? 'Verification Pending ⏳ Under Review'
+                    ? 'Verification Pending Under Review'
                     : 'Verify your ID to send likes & show your profile!'}
               </Text>
               <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
@@ -2457,4 +2531,112 @@ const styles = StyleSheet.create({
   matchBtnText: { color: '#000', fontWeight: '900', fontSize: 16 },
   matchBtnSecondary: { paddingVertical: 14, borderRadius: 25, alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
   matchBtnTextSecondary: { color: '#FFF', fontWeight: '700' },
+
+  // WARNING POPUP OVERLAY STYLES
+  warningOverlayBg: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    padding: 24,
+  },
+  warningCardGlass: {
+    backgroundColor: 'rgba(25, 20, 30, 0.96)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  warningCrossBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 16,
+  },
+  warningIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  warningMainLineClickable: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  warningMainText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 4,
+  },
+  warningTapHint: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 10,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  warningExpandedContent: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  warningSubText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+  },
+  warningActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 22,
+    width: '100%',
+  },
+  warningBtnVerify: {
+    flex: 1,
+    backgroundColor: '#C2FF3D',
+    paddingVertical: 14,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningBtnVerifyText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  warningBtnClose: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningBtnCloseText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

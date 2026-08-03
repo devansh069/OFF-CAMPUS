@@ -36,7 +36,7 @@ export default function Verification() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
 
-  // Box 2: Manual ID Card Verification State
+  // Box 2: Manual ID Card Verification Stateuse
   const [idImage, setIdImage] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState(false);
 
@@ -106,8 +106,8 @@ export default function Verification() {
         if (updateUser) {
           updateUser({ verification_status: 'verified', email: email.trim() });
         }
-        try { await refreshUser(); } catch (e) {}
-        
+        try { await refreshUser(); } catch (e) { }
+
         Alert.alert(
           'Verified! 🎉',
           'Your college email has been verified. You have instantly earned your Blue Tick!',
@@ -166,9 +166,9 @@ export default function Verification() {
         'Physical camera cannot be opened on an iOS/Android Simulator.\n\nWould you like to load a Dummy Student ID card photo now to test the submission and Admin approval flow?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Load Dummy Photo', 
-            style: 'default', 
+          {
+            text: 'Load Dummy Photo',
+            style: 'default',
             onPress: () => {
               setIdImage(DUMMY_ID_CARD_PHOTO);
             }
@@ -204,7 +204,7 @@ export default function Verification() {
         if (updateUser) {
           updateUser({ verification_status: 'pending' });
         }
-        try { await refreshUser(); } catch (e) {}
+        try { await refreshUser(); } catch (e) { }
 
         Alert.alert(
           'Submitted Successfully! 📋',
@@ -228,13 +228,11 @@ export default function Verification() {
     <View style={styles.container}>
       {/* Ambient background linear gradient matching profile */}
       <LinearGradient
-        colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
+        colors={['#050005', '#160222']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      {/* Dark veil overlay */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} />
 
       <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
@@ -272,13 +270,23 @@ export default function Verification() {
                     <Text style={styles.bannerSub}>Your ID photo is currently being reviewed in the Admin Portal.</Text>
                   </View>
                 </View>
+              ) : currentStatus === 'rejected' ? (
+                <View style={[styles.pendingBanner, { borderColor: 'rgba(239, 68, 68, 0.4)', backgroundColor: 'rgba(239, 68, 68, 0.06)' }]}>
+                  <Ionicons name="close-circle" size={28} color="#EF4444" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.bannerTitle, { color: '#EF4444' }]}>VERIFICATION REJECTED</Text>
+                    <Text style={[styles.bannerSub, { color: 'rgba(255, 255, 255, 0.7)' }]}>
+                      Reason: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
+                    </Text>
+                  </View>
+                </View>
               ) : null}
 
               {/* Intro Section */}
               <View style={styles.introSection}>
                 <Text style={styles.mainTitle}>Get Your Verified Badge</Text>
                 <Text style={styles.mainSub}>
-                  Earn the highly preferred <Text style={{color: '#3B82F6', fontWeight: 'bold'}}>Blue Tick</Text> instantly via College Email, or a <Text style={{color: '#F87171', fontWeight: 'bold'}}>Red Tick</Text> via Manual ID Upload!
+                  Earn the highly preferred <Text style={{ color: '#3B82F6', fontWeight: 'bold' }}>Blue Tick</Text> instantly via College Email, or a <Text style={{ color: '#F87171', fontWeight: 'bold' }}>Red Tick</Text> via Manual ID Upload!
                 </Text>
               </View>
 
@@ -384,7 +392,7 @@ export default function Verification() {
                   </View>
                 ) : (
                   <View style={styles.uploadContainer}>
-                    <TouchableOpacity
+                    {/* <TouchableOpacity
                       style={styles.dummyBtn}
                       onPress={() => {
                         setIdImage(DUMMY_ID_CARD_PHOTO);
@@ -393,7 +401,7 @@ export default function Verification() {
                     >
                       <Ionicons name="flask" size={20} color="#C2FF3D" />
                       <Text style={styles.dummyTitleText}>Use Dummy Photo</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
 
                     <TouchableOpacity style={styles.cameraBtn} onPress={handleOpenCamera}>
                       <Ionicons name="camera" size={28} color="#C2FF3D" />
@@ -501,8 +509,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   box: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 20,
@@ -517,10 +525,10 @@ const styles = StyleSheet.create({
   boxTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   boxDesc: {
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
     lineHeight: 20,
     marginBottom: 20,
@@ -529,11 +537,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   textInput: {
-    height: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    height: 52,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
     paddingHorizontal: 16,
     color: '#FFF',
     fontSize: 15,
@@ -543,22 +551,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#C2FF3D',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 20,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnText: {
     color: '#000000',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   resendBtn: {
     justifyContent: 'center',
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   resendText: {
     color: '#FFF',
@@ -587,10 +595,10 @@ const styles = StyleSheet.create({
   },
   cameraBtn: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
     paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
