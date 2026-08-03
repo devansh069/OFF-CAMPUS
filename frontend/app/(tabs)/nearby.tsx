@@ -11,7 +11,8 @@ import {
   ScrollView,
   Animated,
   Alert,
-  PanResponder
+  PanResponder,
+  Easing
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,10 +26,14 @@ const { width: screenWidth } = Dimensions.get('window');
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 const searchTexts = [
-  'searching nearby gedi friends...',
-  'searching for gym buddy...',
-  'searching for clg travels...',
-  'searching for sham ki gedi...'
+  // 'searching nearby gedi friends...',
+  // 'searching for gym buddy...',
+  // 'searching for clg travels...',
+  // 'searching for sham ki gedi...',
+  `Game On(Find sports & turf partners)`,
+  'Lift Together(Find a gym partner)',
+  `⁠Campus Commute (Find someone to commute to college with)`,
+  `Shaam Ki Gedi (Find people to go on drives or hang out with)`,
 ];
 
 const MOCK_NEARBY_PROFILES = [
@@ -105,23 +110,32 @@ export default function NearbyScreen() {
   // Animation values
   const radarAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotationAnim = useRef(new Animated.Value(0)).current;
 
-  // Custom slider touch mapping
+  // Custom slider touch mapping with absolute delta calculations
+  const rangeRef = useRef(50);
+  const startRange = useRef(50);
   const sliderWidth = screenWidth - 64; // bounds for touch offset
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt: any) => handleSliderTouch(evt),
-      onPanResponderMove: (evt: any) => handleSliderTouch(evt),
+      onPanResponderGrant: (evt: any) => {
+        const pageX = evt.nativeEvent.pageX;
+        const paddingOffset = 32; // estimation of left padding/margins
+        const pct = Math.max(1, Math.min(100, Math.round(((pageX - paddingOffset) / sliderWidth) * 100)));
+        setRange(pct);
+        rangeRef.current = pct;
+        startRange.current = pct;
+      },
+      onPanResponderMove: (evt: any, gestureState: any) => {
+        const deltaPct = Math.round((gestureState.dx / sliderWidth) * 100);
+        const newPct = Math.max(1, Math.min(100, startRange.current + deltaPct));
+        setRange(newPct);
+        rangeRef.current = newPct;
+      },
     })
   ).current;
-
-  const handleSliderTouch = (evt: any) => {
-    const touchX = evt.nativeEvent.locationX;
-    const pct = Math.max(0, Math.min(100, Math.round((touchX / sliderWidth) * 100)));
-    setRange(pct);
-  };
 
   // Pulse effect for the location page logo
   useEffect(() => {
@@ -196,21 +210,15 @@ export default function NearbyScreen() {
     setIsSearching(true);
     setSearchTextIndex(0);
 
-    // Radar pulsing loop
-    radarAnim.setValue(1);
+    // Radar sweep rotation loop
+    rotationAnim.setValue(0);
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(radarAnim, {
-          toValue: 2.2,
-          duration: 1500,
-          useNativeDriver: true
-        }),
-        Animated.timing(radarAnim, {
-          toValue: 1.0,
-          duration: 0,
-          useNativeDriver: true
-        })
-      ])
+      Animated.timing(rotationAnim, {
+        toValue: 1,
+        duration: 3000,
+        easing: Easing.linear,
+        useNativeDriver: true
+      })
     ).start();
 
     // Loop through search texts
@@ -276,7 +284,7 @@ export default function NearbyScreen() {
       // Redirect to the vibe page with specific focus on this profile
       router.push({
         pathname: '/(tabs)/discover',
-        params: { 
+        params: {
           targetUserId: userItem.user_id,
           fromNearby: 'true'
         }
@@ -284,9 +292,22 @@ export default function NearbyScreen() {
     }
   };
 
+  const spin = rotationAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#0F0C1B', '#05020A']} style={styles.gradientBg} />
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
 
       <SafeAreaView style={styles.safeContainer}>
         {/* Header Section */}
@@ -297,12 +318,12 @@ export default function NearbyScreen() {
               <Text style={styles.headerTitle}>nearby</Text>
             </View>
 
-            <TouchableOpacity 
-              style={styles.handshakeCountPill} 
+            <TouchableOpacity
+              style={styles.handshakeCountPill}
               activeOpacity={0.8}
               onPress={() => {
                 Alert.alert(
-                  'Weekly Handshakes 🤝',
+                  'Weekly Handshakes ',
                   `You have ${handshakesRemaining} handshake${handshakesRemaining === 1 ? '' : 's'} remaining this week. Handshakes allow you to connect directly with students nearby!\n\nLimits: 1/week for free members, 5/week for Premium members. Resets every Sunday at 4 AM.`
                 );
               }}
@@ -342,23 +363,50 @@ export default function NearbyScreen() {
           /* 2. RADAR SEARCH LOADER ANIMATION STATE */
           isSearching ? (
             <View style={styles.radarContainer}>
-              <View style={styles.radarCenter}>
-                {/* Expanding pulse ring */}
+              <View style={styles.radarOuterCircle}>
+                {/* Grid Lines */}
+                <View style={[styles.radarGridRing, { width: '80%', height: '80%', borderRadius: 130 }]} />
+                <View style={[styles.radarGridRing, { width: '55%', height: '55%', borderRadius: 90 }]} />
+                <View style={[styles.radarGridRing, { width: '30%', height: '30%', borderRadius: 50 }]} />
+                
+                {/* Crosshair Axes */}
+                <View style={styles.radarCrosshairH} />
+                <View style={styles.radarCrosshairV} />
+
+                {/* Rotating Sweep Beam */}
                 <Animated.View
                   style={[
-                    styles.radarPulse,
+                    StyleSheet.absoluteFillObject,
                     {
-                      transform: [{ scale: radarAnim }],
-                      opacity: radarAnim.interpolate({
-                        inputRange: [1, 1.6, 2.2],
-                        outputRange: [0.6, 0.3, 0]
-                      })
+                      transform: [{ rotate: spin }],
                     }
                   ]}
-                />
-                {/* Core avatar radar point */}
-                <View style={styles.radarCore}>
-                  <Ionicons name="location" size={28} color="#C2FF3D" />
+                >
+                  {/* Glowing Beam line */}
+                  <View style={styles.radarSweepLine} />
+                  {/* Fade tail wedge */}
+                  <LinearGradient
+                    colors={['rgba(194, 255, 61, 0.15)', 'rgba(194, 255, 61, 0)']}
+                    start={{ x: 1, y: 1 }}
+                    end={{ x: 0, y: 0 }}
+                    style={styles.radarSweepTail}
+                  />
+                </Animated.View>
+
+                {/* Glowing Target Dots representing nearby students */}
+                <View style={[styles.radarTargetDot, { top: '25%', left: '30%' }]} />
+                <View style={[styles.radarTargetDot, { top: '35%', left: '72%' }]} />
+                <View style={[styles.radarTargetDot, { top: '65%', left: '22%' }]} />
+                <View style={[styles.radarTargetDot, { top: '55%', left: '62%' }]} />
+                <View style={[styles.radarTargetDot, { top: '78%', left: '46%' }]} />
+
+                {/* Center User Pin */}
+                <View style={styles.radarCenterPin}>
+                  <Image
+                    source={{ uri: user?.photos?.[0] || user?.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop' }}
+                    style={styles.radarCenterPfp}
+                  />
+                  <View style={styles.radarCenterPulse} />
                 </View>
               </View>
 
@@ -370,7 +418,7 @@ export default function NearbyScreen() {
           ) : (
             /* 3. SETTINGS & PROFILE MATCHES LIST VIEW */
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-              
+
               {/* Location display + Range selection card */}
               <BlurView intensity={25} tint="dark" style={styles.controlsCard}>
                 <View style={styles.locStatusRow}>
@@ -501,14 +549,16 @@ export default function NearbyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#05020A',
+    backgroundColor: '#000000',
   },
-  gradientBg: {
+  glowBallContainer: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
   },
   safeContainer: {
     flex: 1,
@@ -643,6 +693,104 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
+  radarOuterCircle: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(194, 255, 61, 0.02)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 255, 61, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    marginBottom: 20,
+  },
+  radarGridRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 255, 61, 0.12)',
+    borderStyle: 'dashed',
+  },
+  radarCrosshairH: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
+  },
+  radarCrosshairV: {
+    position: 'absolute',
+    height: '100%',
+    width: 1,
+    backgroundColor: 'rgba(194, 255, 61, 0.12)',
+  },
+  radarSweepLine: {
+    position: 'absolute',
+    left: '50%',
+    top: 0,
+    width: 2.5,
+    height: '50%',
+    backgroundColor: '#C2FF3D',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  radarSweepTail: {
+    position: 'absolute',
+    left: '50%',
+    top: 0,
+    width: '50%',
+    height: '50%',
+    borderTopRightRadius: 140,
+  },
+  radarTargetDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#C2FF3D',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  radarCenterPin: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#0F061A',
+    borderWidth: 2,
+    borderColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  radarCenterPfp: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+  },
+  radarCenterPulse: {
+    position: 'absolute',
+    width: '120%',
+    height: '120%',
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: '#C2FF3D',
+    opacity: 0.35,
+  },
   searchingLabel: {
     color: '#FFF',
     fontSize: 16,
@@ -710,26 +858,26 @@ const styles = StyleSheet.create({
   },
   sliderTrackBg: {
     position: 'absolute',
-    height: 6,
+    height: 5,
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 3,
   },
   sliderTrackActive: {
     position: 'absolute',
-    height: 6,
+    height: 5,
     backgroundColor: '#C2FF3D',
     borderRadius: 3,
   },
   sliderThumb: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#FFF',
     borderWidth: 3,
     borderColor: '#C2FF3D',
-    marginLeft: -12,
+    marginLeft: -10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

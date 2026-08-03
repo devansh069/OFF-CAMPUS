@@ -12,6 +12,7 @@ import {
   Platform,
   TextInput,
   KeyboardAvoidingView,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -21,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+const { width: screenWidth } = Dimensions.get('window');
 
 // Mock Dummy Student ID photo for seamless testing without taking physical pictures
 const DUMMY_ID_CARD_PHOTO = 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop';
@@ -252,13 +254,15 @@ export default function Verification() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background linear gradient matching profile */}
-      <LinearGradient
-        colors={['#050005', '#160222']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
+      {/* Top-Left Dark Purple Glow Ball */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
 
       <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject}>
         <SafeAreaView style={{ flex: 1 }}>
@@ -492,6 +496,15 @@ export default function Verification() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  glowBallContainer: {
+    position: 'absolute',
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
