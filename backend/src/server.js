@@ -169,6 +169,11 @@ const startServer = async () => {
     } catch (e) {}
 
     try {
+      await sequelize.query("ALTER TABLE college_master DROP INDEX short_name;");
+      console.log('[Patch] Dropped UNIQUE index on short_name in college_master');
+    } catch (e) {}
+
+    try {
       await sequelize.query("ALTER TABLE users ADD COLUMN college_request_status ENUM('none', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'none';");
       console.log('[Patch] Manually added college_request_status column to users');
     } catch (e) {}
