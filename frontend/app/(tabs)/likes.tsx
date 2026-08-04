@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal, Platform, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Alert, Modal, Platform, Animated, PanResponder, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -138,34 +138,59 @@ export default function Likes() {
       : undefined;
   }, [sound]);
 
-  const handlePlayPause = async (url: string) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-      }
-
-      if (playingUrl === url) {
-        setPlayingUrl(null);
-        return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: url },
-        { shouldPlay: true }
-      );
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
-          setPlayingUrl(null);
+  const handlePlayPause = async (track: any) => {
+    const previewUrl = typeof track === 'string' ? null : track?.preview_url;
+    if (previewUrl) {
+      try {
+        if (sound) {
+          await sound.unloadAsync();
           setSound(null);
         }
-      });
 
-      setSound(newSound);
-      setPlayingUrl(url);
-    } catch (e) {
-      console.warn('Failed to play preview', e);
+        if (playingUrl === previewUrl) {
+          setPlayingUrl(null);
+          return;
+        }
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: previewUrl },
+          { shouldPlay: true }
+        );
+
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+            setPlayingUrl(null);
+            setSound(null);
+          }
+        });
+
+        setSound(newSound);
+        setPlayingUrl(previewUrl);
+      } catch (e) {
+        console.warn('Failed to play preview', e);
+      }
+    } else {
+      // Redirection fallback: Open in Spotify app directly
+      const targetUrl = track?.spotify_url || track?.uri;
+      if (targetUrl) {
+        try {
+          const supported = await Linking.canOpenURL(targetUrl);
+          if (supported) {
+            await Linking.openURL(targetUrl);
+          } else if (track.spotify_url) {
+            await Linking.openURL(track.spotify_url);
+          } else {
+            Alert.alert('Spotify App Not Found', 'Could not open Spotify app.');
+          }
+        } catch (e) {
+          console.warn('Could not open Spotify Link', e);
+          if (track.spotify_url) {
+            Linking.openURL(track.spotify_url);
+          }
+        }
+      } else {
+        Alert.alert('Playback Link Unavailable', 'Spotify playback link is not available for this track.');
+      }
     }
   };
   const [activeTab, setActiveTab] = useState<'likes' | 'handshakes'>('likes');
@@ -832,27 +857,28 @@ export default function Likes() {
                         }
                         const isPlaying = previewUrl && playingUrl === previewUrl;
                         return (
-                          <View key={idx} style={styles.spotifyTrackRow}>
+                          <TouchableOpacity 
+                            key={idx} 
+                            style={styles.spotifyTrackRow}
+                            onPress={() => handlePlayPause(track)}
+                            activeOpacity={0.7}
+                          >
                             {previewUrl ? (
-                              <TouchableOpacity 
-                                onPress={() => handlePlayPause(previewUrl)}
-                                activeOpacity={0.7}
-                                style={{ padding: 4, marginRight: 8 }}
-                              >
+                              <View style={{ padding: 4, marginRight: 8 }}>
                                 <Ionicons 
                                   name={isPlaying ? 'pause-circle' : 'play-circle'} 
                                   size={22} 
                                   color="#1DB954" 
                                 />
-                              </TouchableOpacity>
+                              </View>
                             ) : (
-                              <Ionicons name="play" size={16} color="#1DB954" style={{ marginRight: 8, opacity: 0.4 }} />
+                              <Ionicons name="logo-spotify" size={16} color="#1DB954" style={{ marginRight: 8, opacity: 0.8 }} />
                             )}
                             <View style={styles.spotifyTrackInfo}>
                               <Text style={styles.spotifyTrackName}>{title}</Text>
                               <Text style={styles.spotifyArtistName}>{artist}</Text>
                             </View>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })}
                     </View>

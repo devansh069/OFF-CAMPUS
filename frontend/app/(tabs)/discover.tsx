@@ -522,34 +522,59 @@ export default function Discover() {
       : undefined;
   }, [sound]);
 
-  const handlePlayPause = async (url: string) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-      }
-
-      if (playingUrl === url) {
-        setPlayingUrl(null);
-        return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: url },
-        { shouldPlay: true }
-      );
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
-          setPlayingUrl(null);
+  const handlePlayPause = async (track: any) => {
+    const previewUrl = typeof track === 'string' ? null : track?.preview_url;
+    if (previewUrl) {
+      try {
+        if (sound) {
+          await sound.unloadAsync();
           setSound(null);
         }
-      });
 
-      setSound(newSound);
-      setPlayingUrl(url);
-    } catch (e) {
-      console.warn('Failed to play preview', e);
+        if (playingUrl === previewUrl) {
+          setPlayingUrl(null);
+          return;
+        }
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: previewUrl },
+          { shouldPlay: true }
+        );
+
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
+            setPlayingUrl(null);
+            setSound(null);
+          }
+        });
+
+        setSound(newSound);
+        setPlayingUrl(previewUrl);
+      } catch (e) {
+        console.warn('Failed to play preview', e);
+      }
+    } else {
+      // Redirection fallback: Open in Spotify app directly
+      const targetUrl = track?.spotify_url || track?.uri;
+      if (targetUrl) {
+        try {
+          const supported = await Linking.canOpenURL(targetUrl);
+          if (supported) {
+            await Linking.openURL(targetUrl);
+          } else if (track.spotify_url) {
+            await Linking.openURL(track.spotify_url);
+          } else {
+            Alert.alert('Spotify App Not Found', 'Could not open Spotify app.');
+          }
+        } catch (e) {
+          console.warn('Could not open Spotify Link', e);
+          if (track.spotify_url) {
+            Linking.openURL(track.spotify_url);
+          }
+        }
+      } else {
+        Alert.alert('Playback Link Unavailable', 'Spotify playback link is not available for this track.');
+      }
     }
   };
   const params = useLocalSearchParams();
@@ -825,6 +850,13 @@ export default function Discover() {
   };
 
   const handleLikeAndNext = (targetUserId: string) => {
+    if (user?.college_request_status === 'pending') {
+      Alert.alert(
+        'College Verification Pending ⏳',
+        `Your college approval request for "${user?.college_name || 'custom college'}" is currently under review by Admin. App actions are locked until approved.`
+      );
+      return;
+    }
     if (user?.verification_status !== 'verified') {
       if (user?.verification_status === 'rejected') {
         Alert.alert(
@@ -1335,7 +1367,12 @@ export default function Discover() {
                               }
                               const isPlaying = previewUrl && playingUrl === previewUrl;
                               return (
-                                <View key={idx} style={styles.spotifyTrackRow}>
+                                <TouchableOpacity 
+                                  key={idx} 
+                                  style={styles.spotifyTrackRow}
+                                  onPress={() => handlePlayPause(track)}
+                                  activeOpacity={0.7}
+                                >
                                   <Text style={styles.trackIndex}>{idx + 1}</Text>
                                   <View style={styles.trackArt}>
                                     <Ionicons name="musical-note" size={14} color="#1DB954" />
@@ -1344,22 +1381,18 @@ export default function Discover() {
                                     <Text style={styles.spotifyTrackName} numberOfLines={1}>{title}</Text>
                                     <Text style={styles.spotifyArtistName} numberOfLines={1}>{artist}</Text>
                                   </View>
-                                  {previewUrl ? (
-                                    <TouchableOpacity 
-                                      onPress={() => handlePlayPause(previewUrl)}
-                                      activeOpacity={0.7}
-                                      style={{ padding: 4 }}
-                                    >
+                                  <View style={{ padding: 4 }}>
+                                    {previewUrl ? (
                                       <Ionicons 
                                         name={isPlaying ? 'pause' : 'play'} 
                                         size={16} 
                                         color="#1DB954" 
                                       />
-                                    </TouchableOpacity>
-                                  ) : (
-                                    <Ionicons name="play" size={12} color="#1DB954" style={{ opacity: 0.3 }} />
-                                  )}
-                                </View>
+                                    ) : (
+                                      <Ionicons name="logo-spotify" size={16} color="#1DB954" />
+                                    )}
+                                  </View>
+                                </TouchableOpacity>
                               );
                             })}
                           </View>
@@ -1494,12 +1527,17 @@ export default function Discover() {
           </TouchableOpacity>
         </View>
 
-        {/* Verification Status Warning Banner */}
-        {user?.verification_status !== 'verified' && (
+        {/* Verification & College Request Status Warning Banner */}
+        {(user?.verification_status !== 'verified' || user?.college_request_status === 'pending') && (
           <TouchableOpacity
             style={styles.unverifiedBanner}
             onPress={() => {
-              if (user?.verification_status === 'rejected') {
+              if (user?.college_request_status === 'pending') {
+                Alert.alert(
+                  'College Under Admin Review ⏳',
+                  `Your college request for "${user?.college_name || 'custom college'}" has been submitted to Admin. Actions will unlock once verified.`
+                );
+              } else if (user?.verification_status === 'rejected') {
                 Alert.alert(
                   'Verification Rejected ',
                   `Reason: "${user?.rejection_reason || 'Uploaded ID image was invalid.'}"\n\nPlease submit a valid photo of your ID card.`,
@@ -1516,16 +1554,18 @@ export default function Discover() {
           >
             <BlurView intensity={80} tint="dark" style={styles.unverifiedBannerGlass}>
               <Ionicons
-                name={user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}
+                name={user?.college_request_status === 'pending' ? 'time' : user?.verification_status === 'rejected' ? 'close-circle' : 'shield-half'}
                 size={16}
-                color={user?.verification_status === 'rejected' ? '#FF4B4B' : '#FFD700'}
+                color={user?.college_request_status === 'pending' ? '#C2FF3D' : user?.verification_status === 'rejected' ? '#FF4B4B' : '#FFD700'}
               />
               <Text style={styles.unverifiedBannerText} numberOfLines={1}>
-                {user?.verification_status === 'rejected'
-                  ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
-                  : user?.verification_status === 'pending'
-                    ? 'Verification Pending Under Review'
-                    : 'Verify your ID to send likes & show your profile!'}
+                {user?.college_request_status === 'pending'
+                  ? `College Review Pending: "${user?.college_name || 'Custom'}"`
+                  : user?.verification_status === 'rejected'
+                    ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
+                    : user?.verification_status === 'pending'
+                      ? 'Verification Pending Under Review'
+                      : 'Verify your ID to send likes & show your profile!'}
               </Text>
               <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
             </BlurView>

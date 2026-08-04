@@ -148,7 +148,12 @@ export default function SpotifyVibe() {
               const isPlaying = previewUrl && playingUrl === previewUrl;
 
               return (
-                <View key={index} style={styles.trackItem}>
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.trackItem}
+                  onPress={() => handlePlayPause(track)}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.trackIndex}>{index + 1}</Text>
                   <View style={styles.trackIconBox}>
                     <Ionicons name="musical-notes" size={16} color="#C2FF3D" />
@@ -157,11 +162,7 @@ export default function SpotifyVibe() {
                     <Text style={styles.trackTitle} numberOfLines={1}>{title}</Text>
                     <Text style={styles.trackArtist} numberOfLines={1}>{artist}</Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => handlePlayPause(track)}
-                    activeOpacity={0.8}
-                    style={{ padding: 4 }}
-                  >
+                  <View style={{ padding: 4 }}>
                     {previewUrl ? (
                       <Ionicons
                         name={isPlaying ? 'pause-circle' : 'play-circle'}
@@ -175,8 +176,8 @@ export default function SpotifyVibe() {
                         color="#1DB954"
                       />
                     )}
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </View>

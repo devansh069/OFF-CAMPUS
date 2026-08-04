@@ -33,6 +33,11 @@ const User = sequelize.define('User', {
     unique: true,
     field: 'google_email'
   },
+  college_request_status: {
+    type: DataTypes.ENUM('none', 'pending', 'approved', 'rejected'),
+    defaultValue: 'none',
+    allowNull: false
+  },
   name: {
     type: DataTypes.STRING(255),
     allowNull: true

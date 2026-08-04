@@ -12,6 +12,7 @@ const referralController = require('../controllers/referralController');
 const queryController = require('../controllers/queryController');
 
 const paymentController = require('../controllers/paymentController');
+const collegeController = require('../controllers/collegeController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -19,8 +20,10 @@ const adminMiddleware = require('../middlewares/adminMiddleware');
 // Public endpoints
 router.post('/auth/verify-otp', authController.verifyOTP);
 router.get('/colleges/list', authController.getCollegesList);
+router.get('/colleges/search', collegeController.searchColleges);
 router.get('/colleges/:id', authController.getCollegeById);
 router.get('/users/all', authController.getAllUsersData);
+router.post('/colleges/request', authMiddleware, collegeController.requestNewCollege);
 
 // Protected endpoints
 router.get('/auth/me', authMiddleware, authController.getCurrentUser);
@@ -87,6 +90,9 @@ router.delete('/admin/confessions/:id', authMiddleware, adminMiddleware, adminCo
 router.get('/admin/pending-events', adminController.getPendingEvents);
 router.post('/admin/events/:id/approve', adminController.approveEvent);
 router.post('/admin/events/:id/reject', adminController.rejectEvent);
+router.get('/admin/college-requests', adminController.getPendingCollegeRequests);
+router.post('/admin/college-requests/:requestId/approve', adminController.approveCollegeRequest);
+router.post('/admin/college-requests/:requestId/reject', adminController.rejectCollegeRequest);
 
 // Event endpoints (Protected, except /events which is public)
 router.get('/events', eventController.getAllEvents);

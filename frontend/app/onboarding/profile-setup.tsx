@@ -153,35 +153,70 @@ export default function ProfileSetup() {
   const [tempAnswer, setTempAnswer] = useState('');
 
   useEffect(() => {
-    fetchColleges();
-  }, []);
+    fetchColleges(collegeSearch);
+  }, [collegeSearch]);
 
-  const fetchColleges = async () => {
+  const fetchColleges = async (query = '') => {
     try {
       if (EXPO_PUBLIC_BACKEND_URL) {
-        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/list`);
+        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/search?q=${encodeURIComponent(query)}`);
         if (response.ok) {
           const data = await response.json();
           if (data.colleges && data.colleges.length > 0) {
-            setColleges(data.colleges);
+            const mapped = data.colleges.map((c: any) => ({
+              college_id: c.college_id,
+              name: c.college_name || c.name,
+              short_name: c.short_name || 'COLLEGE',
+              location: c.city || c.location || 'Delhi NCR',
+              affiliation: c.affiliation_university
+            }));
+            setColleges(mapped);
             return;
           }
         }
       }
     } catch (error) {
-      console.warn('Error fetching colleges, using defaults:', error);
+      console.warn('Error fetching colleges:', error);
     }
     setColleges(DEFAULT_COLLEGES);
   };
 
-  const handleAddCustomCollege = () => {
+  const handleAddCustomCollege = async () => {
     if (!collegeSearch.trim()) return;
+    const cleanName = collegeSearch.trim();
+
+    try {
+      if (EXPO_PUBLIC_BACKEND_URL && sessionToken) {
+        const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/colleges/request`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({
+            collegeName: cleanName,
+            city: 'Delhi NCR'
+          })
+        });
+
+        if (response.ok) {
+          Alert.alert(
+            'Request Submitted ⏳',
+            `Your college "${cleanName}" has been submitted to Admin for verification. You can log in, but app actions will unlock once approved.`,
+            [{ text: 'Got it' }]
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Error submitting college request:', e);
+    }
+
     const customId = `col_custom_${Date.now()}`;
     const newCollege = {
       college_id: customId,
-      name: collegeSearch.trim(),
-      short_name: collegeSearch.trim().split(' ').map(w => w[0]).join('').toUpperCase() || 'CUSTOM',
-      location: 'Delhi NCR Campus',
+      name: cleanName,
+      short_name: cleanName.split(' ').map(w => w[0]).join('').toUpperCase() || 'CUSTOM',
+      location: 'Pending Admin Verification',
     };
     setColleges(prev => [newCollege, ...prev]);
     setCollegeId(customId);

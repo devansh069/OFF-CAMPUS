@@ -50,6 +50,7 @@ const startServer = async () => {
     }
 
     require('./models/CollegeMaster');
+    require('./models/CollegeRequest');
     require('./models/Confession');
     require('./models/ConfessionLike');
     require('./models/Story');
@@ -158,10 +159,24 @@ const startServer = async () => {
       console.log('[Patch] Manually added tag column to likes');
     } catch (e) {}
 
+    try {
+      await sequelize.query("ALTER TABLE college_master ADD COLUMN affiliation_university VARCHAR(255) NULL;");
+      await sequelize.query("ALTER TABLE college_master ADD COLUMN primary_stream VARCHAR(255) NULL;");
+      await sequelize.query("ALTER TABLE college_master ADD COLUMN city VARCHAR(255) NULL;");
+      await sequelize.query("ALTER TABLE college_master ADD COLUMN ncr_region VARCHAR(255) NULL;");
+      await sequelize.query("ALTER TABLE college_master ADD COLUMN type VARCHAR(255) NULL;");
+      console.log('[Patch] Extended college_master schema with NCR college fields');
+    } catch (e) {}
 
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN college_request_status ENUM('none', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'none';");
+      console.log('[Patch] Manually added college_request_status column to users');
+    } catch (e) {}
 
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
+    const seedColleges = require('./scripts/seedColleges');
+    await seedColleges();
 
     // 4. Start listening for incoming connections on the HTTP server
     server.listen(PORT, '0.0.0.0', () => {
