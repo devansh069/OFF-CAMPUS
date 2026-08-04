@@ -1634,7 +1634,7 @@ exports.updateCurrentLocation = async (req, res) => {
 exports.getNearbyUsers = async (req, res) => {
   try {
     const currentUserId = req.user.user_id;
-    const range = parseFloat(req.query.range) || 50; // default 50km
+    const range = req.query.range !== undefined && req.query.range !== '' ? parseFloat(req.query.range) : 5.0;
 
     // Fetch current user
     const currentUser = await User.findOne({

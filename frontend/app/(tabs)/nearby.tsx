@@ -74,7 +74,7 @@ const MOCK_NEARBY_PROFILES = [
     college: { name: 'Hindu College' },
     picture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
     bio: 'Always up for a gym session or evening rides.',
-    distance: 12.3,
+    distance: 9.8,
     is_connected: false,
   }
 ];
@@ -92,7 +92,7 @@ export default function NearbyScreen() {
   const [updatingLoc, setUpdatingLoc] = useState(false);
 
   // Search states
-  const [range, setRange] = useState(50); // Default 50 km
+  const [range, setRange] = useState(5.0); // Default 5.0 km (0-10 km range)
   const [isSearching, setIsSearching] = useState(false);
   const [searchTextIndex, setSearchTextIndex] = useState(0);
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([]);
@@ -112,9 +112,9 @@ export default function NearbyScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotationAnim = useRef(new Animated.Value(0)).current;
 
-  // Custom slider touch mapping with absolute delta calculations
-  const rangeRef = useRef(50);
-  const startRange = useRef(50);
+  // Custom slider touch mapping for 0 - 10 km with decimal precision (e.g. 9.5 km, 7.6 km)
+  const rangeRef = useRef(5.0);
+  const startRange = useRef(5.0);
   const sliderWidth = screenWidth - 64; // bounds for touch offset
   const panResponder = useRef(
     PanResponder.create({
@@ -123,16 +123,18 @@ export default function NearbyScreen() {
       onPanResponderGrant: (evt: any) => {
         const pageX = evt.nativeEvent.pageX;
         const paddingOffset = 32; // estimation of left padding/margins
-        const pct = Math.max(1, Math.min(100, Math.round(((pageX - paddingOffset) / sliderWidth) * 100)));
-        setRange(pct);
-        rangeRef.current = pct;
-        startRange.current = pct;
+        const rawRatio = Math.max(0, Math.min(1, (pageX - paddingOffset) / sliderWidth));
+        const newKm = Math.max(0.1, Math.min(10, Math.round(rawRatio * 10 * 10) / 10));
+        setRange(newKm);
+        rangeRef.current = newKm;
+        startRange.current = newKm;
       },
       onPanResponderMove: (evt: any, gestureState: any) => {
-        const deltaPct = Math.round((gestureState.dx / sliderWidth) * 100);
-        const newPct = Math.max(1, Math.min(100, startRange.current + deltaPct));
-        setRange(newPct);
-        rangeRef.current = newPct;
+        const deltaKm = (gestureState.dx / sliderWidth) * 10;
+        const rawKm = startRange.current + deltaKm;
+        const newKm = Math.max(0.1, Math.min(10, Math.round(rawKm * 10 * 10) / 10));
+        setRange(newKm);
+        rangeRef.current = newKm;
       },
     })
   ).current;
@@ -413,7 +415,7 @@ export default function NearbyScreen() {
               <Text style={styles.searchingLabel}>
                 {searchTexts[searchTextIndex]}
               </Text>
-              <Text style={styles.radarRangeIndicator}>radius: {range} km</Text>
+              <Text style={styles.radarRangeIndicator}>radius: {range.toFixed(1)} km</Text>
             </View>
           ) : (
             /* 3. SETTINGS & PROFILE MATCHES LIST VIEW */
@@ -434,13 +436,13 @@ export default function NearbyScreen() {
                 <View style={styles.sliderWrapper}>
                   <View style={styles.sliderTrackContainer} {...panResponder.panHandlers}>
                     <View style={styles.sliderTrackBg} />
-                    <View style={[styles.sliderTrackActive, { width: `${range}%` }]} />
-                    <View style={[styles.sliderThumb, { left: `${range}%` }]} />
+                    <View style={[styles.sliderTrackActive, { width: `${(range / 10) * 100}%` }]} />
+                    <View style={[styles.sliderThumb, { left: `${(range / 10) * 100}%` }]} />
                   </View>
                   <View style={styles.sliderLabelsRow}>
                     <Text style={styles.sliderLimitText}>0 km</Text>
-                    <Text style={styles.sliderValueText}>{range} km</Text>
-                    <Text style={styles.sliderLimitText}>100 km</Text>
+                    <Text style={styles.sliderValueText}>{range.toFixed(1)} km</Text>
+                    <Text style={styles.sliderLimitText}>10 km</Text>
                   </View>
                 </View>
 
