@@ -13,6 +13,7 @@ const queryController = require('../controllers/queryController');
 
 const paymentController = require('../controllers/paymentController');
 const collegeController = require('../controllers/collegeController');
+const couponController = require('../controllers/couponController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -93,6 +94,14 @@ router.post('/admin/events/:id/reject', adminController.rejectEvent);
 router.get('/admin/college-requests', adminController.getPendingCollegeRequests);
 router.post('/admin/college-requests/:requestId/approve', adminController.approveCollegeRequest);
 router.post('/admin/college-requests/:requestId/reject', adminController.rejectCollegeRequest);
+
+// Coupon endpoints
+router.post('/coupons/apply', authMiddleware, couponController.applyCoupon);
+router.get('/admin/coupons', couponController.getAllCoupons);
+router.post('/admin/coupons', couponController.createCoupon);
+router.put('/admin/coupons/:couponId', couponController.updateCoupon);
+router.delete('/admin/coupons/:couponId', couponController.deleteCoupon);
+router.get('/admin/coupons/:couponId/usages', couponController.getCouponUsages);
 
 // Event endpoints (Protected, except /events which is public)
 router.get('/events', eventController.getAllEvents);

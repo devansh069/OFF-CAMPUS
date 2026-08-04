@@ -46,12 +46,24 @@ export default function AdminDashboard() {
   
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [tab, setTab] = useState<'stats' | 'users' | 'confessions' | 'events'>('stats');
+  const [tab, setTab] = useState<'stats' | 'users' | 'confessions' | 'events' | 'coupons'>('stats');
   const [confessions, setConfessions] = useState<any[]>([]);
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [viewingEventId, setViewingEventId] = useState<string | null>(null);
+
+  // Coupon state
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [couponForm, setCouponForm] = useState({
+    code: '', description: '', discountType: 'percentage', discountValue: '',
+    minOrderAmount: '0', maxDiscountAmount: '', validFrom: '', validUntil: '',
+    maxUsages: '100', applicablePlans: [] as number[]
+  });
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [viewingCouponUsages, setViewingCouponUsages] = useState<any>(null);
+  const [couponUsages, setCouponUsages] = useState<any[]>([]);
+  const [showCreateCoupon, setShowCreateCoupon] = useState(false);
 
   useEffect(() => {
     getAdminToken().then(t => {
@@ -93,6 +105,13 @@ export default function AdminDashboard() {
       setPendingEvents(eventsData.events || []);
     } catch (e) {
       console.error(e);
+    }
+    // Load coupons separately (non-blocking)
+    try {
+      const couponsData = await adminFetch('/admin/coupons', t);
+      setCoupons(couponsData.coupons || []);
+    } catch (e) {
+      console.warn('Coupons load failed:', e);
     }
   };
 
@@ -238,6 +257,7 @@ export default function AdminDashboard() {
           { key: 'users', icon: 'people', label: 'Users' },
           { key: 'events', icon: 'calendar', label: `Events (${pendingEvents.length})` },
           { key: 'confessions', icon: 'megaphone', label: 'Confess' },
+          { key: 'coupons', icon: 'ticket', label: 'Coupons' },
         ].map((t: any) => (
           <TouchableOpacity
             key={t.key}
@@ -361,6 +381,169 @@ export default function AdminDashboard() {
             ))}
           </View>
         )}
+
+        {tab === 'coupons' && (
+          <View style={styles.section}>
+            {/* Create Coupon Toggle */}
+            <TouchableOpacity
+              style={{ backgroundColor: '#FF3366', padding: 14, borderRadius: 12, alignItems: 'center', marginBottom: 16 }}
+              onPress={() => setShowCreateCoupon(!showCreateCoupon)}
+            >
+              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 15 }}>
+                {showCreateCoupon ? '✕ Close Form' : '+ Create New Coupon'}
+              </Text>
+            </TouchableOpacity>
+
+            {showCreateCoupon && (
+              <View style={{ backgroundColor: '#1E1E1E', borderRadius: 12, padding: 16, marginBottom: 16, gap: 10 }}>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Create Coupon</Text>
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="Coupon Code (e.g. SUMMER20)"
+                  placeholderTextColor="#666"
+                  value={couponForm.code}
+                  onChangeText={t => setCouponForm(p => ({ ...p, code: t.toUpperCase() }))}
+                  autoCapitalize="characters"
+                />
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="Description"
+                  placeholderTextColor="#666"
+                  value={couponForm.description}
+                  onChangeText={t => setCouponForm(p => ({ ...p, description: t }))}
+                />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {['percentage', 'flat'].map(dt => (
+                    <TouchableOpacity
+                      key={dt}
+                      style={[styles.filterChip, couponForm.discountType === dt && styles.filterChipActive]}
+                      onPress={() => setCouponForm(p => ({ ...p, discountType: dt }))}
+                    >
+                      <Text style={[styles.filterChipText, couponForm.discountType === dt && { color: '#FFF' }]}>
+                        {dt === 'percentage' ? '% Percentage' : '₹ Flat'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder={couponForm.discountType === 'percentage' ? 'Discount % (e.g. 20)' : 'Discount ₹ (e.g. 30)'}
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                  value={couponForm.discountValue}
+                  onChangeText={t => setCouponForm(p => ({ ...p, discountValue: t }))}
+                />
+                {couponForm.discountType === 'percentage' && (
+                  <TextInput
+                    style={styles.loginInput}
+                    placeholder="Max Discount Cap ₹ (optional)"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                    value={couponForm.maxDiscountAmount}
+                    onChangeText={t => setCouponForm(p => ({ ...p, maxDiscountAmount: t }))}
+                  />
+                )}
+                <Text style={{ color: '#999', fontSize: 12, marginTop: 4 }}>Applicable Plans (leave empty = all):</Text>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {[{ m: 1, l: '1 Month' }, { m: 3, l: '3 Months' }, { m: 6, l: '6 Months' }, { m: 12, l: '12 Months' }].map(p => (
+                    <TouchableOpacity
+                      key={p.m}
+                      style={[styles.filterChip, couponForm.applicablePlans.includes(p.m) && styles.filterChipActive]}
+                      onPress={() => togglePlanSelection(p.m)}
+                    >
+                      <Text style={[styles.filterChipText, couponForm.applicablePlans.includes(p.m) && { color: '#FFF' }]}>{p.l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="Valid From (YYYY-MM-DD)"
+                  placeholderTextColor="#666"
+                  value={couponForm.validFrom}
+                  onChangeText={t => setCouponForm(p => ({ ...p, validFrom: t }))}
+                />
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="Valid Until (YYYY-MM-DD)"
+                  placeholderTextColor="#666"
+                  value={couponForm.validUntil}
+                  onChangeText={t => setCouponForm(p => ({ ...p, validUntil: t }))}
+                />
+                <TextInput
+                  style={styles.loginInput}
+                  placeholder="Max Usages (e.g. 100)"
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                  value={couponForm.maxUsages}
+                  onChangeText={t => setCouponForm(p => ({ ...p, maxUsages: t }))}
+                />
+                <TouchableOpacity
+                  style={{ backgroundColor: '#4CAF50', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 }}
+                  onPress={createCoupon}
+                  disabled={couponLoading}
+                >
+                  {couponLoading ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Create Coupon ✓</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* All Coupons List */}
+            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>All Coupons ({coupons.length})</Text>
+            {coupons.length === 0 ? (
+              <Text style={styles.emptyText}>No coupons created yet</Text>
+            ) : coupons.map((c: any) => {
+              const now = new Date();
+              const isExpired = new Date(c.valid_until) < now;
+              const isExhausted = c.current_usages >= c.max_usages;
+              const statusColor = !c.is_active ? '#666' : isExpired ? '#F44336' : isExhausted ? '#FFA500' : '#4CAF50';
+              const statusText = !c.is_active ? 'Inactive' : isExpired ? 'Expired' : isExhausted ? 'Exhausted' : 'Active';
+
+              return (
+                <View key={c.coupon_id} style={{ backgroundColor: '#1E1E1E', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ color: '#C2FF3D', fontSize: 16, fontWeight: '900', letterSpacing: 1 }}>{c.code}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                          <Text style={styles.statusBadgeText}>{statusText}</Text>
+                        </View>
+                      </View>
+                      <Text style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                        {c.discount_type === 'percentage' ? `${c.discount_value}% OFF` : `₹${c.discount_value} OFF`}
+                        {c.max_discount_amount ? ` (max ₹${c.max_discount_amount})` : ''}
+                      </Text>
+                      <Text style={{ color: '#666', fontSize: 11, marginTop: 2 }}>
+                        {new Date(c.valid_from).toLocaleDateString()} → {new Date(c.valid_until).toLocaleDateString()} • Used: {c.current_usages}/{c.max_usages}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity
+                      style={[styles.filterChip, { borderColor: '#4FC3F7' }]}
+                      onPress={() => viewCouponUsages(c.coupon_id)}
+                    >
+                      <Text style={{ color: '#4FC3F7', fontSize: 11, fontWeight: '600' }}>👥 View Users</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.filterChip, { borderColor: c.is_active ? '#FFA500' : '#4CAF50' }]}
+                      onPress={() => toggleCouponActive(c.coupon_id, c.is_active)}
+                    >
+                      <Text style={{ color: c.is_active ? '#FFA500' : '#4CAF50', fontSize: 11, fontWeight: '600' }}>
+                        {c.is_active ? '⏸ Deactivate' : '▶ Activate'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.filterChip, { borderColor: '#F44336' }]}
+                      onPress={() => deleteCoupon(c.coupon_id, c.code)}
+                    >
+                      <Text style={{ color: '#F44336', fontSize: 11, fontWeight: '600' }}>🗑 Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -417,6 +600,41 @@ export default function AdminDashboard() {
                       <Text style={styles.modalBtnText}>Approve</Text>
                     </TouchableOpacity>
                   </View>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Coupon Usages Modal */}
+      <Modal visible={!!viewingCouponUsages} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity onPress={() => { setViewingCouponUsages(null); setCouponUsages([]); }} style={{ alignSelf: 'flex-end', marginBottom: 10 }}>
+                <Ionicons name="close" size={28} color="#FFF" />
+              </TouchableOpacity>
+              {viewingCouponUsages && (
+                <>
+                  <Text style={styles.modalTitle}>Coupon: {viewingCouponUsages.code}</Text>
+                  <Text style={{ color: '#999', marginBottom: 12 }}>
+                    {viewingCouponUsages.discount_type === 'percentage' ? `${viewingCouponUsages.discount_value}%` : `₹${viewingCouponUsages.discount_value}`} OFF
+                    {' • '}{viewingCouponUsages.current_usages}/{viewingCouponUsages.max_usages} used
+                  </Text>
+                  {couponUsages.length === 0 ? (
+                    <Text style={styles.emptyText}>No users have used this coupon yet</Text>
+                  ) : couponUsages.map((u: any, i: number) => (
+                    <View key={u.usage_id || i} style={{ backgroundColor: '#252525', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                      <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>{u.user_name}</Text>
+                      <Text style={{ color: '#999', fontSize: 11 }}>{u.user_email}</Text>
+                      <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
+                        <Text style={{ color: '#4FC3F7', fontSize: 12 }}>{u.plan_months}mo plan</Text>
+                        <Text style={{ color: '#999', fontSize: 12 }}>₹{u.original_amount} → ₹{u.final_amount}</Text>
+                        <Text style={{ color: '#666', fontSize: 12 }}>{new Date(u.created_at).toLocaleDateString()}</Text>
+                      </View>
+                    </View>
+                  ))}
                 </>
               )}
             </View>

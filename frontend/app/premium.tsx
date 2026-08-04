@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,45 @@ export default function Premium() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [college, setCollege] = useState<any>(user?.college || null);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    setCouponApplied(null);
+    try {
+      const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/coupons/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ code: couponCode.trim(), planMonths: 1, amount: 99 }),
+      });
+      const data = await r.json();
+      if (r.ok && data.valid) {
+        setCouponApplied(data);
+        setCouponError('');
+      } else {
+        setCouponError(data.detail || 'Invalid coupon code');
+        setCouponApplied(null);
+      }
+    } catch (e: any) {
+      setCouponError('Failed to apply coupon');
+      setCouponApplied(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponApplied(null);
+    setCouponError('');
+  };
 
   useEffect(() => {
     if (user?.college) {
@@ -54,9 +93,11 @@ export default function Premium() {
       }
 
       // 1. Create Razorpay order via backend
+      const payAmount = couponApplied ? couponApplied.final_amount : 99;
       const r = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/payment/create-order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ amount: payAmount, couponCode: couponApplied ? couponApplied.code : null, planMonths: 1 })
       });
 
       if (!r.ok) {
@@ -128,7 +169,10 @@ export default function Premium() {
         body: JSON.stringify({
           razorpay_order_id: orderId,
           razorpay_payment_id: paymentId,
-          razorpay_signature: signature
+          razorpay_signature: signature,
+          couponCode: couponApplied ? couponApplied.code : null,
+          planMonths: 1,
+          originalAmount: 99
         })
       });
 
@@ -211,12 +255,64 @@ export default function Premium() {
             ))}
           </View>
 
+          {/* Coupon Code Section */}
+          {!user?.is_premium && (
+            <View style={{ marginTop: 20, marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, borderWidth: 1, borderColor: couponApplied ? '#69F0AE' : couponError ? '#FF5252' : 'rgba(255,255,255,0.12)', paddingHorizontal: 14, height: 48 }}>
+                  <Ionicons name="ticket-outline" size={18} color={couponApplied ? '#69F0AE' : 'rgba(255,255,255,0.4)'} style={{ marginRight: 8 }} />
+                  <TextInput
+                    placeholder="Have a coupon code?"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={couponCode}
+                    onChangeText={(text) => { setCouponCode(text.toUpperCase()); setCouponError(''); setCouponApplied(null); }}
+                    style={{ flex: 1, color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 1 }}
+                    autoCapitalize="characters"
+                    editable={!couponApplied}
+                  />
+                  {couponApplied && (
+                    <TouchableOpacity onPress={handleRemoveCoupon} style={{ padding: 4 }}>
+                      <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.5)" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {!couponApplied && (
+                  <TouchableOpacity
+                    onPress={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    style={{ backgroundColor: couponCode.trim() ? '#C2FF3D' : 'rgba(255,255,255,0.1)', paddingHorizontal: 18, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', opacity: couponCode.trim() ? 1 : 0.5 }}
+                  >
+                    {couponLoading ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Text style={{ color: couponCode.trim() ? '#000' : 'rgba(255,255,255,0.4)', fontWeight: '900', fontSize: 13 }}>APPLY</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+              {couponError ? (
+                <Text style={{ color: '#FF5252', fontSize: 12, marginTop: 6, marginLeft: 4, fontWeight: '600' }}>✕ {couponError}</Text>
+              ) : null}
+              {couponApplied && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: 'rgba(105,240,174,0.1)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(105,240,174,0.2)' }}>
+                  <Ionicons name="checkmark-circle" size={18} color="#69F0AE" style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#69F0AE', fontSize: 13, fontWeight: '800' }}>{couponApplied.message}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }}>
+                      ₹{couponApplied.original_amount} → ₹{couponApplied.final_amount}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity style={styles.subBtn} onPress={handleRazorpayPayment} disabled={loading || user?.is_premium} activeOpacity={0.9}>
             <LinearGradient colors={['#C2FF3D', '#9BDC20']} style={styles.subBtnGrad}>
               {loading ? <ActivityIndicator color="#000" /> : (
                 <>
                   <Ionicons name="diamond" size={20} color="#000" />
-                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : 'Buy Student Pass — ₹99'}</Text>
+                  <Text style={styles.subBtnText}>{user?.is_premium ? 'Already Premium ✨' : `Buy Student Pass — ₹${couponApplied ? couponApplied.final_amount : 99}`}</Text>
                 </>
               )}
             </LinearGradient>

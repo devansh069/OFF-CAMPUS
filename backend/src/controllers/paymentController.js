@@ -1,6 +1,8 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Coupon = require('../models/Coupon');
+const CouponUsage = require('../models/CouponUsage');
 
 const getRazorpayInstance = () => {
   const key_id = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID;
@@ -16,7 +18,7 @@ const getRazorpayInstance = () => {
   });
 };
 
-// 1. Create Razorpay Order (₹99 = 9900 paise)
+// 1. Create Razorpay Order (supports coupon discount)
 exports.createOrder = async (req, res) => {
   try {
     const userId = req.user?.user_id || 'user_demo';
@@ -26,7 +28,44 @@ exports.createOrder = async (req, res) => {
     if (req.body && req.body.amount) {
       reqAmount = Number(req.body.amount);
     }
-    const finalAmountInPaise = reqAmount * 100;
+
+    const couponCode = req.body?.couponCode || null;
+    const planMonths = Number(req.body?.planMonths) || 1;
+    let discountAmount = 0;
+    let appliedCouponId = null;
+
+    // Validate and apply coupon if provided
+    if (couponCode) {
+      const cleanCode = couponCode.trim().toUpperCase();
+      const coupon = await Coupon.findOne({ where: { code: cleanCode } });
+
+      if (coupon && coupon.is_active) {
+        const now = new Date();
+        const isDateValid = now >= new Date(coupon.valid_from) && now <= new Date(coupon.valid_until);
+        const hasUsagesLeft = coupon.current_usages < coupon.max_usages;
+        const planAllowed = !coupon.applicable_plans || coupon.applicable_plans.length === 0 || coupon.applicable_plans.includes(planMonths);
+
+        const existingUsage = await CouponUsage.findOne({
+          where: { coupon_id: coupon.coupon_id, user_id: userId }
+        });
+
+        if (isDateValid && hasUsagesLeft && planAllowed && !existingUsage && reqAmount >= coupon.min_order_amount) {
+          if (coupon.discount_type === 'percentage') {
+            discountAmount = Math.round((reqAmount * coupon.discount_value) / 100);
+            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+              discountAmount = coupon.max_discount_amount;
+            }
+          } else {
+            discountAmount = Math.round(coupon.discount_value);
+          }
+          if (discountAmount >= reqAmount) discountAmount = reqAmount - 1;
+          appliedCouponId = coupon.coupon_id;
+        }
+      }
+    }
+
+    const finalAmount = reqAmount - discountAmount;
+    const finalAmountInPaise = finalAmount * 100;
 
     let orderId = `order_${userId.substring(0, 8)}_${Date.now()}`;
     let amount = finalAmountInPaise;
@@ -40,7 +79,10 @@ exports.createOrder = async (req, res) => {
         receipt: `rcpt_${userId.substring(0, 8)}_${Date.now()}`,
         notes: {
           user_id: userId,
-          plan: `Student Pass Premium - ₹${reqAmount}`
+          plan: `Student Pass Premium - ₹${finalAmount}`,
+          original_amount: reqAmount,
+          discount: discountAmount,
+          coupon_id: appliedCouponId || 'none'
         }
       };
 
@@ -59,7 +101,11 @@ exports.createOrder = async (req, res) => {
       order_id: orderId,
       amount: amount,
       currency: currency,
-      key_id: key_id
+      key_id: key_id,
+      original_amount: reqAmount,
+      discount_amount: discountAmount,
+      final_amount: finalAmount,
+      applied_coupon_id: appliedCouponId
     });
   } catch (error) {
     console.error('[Razorpay createOrder Error]:', error);
@@ -71,7 +117,7 @@ exports.createOrder = async (req, res) => {
 exports.verifyPayment = async (req, res) => {
   try {
     const userId = req.user?.user_id || 'user_demo';
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, couponCode, planMonths, originalAmount } = req.body;
 
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
     let isValid = false;
@@ -95,15 +141,59 @@ exports.verifyPayment = async (req, res) => {
       return res.status(400).json({ detail: 'Invalid payment signature' });
     }
 
-    // Activate 30-day Premium membership
+    // Determine premium duration based on plan
+    const months = Number(planMonths) || 1;
+    const premiumDays = months * 30;
+
+    // Activate Premium membership
     const user = await User.findOne({ where: { user_id: userId } });
     if (user) {
-      const premiumUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      const premiumUntil = new Date(Date.now() + premiumDays * 24 * 60 * 60 * 1000);
       user.is_premium = true;
       user.premium_until = premiumUntil;
-      user.profile_visibility = 2.0; // 2x Profile Visibility for Premium
+      user.profile_visibility = 2.0;
       await user.save();
-      console.log(`[Razorpay Success] User ${userId} upgraded to Premium until ${premiumUntil}`);
+      console.log(`[Razorpay Success] User ${userId} upgraded to Premium (${months}mo) until ${premiumUntil}`);
+    }
+
+    // Record coupon usage if a coupon was applied
+    if (couponCode) {
+      const cleanCode = couponCode.trim().toUpperCase();
+      const coupon = await Coupon.findOne({ where: { code: cleanCode } });
+      if (coupon) {
+        const existingUsage = await CouponUsage.findOne({
+          where: { coupon_id: coupon.coupon_id, user_id: userId }
+        });
+
+        if (!existingUsage) {
+          const amount = Number(originalAmount) || 99;
+          let discountAmt = 0;
+          if (coupon.discount_type === 'percentage') {
+            discountAmt = Math.round((amount * coupon.discount_value) / 100);
+            if (coupon.max_discount_amount && discountAmt > coupon.max_discount_amount) {
+              discountAmt = coupon.max_discount_amount;
+            }
+          } else {
+            discountAmt = Math.round(coupon.discount_value);
+          }
+          if (discountAmt >= amount) discountAmt = amount - 1;
+
+          await CouponUsage.create({
+            usage_id: `cu_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            coupon_id: coupon.coupon_id,
+            user_id: userId,
+            order_id: razorpay_order_id || razorpay_payment_id,
+            original_amount: amount,
+            discount_amount: discountAmt,
+            final_amount: amount - discountAmt,
+            plan_months: months
+          });
+
+          coupon.current_usages = (coupon.current_usages || 0) + 1;
+          await coupon.save();
+          console.log(`[Coupon] User ${userId} redeemed coupon ${coupon.code}`);
+        }
+      }
     }
 
     return res.status(200).json({
