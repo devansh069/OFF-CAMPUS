@@ -271,9 +271,7 @@ export default function Verification() {
             style={{ flex: 1 }}
           >
             <View style={styles.header}>
-              <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
-              </TouchableOpacity>
+              <View style={{ width: 40 }} />
               <Text style={styles.headerTitle}>VERIFY IDENTITY</Text>
               <View style={{ width: 40 }} />
             </View>
@@ -292,7 +290,7 @@ export default function Verification() {
                     <Text style={styles.bannerSub}>You have earned your verified badge! Your profile is trusted.</Text>
                   </View>
                 </View>
-              ) : currentStatus === 'pending' ? (
+              ) : (currentStatus === 'pending' && user?.verification_method) ? (
                 <View style={styles.pendingBanner}>
                   <Ionicons name="time" size={28} color="#C2FF3D" />
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -456,17 +454,6 @@ export default function Verification() {
                   </View>
                 ) : (
                   <View style={styles.uploadContainer}>
-                    {/* <TouchableOpacity
-                      style={styles.dummyBtn}
-                      onPress={() => {
-                        setIdImage(DUMMY_ID_CARD_PHOTO);
-                        Alert.alert('Testing Mode 🧪', 'Loaded dummy student ID card photo! Click submit below.');
-                      }}
-                    >
-                      <Ionicons name="flask" size={20} color="#C2FF3D" />
-                      <Text style={styles.dummyTitleText}>Use Dummy Photo</Text>
-                    </TouchableOpacity> */}
-
                     <TouchableOpacity style={styles.cameraBtn} onPress={handleOpenCamera}>
                       <Ionicons name="camera" size={28} color="#C2FF3D" />
                       <Text style={styles.uploadBtnTitle}>Open Camera</Text>
@@ -486,6 +473,16 @@ export default function Verification() {
                   )}
                 </TouchableOpacity>
               </View>
+
+              {/* Skip For Now Button */}
+              <TouchableOpacity
+                style={styles.skipForNowBtn}
+                onPress={() => router.replace('/(tabs)/discover')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skipForNowText}>Skip for now</Text>
+                <Ionicons name="arrow-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+              </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -496,6 +493,22 @@ export default function Verification() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  skipForNowBtn: {
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 36,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  skipForNowText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   glowBallContainer: {
     position: 'absolute',
     top: -450,

@@ -23,6 +23,8 @@ import Constants from 'expo-constants';
 import { BlurView } from 'expo-blur';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { calculateProfileCompletion } from '@/src/utils/profileCompletion';
+import { SpeedometerRing } from '@/src/components/SpeedometerRing';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -39,6 +41,9 @@ export default function Profile() {
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [showRejectWarning, setShowRejectWarning] = useState(true);
   const [rejectExpanded, setRejectExpanded] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+
+  const completion = calculateProfileCompletion(user);
 
   useEffect(() => {
     if (user?.college) {
@@ -490,7 +495,7 @@ export default function Profile() {
       >
         <View style={styles.warningOverlayBg}>
           <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
-          
+
           <View style={styles.warningCardGlass}>
             {/* Close Cross Button */}
             <TouchableOpacity
@@ -523,7 +528,7 @@ export default function Profile() {
                 <Text style={styles.warningMainText}>
                   Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
                 </Text>
-                
+
                 <Text style={styles.warningSubText}>
                   You can&apos;t send likes until you are verified.
                 </Text>
@@ -581,24 +586,58 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Profile Avatar Card */}
+          {/* Top preferred notice banner */}
+          {/* <View style={styles.completionHeaderNoticeBar}>
+            <Ionicons name="sparkles" size={14} color="#FFD700" style={{ marginRight: 6 }} />
+            <Text style={styles.completionHeaderNoticeText}>
+              Profiles 100% completed are preferred 🌟
+            </Text>
+          </View> */}
+
+          {/* Profile Avatar Card with Speedometer Ring */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{
-                  uri: user.photos?.[0] || user.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
-                }}
-                style={styles.avatarImageCircle}
-              />
+            <TouchableOpacity
+              style={styles.speedometerAvatarContainer}
+              onPress={() => setShowCompletionModal(true)}
+              activeOpacity={0.85}
+            >
+              <SpeedometerRing
+                size={110}
+                strokeWidth={5}
+                percentage={completion.totalPercentage}
+                bgStrokeColor="rgba(255, 255, 255, 0.15)"
+                activeStrokeColor="#C2FF3D"
+              >
+                <Image
+                  source={{
+                    uri: user?.photos?.[0] || user?.picture || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=2662&auto=format&fit=crop'
+                  }}
+                  style={styles.avatarImageCircleFull}
+                />
+              </SpeedometerRing>
+
               {user?.is_premium && (
                 <View style={styles.premiumGoldenCrownBadge}>
-                  <Ionicons name="crown" size={16} color="#FFD700" />
+                  <Ionicons name="crown" size={14} color="#FFD700" />
                 </View>
               )}
-            </View>
+
+              {/* Speedometer Percentage Pill Badge */}
+              <View style={[
+                styles.speedometerPercentBadge,
+                { borderColor: completion.totalPercentage === 100 ? '#C2FF3D' : 'rgba(255, 255, 255, 0.2)' }
+              ]}>
+                <Text style={[
+                  styles.speedometerPercentText,
+                  { color: completion.totalPercentage === 100 ? '#C2FF3D' : 'rgba(255, 255, 255, 0.7)' }
+                ]}>
+                  {completion.totalPercentage}%
+                </Text>
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.nameRow}>
-              <Text style={styles.name}>{user.name}{user.age ? `, ${user.age}` : ''}</Text>
+              <Text style={styles.name}>{user?.name}{user?.age ? `, ${user.age}` : ''}</Text>
               <TouchableOpacity
                 onPress={() => router.push('/onboarding/verification')}
                 activeOpacity={0.7}
@@ -607,8 +646,8 @@ export default function Profile() {
                   name="checkmark-circle"
                   size={18}
                   color={
-                    user.verification_status === 'verified'
-                      ? (user.verification_method === 'manual' ? '#F87171' : '#3B82F6')
+                    user?.verification_status === 'verified'
+                      ? (user?.verification_method === 'manual' ? '#F87171' : '#3B82F6')
                       : 'rgba(255, 255, 255, 0.4)'
                   }
                   style={{ marginLeft: 6 }}
@@ -727,7 +766,7 @@ export default function Profile() {
               <Ionicons name="eye-outline" size={16} color={activeProfileTab === 'view' ? '#000' : 'rgba(255,255,255,0.6)'} style={{ marginRight: 6 }} />
               <Text style={[styles.glassTabText, activeProfileTab === 'view' && styles.glassTabTextActive]}>Preview Card</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.glassTabButton, activeProfileTab === 'premium' && styles.glassTabButtonActivePremium]}
               onPress={() => setActiveProfileTab('premium')}
@@ -752,7 +791,7 @@ export default function Profile() {
                       <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.15)" />
                     </View>
                   )}
-                  
+
                   {/* Bottom details card overlap */}
                   <LinearGradient
                     colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)', '#0F0817']}
@@ -878,7 +917,7 @@ export default function Profile() {
               {/* Plans Section */}
               <View style={styles.premiumPlansSection}>
                 <Text style={styles.plansSectionHeading}>CHOOSE PASS DURATION</Text>
-                
+
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1159,12 +1198,237 @@ export default function Profile() {
         </Modal>
 
       </SafeAreaView>
+      {/* Profile Completion Checklist Bottom Sheet Modal */}
+      {showCompletionModal && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showCompletionModal}
+          onRequestClose={() => setShowCompletionModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => setShowCompletionModal(false)}
+            />
+            <View style={styles.completionModalSheet}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.completionModalHeaderRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.completionModalTitle}>Profile Completion</Text>
+                  <Text style={styles.completionModalSub}>
+                    Profiles 100% completed are preferred and get 5x matches
+                  </Text>
+                </View>
+                <View style={[
+                  styles.completionBadgePill,
+                  { backgroundColor: 'rgba(194, 255, 61, 0.15)', borderColor: 'rgba(194, 255, 61, 0.4)' }
+                ]}>
+                  <Text style={[styles.completionBadgeText, { color: '#C2FF3D' }]}>
+                    {completion.totalPercentage}%
+                  </Text>
+                </View>
+              </View>
+
+              {/* Modal Progress Fill Bar */}
+              <View style={styles.modalProgressTrack}>
+                <View style={[styles.modalProgressFill, { width: `${completion.totalPercentage}%` }]} />
+              </View>
+
+              <ScrollView
+                style={{ maxHeight: 420 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Remaining Tasks Section */}
+                {completion.missingItems.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.checklistSectionTitle}>REMAINING TASKS ({completion.missingItems.length})</Text>
+                    {completion.missingItems.map((item) => (
+                      <View key={item.id} style={styles.checklistItemRow}>
+                        <View style={styles.checklistIconMissing}>
+                          <Ionicons name="alert-circle" size={18} color="#FFD700" />
+                        </View>
+                        <View style={{ flex: 1, marginHorizontal: 10 }}>
+                          <Text style={styles.checklistItemLabel}>{item.label}</Text>
+                          <Text style={styles.checklistItemWeight}>+{item.weight % 1 === 0 ? item.weight : item.weight.toFixed(1)}% completion</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.checklistItemActionBtn}
+                          onPress={() => {
+                            setShowCompletionModal(false);
+                            if (item.actionType === 'verification') {
+                              router.push('/onboarding/verification');
+                            } else if (item.actionType === 'spotify') {
+                              addSpotifyData();
+                            } else {
+                              router.push('/profile-edit');
+                            }
+                          }}
+                        >
+                          <Text style={styles.checklistItemActionText}>{item.actionText}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Completed Tasks Section */}
+                {completion.completedItems.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.checklistSectionTitle}>COMPLETED TASKS ({completion.completedItems.length})</Text>
+                    {completion.completedItems.map((item) => (
+                      <View key={item.id} style={[styles.checklistItemRow, { opacity: 0.7 }]}>
+                        <View style={styles.checklistIconCompleted}>
+                          <Ionicons name="checkmark-circle" size={18} color="#C2FF3D" />
+                        </View>
+                        <View style={{ flex: 1, marginHorizontal: 10 }}>
+                          <Text style={styles.checklistItemLabelCompleted}>{item.label}</Text>
+                          <Text style={styles.checklistItemWeight}>+{item.weight % 1 === 0 ? item.weight : item.weight.toFixed(1)}%</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={{ height: 24 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
+  completionHeaderNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.25)',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  completionHeaderNoticeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  speedometerAvatarContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  avatarImageCircleFull: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  speedometerPercentBadge: {
+    position: 'absolute',
+    bottom: -6,
+    backgroundColor: '#16121E',
+    borderWidth: 1.5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  speedometerPercentText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  modalProgressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 18,
+    overflow: 'hidden',
+  },
+  modalProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#C2FF3D',
+  },
+  completionModalSheet: {
+    backgroundColor: '#16121E',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    width: '100%',
+    maxHeight: '85%',
+  },
+  completionModalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  completionModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  completionModalSub: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  completionBadgePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  completionBadgeText: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  checklistSectionTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: 'rgba(255, 255, 255, 0.4)',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  checklistItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 8,
+  },
+  checklistIconMissing: { marginRight: 4 },
+  checklistIconCompleted: { marginRight: 4 },
+  checklistItemLabel: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  checklistItemLabelCompleted: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, fontWeight: '600' },
+  checklistItemWeight: { color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, marginTop: 2 },
+  checklistItemActionBtn: {
+    backgroundColor: '#C2FF3D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  checklistItemActionText: { color: '#000', fontSize: 11, fontWeight: '900' },
   glowBallContainer: {
     position: 'absolute',
     top: -450,

@@ -80,6 +80,11 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'cover_photo'
   },
+  main_photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'main_photo'
+  },
   gender_preference: {
     type: DataTypes.ENUM('male', 'female', 'both'),
     allowNull: true,

@@ -494,13 +494,13 @@ exports.onboard = async (req, res) => {
       }
       user.photos = updatedPhotos;
 
-      // Automatically assign Main Photo (picture) to photo 1 if not set
-      if (updatedPhotos.length > 0 && !user.picture) {
+      // Automatically assign Main Photo (picture & main_photo) to photo 1
+      if (updatedPhotos.length > 0) {
         user.picture = updatedPhotos[0];
-      }
-      // Automatically assign Cover Photo to photo 2 (or photo 1 fallback) if not set
-      if (updatedPhotos.length > 0 && !user.cover_photo) {
-        user.cover_photo = updatedPhotos[1] || updatedPhotos[0];
+        user.main_photo = updatedPhotos[0];
+        if (!user.cover_photo) {
+          user.cover_photo = updatedPhotos[0];
+        }
       }
     }
     if (prompts) user.prompts = typeof prompts === 'object' ? prompts : JSON.parse(prompts);

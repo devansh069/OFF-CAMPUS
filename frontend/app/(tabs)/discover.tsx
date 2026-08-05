@@ -517,8 +517,8 @@ export default function Discover() {
   useEffect(() => {
     return sound
       ? () => {
-          sound.unloadAsync();
-        }
+        sound.unloadAsync();
+      }
       : undefined;
   }, [sound]);
 
@@ -860,22 +860,22 @@ export default function Discover() {
     if (user?.verification_status !== 'verified') {
       if (user?.verification_status === 'rejected') {
         Alert.alert(
-          'Verification Rejected ',
+          'Verification Rejected ❌',
           `Reason: "${user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}"\n\nPlease submit a valid photo of your ID card to unlock likes & profile visibility.`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Verify ID', onPress: () => router.push('/onboarding/verification') }
           ]
         );
-      } else if (user?.verification_status === 'pending') {
+      } else if (user?.verification_status === 'pending' && user?.verification_method) {
         Alert.alert(
-          'Verification Pending ',
+          'Verification Pending ⏳',
           'Your student ID card is currently under review by admin. You will be able to send likes once approved!'
         );
       } else {
         Alert.alert(
-          'Verification Required ',
-          'You must verify your student profile before sending likes to anyone!',
+          'Verify Yourself First ',
+          'Verify yourself first to send likes!',
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Verify Now', onPress: () => router.push('/onboarding/verification') }
@@ -1125,7 +1125,7 @@ export default function Discover() {
       >
         <View style={styles.warningOverlayBg}>
           <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFillObject} />
-          
+
           <View style={styles.warningCardGlass}>
             {/* Close Cross Button */}
             <TouchableOpacity
@@ -1158,7 +1158,7 @@ export default function Discover() {
                 <Text style={styles.warningMainText}>
                   Admin has rejected your verification request: &quot;{user?.rejection_reason || 'The uploaded ID card image was invalid or blurry.'}&quot;
                 </Text>
-                
+
                 <Text style={styles.warningSubText}>
                   You can&apos;t send likes until you are verified.
                 </Text>
@@ -1367,8 +1367,8 @@ export default function Discover() {
                               }
                               const isPlaying = previewUrl && playingUrl === previewUrl;
                               return (
-                                <TouchableOpacity 
-                                  key={idx} 
+                                <TouchableOpacity
+                                  key={idx}
                                   style={styles.spotifyTrackRow}
                                   onPress={() => handlePlayPause(track)}
                                   activeOpacity={0.7}
@@ -1383,10 +1383,10 @@ export default function Discover() {
                                   </View>
                                   <View style={{ padding: 4 }}>
                                     {previewUrl ? (
-                                      <Ionicons 
-                                        name={isPlaying ? 'pause' : 'play'} 
-                                        size={16} 
-                                        color="#1DB954" 
+                                      <Ionicons
+                                        name={isPlaying ? 'pause' : 'play'}
+                                        size={16}
+                                        color="#1DB954"
                                       />
                                     ) : (
                                       <Ionicons name="logo-spotify" size={16} color="#1DB954" />
@@ -1563,9 +1563,9 @@ export default function Discover() {
                   ? `College Review Pending: "${user?.college_name || 'Custom'}"`
                   : user?.verification_status === 'rejected'
                     ? `Verification Rejected: "${user?.rejection_reason || 'Invalid ID'}". Tap to resubmit.`
-                    : user?.verification_status === 'pending'
+                    : (user?.verification_status === 'pending' && user?.verification_method)
                       ? 'Verification Pending Under Review'
-                      : 'Verify your ID to send likes & show your profile!'}
+                      : 'You haven\'t applied for verification. Get verified to start sending likes!'}
               </Text>
               <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
             </BlurView>

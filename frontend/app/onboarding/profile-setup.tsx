@@ -85,7 +85,15 @@ const PROMPTS = [
   'My typical Sunday looks like...',
   'First order of business on campus...',
   'I\'m looking for someone who...',
-  'Dating me is like...'
+  'Dating me is like...',
+  'The fastest way to my heart is...',
+  'My secret talent no one knows about...',
+  'Best memory on campus so far...',
+  'Song that best describes my life right now...',
+  'Ideal study date spot...',
+  'Unpopular opinion I strongly defend...',
+  'Together we could...',
+  'Late night food craving at 2 AM...'
 ];
 
 const DEFAULT_COLLEGES = [
@@ -191,6 +199,8 @@ export default function ProfileSetup() {
 
   // Step 4: Photos & Prompts (Grid of up to 6)
   const [photos, setPhotos] = useState<string[]>(user?.photos || []);
+  const [customInterest, setCustomInterest] = useState('');
+  const [tempSelectedDob, setTempSelectedDob] = useState<Date | null>(null);
   const [photoPrompts, setPhotoPrompts] = useState<{ [index: number]: string }>(
     user?.prompts && typeof user.prompts === 'object' ? (user.prompts as any) : {}
   );
@@ -283,42 +293,51 @@ export default function ProfileSetup() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (selectedDate) {
+      setTempSelectedDob(selectedDate);
+    }
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      const calculatedAge = calculateAge(selectedDate);
-      if (calculatedAge < 18) {
-        Alert.alert(
-          'Access Denied 🔞',
-          'Users below 18 years of age are not allowed on Off Campus. Please select a valid birth date.',
-          [{ text: 'OK' }]
-        );
-        setDob(null);
-        setAge('');
-      } else {
-        Alert.alert(
-          'Confirm Age ',
-          `You are calculated to be ${calculatedAge} years old (born ${selectedDate.toLocaleDateString('en-GB')}). Is this correct?`,
-          [
-            { 
-              text: 'Change', 
-              style: 'cancel',
-              onPress: () => {
-                setDob(null);
-                setAge('');
-              }
-            },
-            { 
-              text: 'Yes, Correct', 
-              onPress: () => {
-                setDob(selectedDate);
-                setAge(calculatedAge.toString());
-              }
-            }
-          ]
-        );
+      if (selectedDate && event.type === 'set') {
+        confirmDob(selectedDate);
       }
+    }
+  };
+
+  const confirmDob = (selectedDate: Date) => {
+    const calculatedAge = calculateAge(selectedDate);
+    if (calculatedAge < 18) {
+      Alert.alert(
+        'Access Denied 🔞',
+        'Users below 18 years of age are not allowed on Off Campus. Please select a valid birth date.',
+        [{ text: 'OK' }]
+      );
+      setDob(null);
+      setAge('');
+      setTempSelectedDob(null);
+    } else {
+      Alert.alert(
+        'Confirm Age',
+        `You are calculated to be ${calculatedAge} years old (born ${selectedDate.toLocaleDateString('en-GB')}). Is this correct?`,
+        [
+          { 
+            text: 'Change', 
+            style: 'cancel',
+            onPress: () => {
+              setDob(null);
+              setAge('');
+              setTempSelectedDob(null);
+            }
+          },
+          { 
+            text: 'Yes, Correct', 
+            onPress: () => {
+              setDob(selectedDate);
+              setAge(calculatedAge.toString());
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -350,6 +369,15 @@ export default function ProfileSetup() {
     } else {
       setInterests([...interests, interest]);
     }
+  };
+
+  const handleAddCustomInterest = () => {
+    if (!customInterest.trim()) return;
+    const clean = customInterest.trim();
+    if (!interests.includes(clean)) {
+      setInterests([...interests, clean]);
+    }
+    setCustomInterest('');
   };
 
   const handleDetectLocation = async () => {
@@ -385,62 +413,30 @@ export default function ProfileSetup() {
   };
 
   const pickPhoto = async (index: number) => {
-    const useDummy = () => {
-      const dummy = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
-      const newPhotos = [...photos];
-      newPhotos[index] = dummy;
-      setPhotos(newPhotos.filter(Boolean));
-      Alert.alert("Simulator Mode", "Dummy photo added to Slot " + (index + 1));
-    };
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'We need photo gallery access to select your photo.');
+        return;
+      }
 
-    Alert.alert(
-      'Select Photo',
-      'Choose an action or use a dummy photo for testing:',
-      [
-        {
-          text: 'Open Gallery',
-          onPress: async () => {
-            try {
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (status !== 'granted') {
-                Alert.alert(
-                  'Permission Required',
-                  'We need storage permission to add photos. Or use a dummy photo.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Use Dummy Photo', onPress: useDummy }
-                  ]
-                );
-                return;
-              }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
 
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.7,
-                base64: true,
-              });
-
-              if (!result.canceled && result.assets[0].base64) {
-                const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-                const newPhotos = [...photos];
-                newPhotos[index] = base64Uri;
-                setPhotos(newPhotos.filter(Boolean));
-              }
-            } catch (error) {
-              console.warn("Gallery error, using dummy photo:", error);
-              useDummy();
-            }
-          }
-        },
-        {
-          text: 'Use Dummy Photo',
-          onPress: useDummy
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+      if (!result.canceled && result.assets[0].base64) {
+        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        const newPhotos = [...photos];
+        newPhotos[index] = base64Uri;
+        setPhotos(newPhotos.filter(Boolean));
+      }
+    } catch (error) {
+      console.warn("Gallery error:", error);
+    }
   };
 
   const removePhoto = (index: number) => {
@@ -492,10 +488,7 @@ export default function ProfileSetup() {
       }
       setStage('v3');
     } else if (stage === 's3') {
-      if (interests.length < 3) {
-        Alert.alert('Required', 'Please select at least 3 interests');
-        return;
-      }
+      // Bio & Interests are both optional!
       setStage('v4');
     } else if (stage === 's4') {
       if (!collegeId) {
@@ -512,8 +505,8 @@ export default function ProfileSetup() {
       }
       setStage('v5');
     } else if (stage === 's5') {
-      if (photos.length < 1) {
-        Alert.alert('Required', 'Please upload at least 1 photo.');
+      if (photos.length < 2) {
+        Alert.alert('Required', 'Please upload at least 2 photos (Main Cover Photo + 1 additional photo).');
         return;
       }
       await handleComplete();
@@ -556,6 +549,9 @@ export default function ProfileSetup() {
         latitude: latitude || 28.6139,
         longitude: longitude || 77.2090,
         photos,
+        cover_photo: photos[0] || null,
+        main_photo: photos[0] || null,
+        picture: photos[0] || null,
         prompts: photoPrompts,
         interests,
         religion,
@@ -798,7 +794,7 @@ export default function ProfileSetup() {
 
                 {/* Name */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>FULL NAME</Text>
+                  <Text style={styles.label}>FULL NAME <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="person-outline" size={20} color="#A899B8" style={styles.inputIcon} />
                     <TextInput
@@ -813,10 +809,13 @@ export default function ProfileSetup() {
 
                 {/* DOB Picker */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>DATE OF BIRTH</Text>
+                  <Text style={styles.label}>DATE OF BIRTH <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <TouchableOpacity
                     style={styles.inputWrapper}
-                    onPress={() => setShowDatePicker(true)}
+                    onPress={() => {
+                      setTempSelectedDob(dob || new Date(new Date().getFullYear() - 18, 0, 1));
+                      setShowDatePicker(true);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="calendar-outline" size={20} color="#A899B8" style={styles.inputIcon} />
@@ -829,7 +828,7 @@ export default function ProfileSetup() {
 
                 {/* Height Selector */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>HEIGHT</Text>
+                  <Text style={styles.label}>HEIGHT <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <TouchableOpacity
                     style={styles.inputWrapper}
                     onPress={openHeightPicker}
@@ -850,7 +849,7 @@ export default function ProfileSetup() {
 
                 {/* Gender */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>GENDER</Text>
+                  <Text style={styles.label}>GENDER <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.optionsRow}>
                     {[
                       { value: 'male', label: 'Male' },
@@ -875,7 +874,7 @@ export default function ProfileSetup() {
 
                 {/* Gender Preference */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>GENDER PREFERRED</Text>
+                  <Text style={styles.label}>GENDER PREFERRED <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.optionsRow}>
                     {[
                       { value: 'male', label: 'Men' },
@@ -1018,9 +1017,31 @@ export default function ProfileSetup() {
 
                 {/* Interests */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>INTERESTS (CHOOSE AT LEAST 3)</Text>
+                  <Text style={styles.label}>INTERESTS (OPTIONAL)</Text>
+                  
+                  {/* Custom Interest Input */}
+                  <View style={[styles.locationRow, { marginBottom: 12 }]}>
+                    <View style={[styles.inputWrapper, { flex: 1 }]}>
+                      <Ionicons name="sparkles-outline" size={18} color="#A899B8" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Add custom interest..."
+                        placeholderTextColor="#71717A"
+                        value={customInterest}
+                        onChangeText={setCustomInterest}
+                        onSubmitEditing={handleAddCustomInterest}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.addInterestBtn}
+                      onPress={handleAddCustomInterest}
+                    >
+                      <Text style={styles.addInterestBtnText}>Add</Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={styles.interestsGrid}>
-                    {INTERESTS.map((interest) => {
+                    {interests.map((interest) => {
                       const isActive = interests.includes(interest);
                       return (
                         <TouchableOpacity
@@ -1035,11 +1056,22 @@ export default function ProfileSetup() {
                             styles.interestText,
                             isActive && styles.interestTextActive
                           ]}>
-                            {isActive ? ` ${interest}` : interest}
+                            {interest} ✕
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
+                    {INTERESTS.filter(i => !interests.includes(i)).map((interest) => (
+                      <TouchableOpacity
+                        key={interest}
+                        style={styles.interestChip}
+                        onPress={() => toggleInterest(interest)}
+                      >
+                        <Text style={styles.interestText}>
+                          {interest}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
               </View>
@@ -1056,7 +1088,7 @@ export default function ProfileSetup() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>SELECT YOUR CAMPUS</Text>
+                  <Text style={styles.label}>SELECT YOUR CAMPUS <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.searchContainer}>
                     <Ionicons name="search-outline" size={20} color="#FFF" style={styles.searchIcon} />
                     <TextInput
@@ -1075,21 +1107,29 @@ export default function ProfileSetup() {
                 </View>
 
                 <View style={styles.collegeList}>
-                  {filteredColleges.length === 0 ? (
-                    <View style={styles.noResults}>
-                      <Ionicons name="alert-circle-outline" size={24} color="#A899B8" style={{ marginBottom: 4 }} />
-                      <Text style={styles.noResultsText}>No colleges match your search</Text>
-                      {collegeSearch.trim().length > 0 && (
-                        <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomCollege}>
-                          <View style={styles.addCustomWhite}>
-                            <Ionicons name="add-circle-outline" size={18} color="#000" />
-                            <Text style={styles.addCustomBtnText}>Add "{collegeSearch.trim()}"</Text>
-                          </View>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    filteredColleges.map((college) => {
+                  {(() => {
+                    const displayColleges = (collegeId && !collegeSearch.trim())
+                      ? filteredColleges.filter(c => c.college_id === collegeId)
+                      : filteredColleges;
+
+                    if (displayColleges.length === 0) {
+                      return (
+                        <View style={styles.noResults}>
+                          <Ionicons name="alert-circle-outline" size={24} color="#A899B8" style={{ marginBottom: 4 }} />
+                          <Text style={styles.noResultsText}>No colleges match your search</Text>
+                          {collegeSearch.trim().length > 0 && (
+                            <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomCollege}>
+                              <View style={styles.addCustomWhite}>
+                                <Ionicons name="add-circle-outline" size={18} color="#000" />
+                                <Text style={styles.addCustomBtnText}>Add "{collegeSearch.trim()}"</Text>
+                              </View>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    }
+
+                    return displayColleges.map((college) => {
                       const isActive = collegeId === college.college_id;
                       return (
                         <TouchableOpacity
@@ -1098,7 +1138,13 @@ export default function ProfileSetup() {
                             styles.collegeItem,
                             isActive && styles.collegeItemActive
                           ]}
-                          onPress={() => setCollegeId(college.college_id)}
+                          onPress={() => {
+                            if (isActive && !collegeSearch.trim()) {
+                              setCollegeId('');
+                            } else {
+                              setCollegeId(college.college_id);
+                            }
+                          }}
                         >
                           <View style={[styles.collegeIconBox, isActive && styles.collegeIconBoxActive]}>
                             <Ionicons name="school-outline" size={20} color="#FFF" />
@@ -1110,7 +1156,9 @@ export default function ProfileSetup() {
                             ]}>
                               {college.name}
                             </Text>
-                            <Text style={styles.collegeLocation}>{college.location}</Text>
+                            <Text style={styles.collegeLocation}>
+                              {isActive && !collegeSearch.trim() ? 'Tap to change college' : college.location}
+                            </Text>
                           </View>
                           {isActive ? (
                             <Ionicons name="checkmark-circle" size={24} color="#FFF" />
@@ -1119,12 +1167,12 @@ export default function ProfileSetup() {
                           )}
                         </TouchableOpacity>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                 </View>
 
                 <View style={[styles.inputGroup, { marginTop: 24 }]}>
-                  <Text style={styles.label}>YEAR OF STUDY</Text>
+                  <Text style={styles.label}>YEAR OF STUDY <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.optionsRow}>
                     {['1st Year', '2nd Year', '3rd Year', '4th Year', 'Final Year'].map((y) => {
                       const isActive = year === y;
@@ -1144,7 +1192,7 @@ export default function ProfileSetup() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>COURSE / MAJOR</Text>
+                  <Text style={styles.label}>COURSE / MAJOR <Text style={{ color: '#FF3366' }}>*</Text></Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="book-outline" size={20} color="#A899B8" style={styles.inputIcon} />
                     <TextInput
@@ -1166,8 +1214,8 @@ export default function ProfileSetup() {
                 <View style={styles.glassTopHighlight} />
 
                 <View style={styles.textHeader}>
-                  <Text style={styles.stepTitle}>Upload Photos</Text>
-                  <Text style={styles.stepSubtitle}>Add up to 6 photos. Drag/tap to pick. At least 1 photo is required.</Text>
+                  <Text style={styles.stepTitle}>Upload Photos <Text style={{ color: '#FF3366' }}>*</Text></Text>
+                  <Text style={styles.stepSubtitle}>Add up to 6 photos. Main photo + at least 1 more photo is required.</Text>
                 </View>
 
                 <View style={styles.photosGrid}>
@@ -1182,7 +1230,7 @@ export default function ProfileSetup() {
                             style={styles.choosePromptBtn} 
                             onPress={() => {
                               setActivePhotoIndex(index);
-                              setTempPrompt(PROMPTS[0]);
+                              setTempPrompt('');
                               setTempAnswer('');
                               setShowPromptModal(true);
                             }}
@@ -1232,81 +1280,114 @@ export default function ProfileSetup() {
             )}
           </ScrollView>
 
-          {/* Prompt Selection Modal */}
+          {/* Prompt Selection Modal (Bottom Sheet) */}
           {showPromptModal && (
-            <Modal transparent animationType="fade" visible={showPromptModal}>
-              <View style={styles.modalOverlay}>
-                <View style={[styles.promptModalContainer]}>
-                  <Text style={styles.promptModalTitle}>Choose Prompt</Text>
-                  
-                  <ScrollView style={styles.promptModalScroll} showsVerticalScrollIndicator={false}>
-                    {PROMPTS.map((p) => {
-                      const isSel = tempPrompt === p;
-                      return (
-                        <TouchableOpacity
-                          key={p}
-                          style={[styles.optionRowButton, isSel && styles.optionRowButtonActive]}
-                          onPress={() => setTempPrompt(p)}
-                        >
-                          <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14 }]}>
-                            {p}
-                          </Text>
-                          <Ionicons
-                            name={isSel ? 'radio-button-on' : 'radio-button-off'}
-                            size={20}
-                            color={isSel ? '#C2FF3D' : '#A899B8'}
-                          />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
+            <Modal
+              transparent
+              animationType="slide"
+              visible={showPromptModal}
+              onRequestClose={() => {
+                setShowPromptModal(false);
+                setTempPrompt('');
+                setTempAnswer('');
+              }}
+            >
+              <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => {
+                  setShowPromptModal(false);
+                  setTempPrompt('');
+                  setTempAnswer('');
+                }}
+              >
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                  style={{ width: '100%', justifyContent: 'flex-end' }}
+                >
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    style={styles.promptModalSheet}
+                    onPress={(e) => e.stopPropagation?.()}
+                  >
+                    <View style={styles.sheetHandle} />
+                    <Text style={styles.promptModalTitle}>Choose Prompt</Text>
+                    
+                    <ScrollView style={styles.promptModalScroll} showsVerticalScrollIndicator={false}>
+                      {PROMPTS.map((p) => {
+                        const isSel = tempPrompt === p;
+                        return (
+                          <TouchableOpacity
+                            key={p}
+                            style={[styles.optionRowButton, isSel && styles.optionRowButtonActive, { marginBottom: 8 }]}
+                            onPress={() => setTempPrompt(prev => prev === p ? '' : p)}
+                          >
+                            <Text style={[styles.optionText, isSel && styles.optionTextActive, { fontSize: 14, flex: 1 }]}>
+                              {p}
+                            </Text>
+                            <Ionicons
+                              name={isSel ? 'checkmark-circle' : 'ellipse-outline'}
+                              size={20}
+                              color={isSel ? '#C2FF3D' : '#A899B8'}
+                            />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
 
-                  <Text style={[styles.label, { marginTop: 16 }]}>OR WRITE YOUR OWN PROMPT</Text>
-                  <View style={[styles.textAreaWrapper, { borderColor: tempAnswer.length > 0 ? '#C2FF3D' : 'rgba(255, 255, 255, 0.1)' }]}>
-                    <TextInput
-                      style={styles.textArea}
-                      placeholder="Type your response..."
-                      placeholderTextColor="#71717A"
-                      value={tempAnswer}
-                      onChangeText={setTempAnswer}
-                      multiline
-                      numberOfLines={3}
-                    />
-                  </View>
+                    <Text style={[styles.label, { marginTop: 12, marginBottom: 8 }]}>OR WRITE YOUR OWN PROMPT</Text>
+                    <View style={[styles.textAreaWrapper, { borderColor: tempAnswer.length > 0 ? '#C2FF3D' : 'rgba(255, 255, 255, 0.1)' }]}>
+                      <TextInput
+                        style={[styles.textArea, { height: 75 }]}
+                        placeholder="Type your response..."
+                        placeholderTextColor="#71717A"
+                        value={tempAnswer}
+                        onChangeText={setTempAnswer}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
 
-                  <View style={styles.promptModalActions}>
-                    <TouchableOpacity 
-                      style={styles.promptModalCancel} 
-                      onPress={() => setShowPromptModal(false)}
-                    >
-                      <Text style={styles.promptModalCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.promptModalAdd, { opacity: (tempAnswer.trim() || tempPrompt) ? 1 : 0.5 }]} 
-                      onPress={() => {
-                        const finalPrompt = tempAnswer.trim() || tempPrompt;
-                        if (activePhotoIndex !== null && finalPrompt) {
-                          setPhotoPrompts(prev => ({
-                            ...prev,
-                            [activePhotoIndex]: finalPrompt
-                          }));
+                    <View style={styles.promptModalActions}>
+                      <TouchableOpacity 
+                        style={styles.promptModalCancel} 
+                        onPress={() => {
                           setShowPromptModal(false);
-                        }
-                      }}
-                      disabled={!(tempAnswer.trim() || tempPrompt)}
-                    >
-                      <Text style={styles.promptModalAddText}>Add</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+                          setTempPrompt('');
+                          setTempAnswer('');
+                        }}
+                      >
+                        <Text style={styles.promptModalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.promptModalAdd, { opacity: (tempAnswer.trim() || tempPrompt) ? 1 : 0.5 }]} 
+                        onPress={() => {
+                          const finalPrompt = tempAnswer.trim() || tempPrompt;
+                          if (activePhotoIndex !== null && finalPrompt) {
+                            setPhotoPrompts(prev => ({
+                              ...prev,
+                              [activePhotoIndex]: finalPrompt
+                            }));
+                            setShowPromptModal(false);
+                            setTempPrompt('');
+                            setTempAnswer('');
+                          }
+                        }}
+                        disabled={!(tempAnswer.trim() || tempPrompt)}
+                      >
+                        <Text style={styles.promptModalAddText}>Add</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </KeyboardAvoidingView>
+              </TouchableOpacity>
             </Modal>
           )}
 
           {/* Android Date Picker */}
           {showDatePicker && Platform.OS === 'android' && (
             <DateTimePicker
-              value={dob || new Date(new Date().getFullYear() - 18, 0, 1)}
+              value={dob || tempSelectedDob || new Date(new Date().getFullYear() - 18, 0, 1)}
               mode="date"
               display="default"
               onChange={handleDateChange}
@@ -1323,12 +1404,17 @@ export default function ProfileSetup() {
                     <TouchableOpacity onPress={() => setShowDatePicker(false)}>
                       <Text style={styles.pickerCancelText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <TouchableOpacity onPress={() => {
+                      setShowDatePicker(false);
+                      if (tempSelectedDob) {
+                        confirmDob(tempSelectedDob);
+                      }
+                    }}>
                       <Text style={styles.pickerConfirmText}>Done</Text>
                     </TouchableOpacity>
                   </View>
                   <DateTimePicker
-                    value={dob || new Date(new Date().getFullYear() - 18, 0, 1)}
+                    value={tempSelectedDob || dob || new Date(new Date().getFullYear() - 18, 0, 1)}
                     mode="date"
                     display="spinner"
                     onChange={handleDateChange}
@@ -1980,6 +2066,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addInterestBtn: {
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: '#C2FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addInterestBtnText: {
+    color: '#000000',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  promptModalSheet: {
+    backgroundColor: '#16121E',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    width: '100%',
+    maxHeight: '85%',
+  },
   promptModalContainer: {
     backgroundColor: 'rgba(30, 30, 30, 0.95)',
     borderTopLeftRadius: 24,
@@ -1995,7 +2114,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   promptModalScroll: {
-    maxHeight: 200,
+    maxHeight: 340,
     marginBottom: 16,
   },
   promptModalActions: {
