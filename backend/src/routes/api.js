@@ -113,6 +113,9 @@ router.post('/events/:id/star', authMiddleware, eventController.toggleStar);
 router.get('/debug/give-premium', eventController.givePremiumDebug);
 
 // Confessions endpoints
+router.get('/confessions/all', confessionController.getAllConfessions);
+router.get('/confessions/likes/all', confessionController.getAllConfessionLikes);
+router.get('/confessions/comments/all', confessionController.getAllComments);
 router.get('/confessions/feed', authMiddleware, confessionController.getConfessionsFeed);
 router.get('/confessions/:id', authMiddleware, confessionController.getConfessionById);
 router.post('/confessions/create', authMiddleware, confessionController.createConfession);
@@ -120,9 +123,6 @@ router.post('/confessions/:id/like', authMiddleware, confessionController.likeCo
 router.get('/confessions/:id/comments', authMiddleware, confessionController.getComments);
 router.post('/confessions/:id/comment', authMiddleware, confessionController.createComment);
 router.post('/confessions/report', authMiddleware, confessionController.reportConfession);
-router.get('/confessions/all', confessionController.getAllConfessions);
-router.get('/confessions/likes/all', confessionController.getAllConfessionLikes);
-router.get('/confessions/comments/all', confessionController.getAllComments);
 
 // Stories endpoints
 router.get('/stories/feed', authMiddleware, storyController.getStoriesFeed);
