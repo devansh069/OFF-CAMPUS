@@ -1,4 +1,3 @@
-const { Op } = require('sequelize');
 const Coupon = require('../models/Coupon');
 const CouponUsage = require('../models/CouponUsage');
 const User = require('../models/User');

@@ -1,7 +1,12 @@
-const { Op } = require('sequelize');
 const CollegeMaster = require('../models/CollegeMaster');
 const CollegeRequest = require('../models/CollegeRequest');
 const User = require('../models/User');
+
+// Sequelize v3 compatibility operators mapping
+const Op = {
+  or: '$or',
+  like: '$like'
+};
 
 // Search 2,000+ Delhi NCR colleges with live autocomplete
 exports.searchColleges = async (req, res) => {
