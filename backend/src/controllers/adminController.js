@@ -6,7 +6,14 @@ const College = require('../models/College');
 const CollegeMaster = require('../models/CollegeMaster');
 const CollegeRequest = require('../models/CollegeRequest');
 const Event = require('../models/Event');
-const { Op } = require('sequelize');
+const Op = {
+  ne: '$ne',
+  in: '$in',
+  or: '$or',
+  and: '$and',
+  like: '$like',
+  notLike: '$notLike'
+};
 
 // Helper to run query and return count
 const getTableCount = async (queryStr, replacements = []) => {
