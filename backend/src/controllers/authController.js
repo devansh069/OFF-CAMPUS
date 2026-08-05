@@ -813,14 +813,107 @@ exports.deletePhoto = async (req, res) => {
 
 // 9. Self Account Deletion
 exports.deleteAccount = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const userId = req.user.user_id;
-    const deleted = await User.destroy({ where: { user_id: userId } });
-    if (!deleted) {
+
+    // Check if user exists
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (!user) {
+      await transaction.rollback();
       return res.status(404).json({ detail: 'Account not found' });
     }
+
+    const replacements = { userId };
+
+    // 1. Nullify user_id in colleges table
+    await sequelize.query('UPDATE colleges SET user_id = NULL WHERE user_id = :userId', { replacements, transaction });
+
+    // 2. Delete comments on confessions made by this user, then comments made by this user
+    await sequelize.query('DELETE FROM comments WHERE confession_id IN (SELECT confession_id FROM confessions WHERE user_id = :userId)', { replacements, transaction });
+    await sequelize.query('DELETE FROM comments WHERE user_id = :userId', { replacements, transaction });
+
+    // 3. Delete confession likes on confessions made by this user, then likes made by this user
+    try {
+      await sequelize.query('DELETE FROM confession_likes WHERE confession_id IN (SELECT confession_id FROM confessions WHERE user_id = :userId)', { replacements, transaction });
+      await sequelize.query('DELETE FROM confession_likes WHERE user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 4. Delete confessions made by this user
+    await sequelize.query('DELETE FROM confessions WHERE user_id = :userId', { replacements, transaction });
+
+    // 5. Delete event stars/attendees associated with user's hosted events, then the user's stars/attendee entries
+    try {
+      await sequelize.query('DELETE FROM event_stars WHERE event_id IN (SELECT event_id FROM events WHERE host_user_id = :userId)', { replacements, transaction });
+      await sequelize.query('DELETE FROM event_stars WHERE user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    await sequelize.query('DELETE FROM event_attendees WHERE event_id IN (SELECT event_id FROM events WHERE host_user_id = :userId)', { replacements, transaction });
+    await sequelize.query('DELETE FROM event_attendees WHERE user_id = :userId', { replacements, transaction });
+
+    // 6. Delete events hosted by this user
+    await sequelize.query('DELETE FROM events WHERE host_user_id = :userId', { replacements, transaction });
+
+    // 7. Delete stories
+    await sequelize.query('DELETE FROM stories WHERE user_id = :userId', { replacements, transaction });
+
+    // 8. Delete likes
+    await sequelize.query('DELETE FROM likes WHERE from_user_id = :userId OR to_user_id = :userId', { replacements, transaction });
+
+    // 9. Delete passed profiles
+    try {
+      await sequelize.query('DELETE FROM passed_profiles WHERE from_user_id = :userId OR to_user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 10. Delete ratings
+    await sequelize.query('DELETE FROM ratings WHERE from_user_id = :userId OR to_user_id = :userId', { replacements, transaction });
+
+    // 11. Delete messages
+    await sequelize.query('DELETE FROM messages WHERE from_user_id = :userId OR to_user_id = :userId', { replacements, transaction });
+
+    // 12. Delete reports
+    try {
+      await sequelize.query('DELETE FROM reports WHERE from_user_id = :userId OR to_user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 13. Delete referrals
+    try {
+      await sequelize.query('DELETE FROM referrals WHERE referrer_id = :userId OR referred_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 14. Delete notifications
+    try {
+      await sequelize.query('DELETE FROM notifications WHERE user_id = :userId OR sender_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 15. Delete coupon usages
+    try {
+      await sequelize.query('DELETE FROM coupon_usages WHERE user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 16. Delete user sessions
+    await sequelize.query('DELETE FROM user_sessions WHERE user_id = :userId', { replacements, transaction });
+
+    // 17. Delete daily like counts
+    try {
+      await sequelize.query('DELETE FROM daily_like_counts WHERE user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 18. Delete vibe score logs
+    try {
+      await sequelize.query('DELETE FROM vibe_score_logs WHERE user_id = :userId', { replacements, transaction });
+    } catch (e) {}
+
+    // 19. Delete verification requests
+    await sequelize.query('DELETE FROM verification_requests WHERE user_id = :userId', { replacements, transaction });
+
+    // 20. Delete primary user record
+    await sequelize.query('DELETE FROM users WHERE user_id = :userId', { replacements, transaction });
+
+    await transaction.commit();
     return res.status(200).json({ detail: 'Account deleted successfully' });
   } catch (error) {
+    await transaction.rollback();
     console.error('[deleteAccount Error]:', error);
     return res.status(500).json({ detail: 'Failed to delete account: ' + error.message });
   }
