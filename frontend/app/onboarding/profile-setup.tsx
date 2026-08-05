@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -23,6 +24,54 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
+import { Video, ResizeMode } from 'expo-av';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+type Stage = 'v1' | 's1' | 'v2' | 's2' | 'v3' | 's3' | 'v4' | 's4' | 'v5' | 's5';
+
+const VIDEO_STEPS: { [key: string]: { dotIndex: number; title: string; subtitle: string; videoSource: any; prevStage: Stage | null; nextStage: Stage } } = {
+  v1: {
+    dotIndex: 0,
+    title: 'Story Upload',
+    subtitle: 'Share your live campus moments, photos, and daily updates directly on your student story feed.',
+    videoSource: require('../../assets/videos/story_walkthrough.mp4'),
+    prevStage: null,
+    nextStage: 's1',
+  },
+  v2: {
+    dotIndex: 1,
+    title: 'Add Confession',
+    subtitle: 'Post secrets, ask questions, or share your honest thoughts on the campus feed securely and anonymously.',
+    videoSource: require('../../assets/videos/confession_walkthrough.mp4'),
+    prevStage: 's1',
+    nextStage: 's2',
+  },
+  v3: {
+    dotIndex: 2,
+    title: 'Spotify & Apple Music',
+    subtitle: 'Sync your Spotify & Apple Music to display your favorite tracks and calculate vibe compatibility with peers.',
+    videoSource: require('../../assets/videos/story_tutorial.mp4'),
+    prevStage: 's2',
+    nextStage: 's3',
+  },
+  v4: {
+    dotIndex: 3,
+    title: 'Nearby Students',
+    subtitle: 'Find like-minded campus peers, gym buddies, and travel partners around your current location.',
+    videoSource: require('../../assets/videos/nearby_walkthrough.mp4'),
+    prevStage: 's3',
+    nextStage: 's4',
+  },
+  v5: {
+    dotIndex: 4,
+    title: 'Report & Safety',
+    subtitle: 'Flag inappropriate behavior or fake profiles instantly to ensure a safe community for all students.',
+    videoSource: require('../../assets/videos/report_walkthrough.mp4'),
+    prevStage: 's4',
+    nextStage: 's5',
+  },
+};
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -76,8 +125,8 @@ export default function ProfileSetup() {
   const { user, sessionToken, refreshUser, updateUser, logout } = useAuth();
   const router = useRouter();
 
-  // 4 Onboarding Steps: 1 (Basics), 2 (Vibe & Location), 3 (College), 4 (Photos & Prompts)
-  const [step, setStep] = useState(1);
+  // 5 Onboarding Steps & 5 Video Interstitials (v1->s1->v2->s2->v3->s3->v4->s4->v5->s5)
+  const [stage, setStage] = useState<Stage>('v1');
   const [loading, setLoading] = useState(false);
 
   // Step 1: Basics
@@ -274,9 +323,16 @@ export default function ProfileSetup() {
   };
 
   const handleBack = async () => {
-    if (step > 1) {
-      setStep(step - 1);
-    } else {
+    if (stage === 's1') setStage('v1');
+    else if (stage === 'v2') setStage('s1');
+    else if (stage === 's2') setStage('v2');
+    else if (stage === 'v3') setStage('s2');
+    else if (stage === 's3') setStage('v3');
+    else if (stage === 'v4') setStage('s3');
+    else if (stage === 's4') setStage('v4');
+    else if (stage === 'v5') setStage('s4');
+    else if (stage === 's5') setStage('v5');
+    else {
       await logout();
       router.replace('/welcome');
     }
@@ -405,7 +461,7 @@ export default function ProfileSetup() {
   };
 
   const handleNext = async () => {
-    if (step === 1) {
+    if (stage === 's1') {
       if (!name.trim()) {
         Alert.alert('Required', 'Please enter your name');
         return;
@@ -428,18 +484,20 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please select a valid height');
         return;
       }
-      setStep(2);
-    } else if (step === 2) {
+      setStage('v2');
+    } else if (stage === 's2') {
       if (!locationText.trim()) {
         Alert.alert('Required', 'Please specify your location or auto-detect it.');
         return;
       }
+      setStage('v3');
+    } else if (stage === 's3') {
       if (interests.length < 3) {
         Alert.alert('Required', 'Please select at least 3 interests');
         return;
       }
-      setStep(3);
-    } else if (step === 3) {
+      setStage('v4');
+    } else if (stage === 's4') {
       if (!collegeId) {
         Alert.alert('Required', 'Please select your college');
         return;
@@ -452,8 +510,8 @@ export default function ProfileSetup() {
         Alert.alert('Required', 'Please select your year of study');
         return;
       }
-      setStep(4);
-    } else {
+      setStage('v5');
+    } else if (stage === 's5') {
       if (photos.length < 1) {
         Alert.alert('Required', 'Please upload at least 1 photo.');
         return;
@@ -598,26 +656,103 @@ export default function ProfileSetup() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* ─── BACKGROUND LAYER ─── */}
-      <View style={StyleSheet.absoluteFillObject}>
-        {/* Ambient background linear gradient */}
-        <LinearGradient
-          colors={['#050005', '#FF6CD2', '#5641FF', '#ACD0FF', '#050005']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+  const getStepNumber = () => {
+    if (stage === 's1') return 1;
+    if (stage === 's2') return 2;
+    if (stage === 's3') return 3;
+    if (stage === 's4') return 4;
+    if (stage === 's5') return 5;
+    return 1;
+  };
+
+  // Render Video Interstitial Screen
+  if (stage.startsWith('v')) {
+    const videoData = VIDEO_STEPS[stage];
+    return (
+      <View style={[styles.videoContainer, { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }]}>
+        <Video
+          source={videoData.videoSource}
+          rate={1.0}
+          volume={1.0}
+          isMuted={true}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping
           style={StyleSheet.absoluteFillObject}
         />
-        {/* Dark veil overlay for premium depth and text contrast */}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]} />
+        <LinearGradient
+          colors={[
+            'rgba(12, 8, 18, 0.4)',
+            'rgba(12, 8, 18, 0.65)',
+            'rgba(12, 8, 18, 0.85)',
+            '#0c0812'
+          ]}
+          locations={[0.0, 0.35, 0.7, 1.0]}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 70 : 100}
-          tint="dark"
+        <View style={styles.videoBottomSection}>
+          <View style={styles.videoSlideCard}>
+            <Text style={styles.videoSlideTitle}>{videoData.title}</Text>
+            <Text style={styles.videoSlideDesc}>{videoData.subtitle}</Text>
+          </View>
+
+          {/* 5 Dots Indicator */}
+          <View style={styles.videoDotsRow}>
+            {[0, 1, 2, 3, 4].map((idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.videoDot,
+                  idx === videoData.dotIndex ? styles.videoDotActive : styles.videoDotInactive,
+                ]}
+              />
+            ))}
+          </View>
+
+          {/* Navigation Buttons */}
+          <View style={styles.videoNavigationRow}>
+            {videoData.prevStage ? (
+              <TouchableOpacity
+                style={styles.videoSkipBtn}
+                activeOpacity={0.7}
+                onPress={() => setStage(videoData.prevStage!)}
+              >
+                <Text style={styles.videoSkipText}>Previous</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 80 }} />
+            )}
+
+            <TouchableOpacity
+              style={styles.videoNextBtn}
+              activeOpacity={0.85}
+              onPress={() => setStage(videoData.nextStage)}
+            >
+              <Text style={styles.videoNextText}>Next</Text>
+              <Ionicons name="arrow-forward" size={16} color="#000" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const currentStepNum = getStepNumber();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* ─── BACKGROUND GLOW BALL (Dark Purple gradient matching Discover, Likes, Live, Nearby, Profile, Verification) ─── */}
+      <View style={styles.glowBallContainer}>
+        <LinearGradient
+          colors={['#510A68', '#260334', 'rgba(0,0,0,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
           style={StyleSheet.absoluteFillObject}
         />
       </View>
+
+      <BlurView intensity={Platform.OS === 'ios' ? 70 : 100} tint="dark" style={StyleSheet.absoluteFillObject} />
       {/* ─── END BACKGROUND ─── */}
 
       <View style={styles.overlayContainer}>
@@ -629,14 +764,14 @@ export default function ProfileSetup() {
           >
             <Ionicons name="arrow-back-outline" size={22} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>STEP {step} OF 4</Text>
+          <Text style={styles.headerTitle}>STEP {currentStepNum} OF 5</Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: `${(step / 4) * 100}%` }]} />
+            <View style={[styles.progress, { width: `${(currentStepNum / 5) * 100}%` }]} />
           </View>
         </View>
 
@@ -651,7 +786,7 @@ export default function ProfileSetup() {
             keyboardShouldPersistTaps="handled"
           >
             {/* Step 1: Basics */}
-            {step === 1 && (
+            {stage === 's1' && (
               <View style={styles.glassCard}>
                 {/* Glass top-edge highlight */}
                 <View style={styles.glassTopHighlight} />
@@ -766,14 +901,14 @@ export default function ProfileSetup() {
               </View>
             )}
 
-            {/* Step 2: Vibe, Habits & Location */}
-            {step === 2 && (
+            {/* Step 2: Location & Habits */}
+            {stage === 's2' && (
               <View style={styles.glassCard}>
                 <View style={styles.glassTopHighlight} />
 
                 <View style={styles.textHeader}>
-                  <Text style={styles.stepTitle}>Vibe & Habits</Text>
-                  <Text style={styles.stepSubtitle}>Location, lifestyle preferences, and bio info</Text>
+                  <Text style={styles.stepTitle}>Location & Habits</Text>
+                  <Text style={styles.stepSubtitle}>Location and lifestyle preferences</Text>
                 </View>
 
                 {/* Location Detection */}
@@ -848,6 +983,18 @@ export default function ProfileSetup() {
                     ))}
                   </View>
                 </View>
+              </View>
+            )}
+
+            {/* Step 3: Bio & Interests */}
+            {stage === 's3' && (
+              <View style={styles.glassCard}>
+                <View style={styles.glassTopHighlight} />
+
+                <View style={styles.textHeader}>
+                  <Text style={styles.stepTitle}>Bio & Interests</Text>
+                  <Text style={styles.stepSubtitle}>Express your personality and pick what you love</Text>
+                </View>
 
                 {/* Bio */}
                 <View style={styles.inputGroup}>
@@ -898,8 +1045,8 @@ export default function ProfileSetup() {
               </View>
             )}
 
-            {/* Step 3: College Connection */}
-            {step === 3 && (
+            {/* Step 4: College Connection */}
+            {stage === 's4' && (
               <View style={styles.glassCard}>
                 <View style={styles.glassTopHighlight} />
 
@@ -1013,8 +1160,8 @@ export default function ProfileSetup() {
               </View>
             )}
 
-            {/* Step 4: Photos & Prompts */}
-            {step === 4 && (
+            {/* Step 5: Photos & Prompts */}
+            {stage === 's5' && (
               <View style={styles.glassCard}>
                 <View style={styles.glassTopHighlight} />
 
@@ -1290,7 +1437,7 @@ export default function ProfileSetup() {
                 ) : (
                   <>
                     <Text style={styles.nextButtonText}>
-                      {step === 5 ? 'COMPLETE SETUP' : 'CONTINUE'}
+                      {stage === 's5' ? 'COMPLETE SETUP' : 'CONTINUE'}
                     </Text>
                     <Ionicons name="arrow-forward-outline" size={20} color="#000" />
                   </>
@@ -1307,49 +1454,29 @@ export default function ProfileSetup() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050005' },
   overlayContainer: { flex: 1, zIndex: 2 },
-
-  // ─── AMBIENT ORB BLOBS ───
-  // Large, soft, radial gradient circles placed in corners.
-  // Heavily blurred so they melt into the black background.
-  orbTopLeft: {
+  glowBallContainer: {
     position: 'absolute',
-    top: -160,
-    left: -160,
-    width: 560,
-    height: 560,
-    borderRadius: 280,
+    top: -450,
+    left: -450,
+    width: 1300,
+    height: 1300,
+    borderRadius: 650,
     overflow: 'hidden',
   },
-  orbBottomRight: {
-    position: 'absolute',
-    bottom: -160,
-    right: -160,
-    width: 560,
-    height: 560,
-    borderRadius: 280,
-    overflow: 'hidden',
-  },
-
-  // ─── GLASS CARD ───
-  // Pure View (no BlurView) for better cross-platform consistency.
-  // Border + top highlight strip simulate the frosted glass look.
   glassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',  // very faint white fill
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 28,
-    // Outer border — thin, barely-visible white line
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.13)',
     padding: 20,
     marginVertical: 10,
     overflow: 'hidden',
-    // Subtle shadow to lift the card off the background
     shadowColor: '#8C50FF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 8,
   },
-  // Thin bright line at the very top edge of the card — the "glass reflection" highlight
   glassTopHighlight: {
     position: 'absolute',
     top: 0,
@@ -1359,8 +1486,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.30)',
     borderRadius: 1,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2045,5 +2170,100 @@ const styles = StyleSheet.create({
   customPickerTextActive: {
     color: '#FFFFFF',
     fontWeight: '800',
+  },
+
+  // Video Screen Interstitial Styles (100% matching walkthrough.tsx)
+  videoContainer: {
+    flex: 1,
+    backgroundColor: '#0c0812',
+    position: 'relative',
+  },
+  videoBottomSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 50 : 35,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  videoSlideCard: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 35,
+    minHeight: 110,
+  },
+  videoSlideTitle: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  videoSlideDesc: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 15,
+  },
+  videoDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 40,
+  },
+  videoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  videoDotActive: {
+    backgroundColor: '#C2FF3D',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  videoDotInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  videoNavigationRow: {
+    flexDirection: 'row',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  videoSkipBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+  },
+  videoSkipText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  videoNextBtn: {
+    backgroundColor: '#C2FF3D',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#C2FF3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  videoNextText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

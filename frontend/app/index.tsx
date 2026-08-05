@@ -38,7 +38,7 @@ export default function Index() {
   useEffect(() => {
     if (hasClicked && !loading) {
       if (!user) {
-        router.replace('/walkthrough');
+        router.replace('/welcome');
       } else if (!user.college_id || !user.age) {
         router.replace('/onboarding/profile-setup');
       } else {

@@ -380,6 +380,16 @@ export default function Welcome() {
                         </>
                       )}
                     </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.googleLoginBtn, { marginTop: 12 }]} 
+                      onPress={() => {
+                        Alert.alert('Apple Sign-In', 'Apple Sign-In will be enabled on iOS production builds.');
+                      }}
+                    >
+                      <Ionicons name="logo-apple" size={20} color="#FFF" style={{ marginRight: 10 }} />
+                      <Text style={styles.googleBtnText}>Log in with Apple</Text>
+                    </TouchableOpacity>
                   </View>
                 ) : step === 'phone' ? (
                   <View style={styles.formContainer}>
@@ -446,19 +456,21 @@ export default function Welcome() {
                       )}
                     </View>
 
-                    {/* Referral Code Input */}
-                    <View style={styles.referralContainer}>
-                      <Ionicons name="gift-outline" size={16} color="#A1A1AA" />
-                      <TextInput
-                        style={styles.referralInput}
-                        placeholder="Referral Code (Optional)"
-                        placeholderTextColor="#A1A1AA"
-                        value={referralCode}
-                        onChangeText={setReferralCode}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                      />
-                    </View>
+                    {/* Referral Code Input (Only for new user account creation) */}
+                    {isSignUp && (
+                      <View style={styles.referralContainer}>
+                        <Ionicons name="gift-outline" size={16} color="#A1A1AA" />
+                        <TextInput
+                          style={styles.referralInput}
+                          placeholder="Referral Code (Optional)"
+                          placeholderTextColor="#A1A1AA"
+                          value={referralCode}
+                          onChangeText={setReferralCode}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                        />
+                      </View>
+                    )}
 
                     <TouchableOpacity 
                       style={styles.actionBtn} 
