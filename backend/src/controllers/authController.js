@@ -826,9 +826,6 @@ exports.deleteAccount = async (req, res) => {
 
     const replacements = { userId };
 
-    // 1. Nullify user_id in colleges table
-    await sequelize.query('UPDATE colleges SET user_id = NULL WHERE user_id = :userId', { replacements, transaction });
-
     // 2. Delete comments on confessions made by this user, then comments made by this user
     await sequelize.query('DELETE FROM comments WHERE confession_id IN (SELECT confession_id FROM confessions WHERE user_id = :userId)', { replacements, transaction });
     await sequelize.query('DELETE FROM comments WHERE user_id = :userId', { replacements, transaction });
