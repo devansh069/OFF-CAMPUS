@@ -1,0 +1,12 @@
+# Exclude native directories so EAS prebuilds cleanly from app.json
+android/
+ios/
+
+# Exclude dependencies and cache
+node_modules/
+.expo/
+.next/
+dist/
+build/
+*.apk
+*.aab

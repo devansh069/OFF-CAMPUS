@@ -1,4 +1,4 @@
-package com.devansh.offcampus
+package com.outthere.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

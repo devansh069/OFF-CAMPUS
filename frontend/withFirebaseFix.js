@@ -7,6 +7,9 @@ const withFirebaseFix = (config) => {
     'ios',
     async (config) => {
       const podfile = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+      if (!fs.existsSync(podfile)) {
+        return config;
+      }
       let contents = fs.readFileSync(podfile, 'utf8');
       
       const snippet = `

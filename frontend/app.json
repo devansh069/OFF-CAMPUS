@@ -1,28 +1,29 @@
 {
   "expo": {
-    "name": "Off Campus",
-    "slug": "off-campus",
-    "version": "1.0.4",
+    "name": "OutThere",
+    "slug": "outthere",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "offcampus",
+    "scheme": "outthere",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.devansh.offcampus",
+      "bundleIdentifier": "com.outthere.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "app-1-948138685161-ios-3fc08ff789fed5e842b678"
+              "app-1-948138685161-ios-3fc08ff789fed5e842b678",
+              "com.googleusercontent.apps.948138685161-o7fab6rrj3ak679rekga7fpu7idf0iip"
             ]
           }
         ],
-        "NSLocationWhenInUseUsageDescription": "Check in to your campus and see classmates",
-        "NSCameraUsageDescription": "Upload your ID for verification",
-        "NSPhotoLibraryUsageDescription": "Add photos to your profile",
+        "NSLocationWhenInUseUsageDescription": "Allow OutThere to access your location to discover people and events nearby.",
+        "NSCameraUsageDescription": "Allow OutThere to access your camera to take profile photos and verify your account.",
+        "NSPhotoLibraryUsageDescription": "Allow OutThere to access your photos so you can upload pictures to your profile.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
@@ -30,7 +31,7 @@
       }
     },
     "android": {
-      "package": "com.devansh.offcampus",
+      "package": "com.outthere.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -38,10 +39,12 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -64,13 +67,13 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Off Campus to use your location to check in to campus."
+          "locationAlwaysAndWhenInUsePermission": "Allow OutThere to use your location to discover nearby people and events."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Off Campus to access your photos to upload profile pictures."
+          "photosPermission": "Allow OutThere to access your photos so you can upload profile pictures."
         }
       ],
       "@react-native-community/datetimepicker",
@@ -81,6 +84,9 @@
         {
           "ios": {
             "useFrameworks": "static"
+          },
+          "android": {
+            "minSdkVersion": 24
           }
         }
       ],
@@ -88,6 +94,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c6197dfb-1b99-47b0-b5a9-3b33bba01dbf"
+      }
     }
   }
 }

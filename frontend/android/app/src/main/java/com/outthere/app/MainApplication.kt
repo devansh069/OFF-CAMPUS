@@ -1,4 +1,4 @@
-package com.devansh.offcampus
+package com.outthere.app
 
 import android.app.Application
 import android.content.res.Configuration

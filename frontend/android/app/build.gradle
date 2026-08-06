@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.devansh.offcampus'
+    namespace 'com.outthere.app'
     defaultConfig {
-        applicationId 'com.devansh.offcampus'
+        applicationId 'com.outthere.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
