@@ -24,9 +24,6 @@ import * as ImagePicker from 'expo-image-picker';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 const { width: screenWidth } = Dimensions.get('window');
 
-// Mock Dummy Student ID photo for seamless testing without taking physical pictures
-const DUMMY_ID_CARD_PHOTO = 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop';
-
 export default function Verification() {
   const { user, sessionToken, refreshUser, updateUser } = useAuth();
   const router = useRouter();
@@ -161,18 +158,14 @@ export default function Verification() {
     }
   };
 
-  // Open Camera for ID card photo (with automatic simulator fallback to dummy photo)
+  // Open Camera for ID card photo
   const handleOpenCamera = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
-          'Permission / Simulator Notice',
-          'Camera access is unavailable. Would you like to use a dummy photo to test the Admin verification flow?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Use Dummy Photo', onPress: () => setIdImage(DUMMY_ID_CARD_PHOTO) }
-          ]
+          'Permission Required',
+          'Camera access is required to capture your student ID card.'
         );
         return;
       }
@@ -188,28 +181,15 @@ export default function Verification() {
         setIdImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
       }
     } catch (error) {
-      console.warn('Camera error (likely running on Simulator):', error);
-      Alert.alert(
-        'Simulator Mode Detected 🧪',
-        'Physical camera cannot be opened on an iOS/Android Simulator.\n\nWould you like to load a Dummy Student ID card photo now to test the submission and Admin approval flow?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Load Dummy Photo',
-            style: 'default',
-            onPress: () => {
-              setIdImage(DUMMY_ID_CARD_PHOTO);
-            }
-          }
-        ]
-      );
+      console.warn('Camera error:', error);
+      Alert.alert('Camera Error', 'Unable to open camera. Please check camera permissions in device settings.');
     }
   };
 
   // Submit Manual ID Verification
   const handleSubmitManualVerification = async () => {
     if (!idImage) {
-      Alert.alert('Photo Required', 'Please snap a photo or use the dummy photo option to submit your ID card.');
+      Alert.alert('Photo Required', 'Please capture a clear photo of your student ID card.');
       return;
     }
 

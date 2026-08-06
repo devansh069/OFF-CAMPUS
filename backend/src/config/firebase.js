@@ -1,5 +1,6 @@
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const { getMessaging } = require('firebase-admin/messaging');
 
 let credential;
 
@@ -28,7 +29,14 @@ const app = initializeApp({
 });
 
 const auth = getAuth(app);
+let messaging = null;
+try {
+  messaging = getMessaging(app);
+} catch (e) {
+  console.warn('[Firebase] Failed to initialize Messaging service:', e.message);
+}
 
 module.exports = {
-  auth
+  auth,
+  messaging
 };

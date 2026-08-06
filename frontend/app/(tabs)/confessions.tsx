@@ -1723,7 +1723,7 @@ export default function CampusLive() {
 
           {/* Confessions Title */}
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionT}>Live Confessions</Text>
+            <Text style={styles.sectionT}>Spill the Tea</Text>
             <View style={{ flex: 1 }} />
             <TouchableOpacity
               style={styles.filterBtn}

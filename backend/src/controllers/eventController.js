@@ -5,6 +5,7 @@ const Event = require('../models/Event');
 const EventAttendee = require('../models/EventAttendee');
 const EventStar = require('../models/EventStar');
 const cloudinary = require('cloudinary').v2;
+const { sendPushToUser } = require('../utils/pushNotification');
 
 // Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
@@ -223,6 +224,21 @@ exports.toggleRSVP = async (req, res) => {
     // Fetch the updated count to return
     const updatedEvent = await Event.findOne({ where: { event_id: eventId } });
     const attendeeCount = updatedEvent ? updatedEvent.attendee_count : 0;
+
+    if (isAttending && updatedEvent && updatedEvent.host_user_id !== userId) {
+      try {
+        const attendeeUser = req.user?.name || 'Someone';
+        sendPushToUser({
+          userId: updatedEvent.host_user_id,
+          title: 'New RSVP! 🙌',
+          body: `${attendeeUser} is attending your event "${updatedEvent.title}"`,
+          data: { type: 'event_rsvp', eventId, deepLink: '/(tabs)/events' },
+          category: 'events'
+        });
+      } catch (pushErr) {
+        console.error('[ToggleRSVP Push Error]:', pushErr.message);
+      }
+    }
 
     return res.status(200).json({
       detail: isAttending ? 'RSVP registered' : 'RSVP cancelled',

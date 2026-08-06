@@ -218,9 +218,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('fetchUserProfile: Request timed out for URL:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
+      console.warn('fetchUserProfile: Request timed out for URL:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
       controller.abort();
-    }, 5000);
+    }, 15000);
 
     try {
       console.log('fetchUserProfile: Fetching profile from:', `${EXPO_PUBLIC_BACKEND_URL}/api/auth/me`);
@@ -248,10 +248,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('fetchUserProfile: Logged in user is:', data.user ? `${data.user.name} (${data.user.email})` : 'none');
       setUser(data.user);
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
-      console.error('Error fetching user:', error);
-      await clearSession();
+      if (error.name === 'AbortError') {
+        console.warn('[AuthContext] Profile fetch timed out (Railway server waking up or network latency). Keeping session active.');
+      } else {
+        console.error('Error fetching user:', error);
+        await clearSession();
+      }
       setLoading(false);
     }
   };
@@ -289,7 +293,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string, mode?: 'login' | 'signup') => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
       setLoading(true);

@@ -258,6 +258,16 @@ const User = sequelize.define('User', {
     type: DataTypes.JSON,
     allowNull: true,
     field: 'chosen_tags'
+  },
+  fcm_token: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'fcm_token'
+  },
+  notification_preferences: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'notification_preferences'
   }
 }, {
   tableName: 'users',

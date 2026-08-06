@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { useIconFonts } from '@/src/hooks/use-icon-fonts';
 
+import { initPushNotifications } from '@/src/services/notificationService';
+
 SplashScreen.preventAutoHideAsync();
 
 function InitialLayout() {
@@ -14,6 +16,10 @@ function InitialLayout() {
 
   useEffect(() => {
     if (loading) return;
+
+    if (user) {
+      initPushNotifications();
+    }
 
     // Check if user is currently inside protected tabs/chat routes
     const inProtectedGroup = segments[0] === '(tabs)' || segments[0] === 'chat' || segments[0] === 'profile-edit';

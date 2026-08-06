@@ -167,54 +167,31 @@ export default function ProfileEdit() {
 
   // Photos Actions
   const pickPhoto = async (index: number) => {
-    const useDummy = () => {
-      const dummy = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop";
-      const newPhotos = [...photos];
-      newPhotos[index] = dummy;
-      setPhotos(newPhotos.filter(Boolean));
-    };
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Gallery storage permission is required to select profile photos.');
+        return;
+      }
 
-    Alert.alert(
-      'Select Photo',
-      'Choose an action or use a sample photo for testing:',
-      [
-        {
-          text: 'Open Gallery',
-          onPress: async () => {
-            try {
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (status !== 'granted') {
-                Alert.alert('Permission Required', 'Gallery storage permission is required to add photos.', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Use Sample Photo', onPress: useDummy }
-                ]);
-                return;
-              }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
 
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.7,
-                base64: true,
-              });
-
-              if (!result.canceled && result.assets[0].base64) {
-                const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-                const newPhotos = [...photos];
-                newPhotos[index] = base64Uri;
-                setPhotos(newPhotos.filter(Boolean));
-              }
-            } catch (error) {
-              console.warn("Gallery picker error:", error);
-              useDummy();
-            }
-          }
-        },
-        { text: 'Use Sample Photo', onPress: useDummy },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+      if (!result.canceled && result.assets[0].base64) {
+        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        const newPhotos = [...photos];
+        newPhotos[index] = base64Uri;
+        setPhotos(newPhotos.filter(Boolean));
+      }
+    } catch (error) {
+      console.warn("Gallery picker error:", error);
+      Alert.alert('Error', 'Failed to open image gallery.');
+    }
   };
 
   const removePhoto = (index: number) => {

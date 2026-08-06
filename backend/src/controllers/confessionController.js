@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const User = require('../models/User');
 const Report = require('../models/Report');
 const VibeScoreLog = require('../models/VibeScoreLog');
+const { sendPushToUser } = require('../utils/pushNotification');
 
 // Helper to upload base64 string to Cloudinary
 const uploadToCloudinary = async (base64Str) => {
@@ -288,6 +289,14 @@ exports.likeConfession = async (req, res) => {
           if (io) {
             io.to(confOwner.user_id).emit('new_notification', notification.toJSON());
           }
+
+          sendPushToUser({
+            userId: confOwner.user_id,
+            title: 'Someone liked your confession ❤️',
+            body: 'Your confession got a new like!',
+            data: { type: 'confession_like', confessionId: id, deepLink: `/(tabs)/confessions` },
+            category: 'confessions'
+          });
         }
       } catch (notifErr) {
         console.error('[Confession Like Notification Error]:', notifErr);
@@ -420,6 +429,17 @@ exports.createComment = async (req, res) => {
         if (io) {
           io.to(confOwner.user_id).emit('new_notification', notification.toJSON());
         }
+
+        const senderName = req.user?.name || 'Someone';
+        const commentPreview = content.trim().length > 60 ? content.trim().substring(0, 57) + '...' : content.trim();
+
+        sendPushToUser({
+          userId: confOwner.user_id,
+          title: 'New reply on your confession 💬',
+          body: `${senderName} replied: "${commentPreview}"`,
+          data: { type: 'confession_comment', confessionId, deepLink: `/(tabs)/confessions` },
+          category: 'confessions'
+        });
       }
     } catch (notifErr) {
       console.error('[Confession Comment Notification Error]:', notifErr);

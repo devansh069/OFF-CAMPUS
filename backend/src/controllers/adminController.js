@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const emailService = require('../utils/emailService');
+const { sendPushToUser } = require('../utils/pushNotification');
 const { sequelize } = require('../config/db');
 const User = require('../models/User');
 const College = require('../models/College');
@@ -227,6 +228,14 @@ exports.grantPremium = async (req, res) => {
       console.error(`[Admin Premium Email Error]: Failed to send welcome email: ${emailErr.message}`);
     }
 
+    sendPushToUser({
+      userId: user.user_id,
+      title: 'You got Premium! 🎁',
+      body: `You've been gifted ${days} days of Premium membership!`,
+      data: { type: 'grant_premium', deepLink: '/(tabs)/profile' },
+      category: 'premium'
+    });
+
     return res.status(200).json({ detail: `Premium granted for ${days} days`, user });
   } catch (error) {
     console.error('[Admin GrantPremium Error]:', error);
@@ -282,6 +291,14 @@ exports.approveVerification = async (req, res) => {
       console.error(`[Admin Verification Email Error]: Failed to send approval email: ${emailErr.message}`);
     }
 
+    sendPushToUser({
+      userId: user.user_id,
+      title: "You're verified! ✅",
+      body: "Your student ID has been verified. Start exploring now!",
+      data: { type: 'verification_approved', deepLink: '/(tabs)/discover' },
+      category: 'verification'
+    });
+
     return res.status(200).json({ detail: 'Verification approved successfully', user });
   } catch (error) {
     console.error('[Admin ApproveVerif Error]:', error);
@@ -312,6 +329,14 @@ exports.rejectVerification = async (req, res) => {
     } catch (emailErr) {
       console.error(`[Admin Verification Email Error]: Failed to send rejection email: ${emailErr.message}`);
     }
+
+    sendPushToUser({
+      userId: user.user_id,
+      title: "Verification Update ⚠️",
+      body: `Your ID verification was not approved. Reason: ${rejectionReason}`,
+      data: { type: 'verification_rejected', deepLink: '/onboarding/verification' },
+      category: 'verification'
+    });
 
     return res.status(200).json({ detail: 'Verification rejected successfully', user });
   } catch (error) {
@@ -364,6 +389,14 @@ exports.approveEvent = async (req, res) => {
     event.status = 'approved';
     await event.save();
 
+    sendPushToUser({
+      userId: event.host_user_id,
+      title: 'Event Approved! 🎉',
+      body: `Your event "${event.title}" is now live and visible to everyone!`,
+      data: { type: 'event_approved', eventId: id, deepLink: '/(tabs)/events' },
+      category: 'events'
+    });
+
     return res.status(200).json({ detail: 'Event approved successfully', event });
   } catch (error) {
     console.error('[Admin ApproveEvent Error]:', error);
@@ -382,6 +415,14 @@ exports.rejectEvent = async (req, res) => {
 
     event.status = 'rejected';
     await event.save();
+
+    sendPushToUser({
+      userId: event.host_user_id,
+      title: 'Event Update ⚠️',
+      body: `Your event "${event.title}" was not approved.`,
+      data: { type: 'event_rejected', deepLink: '/(tabs)/events' },
+      category: 'events'
+    });
 
     return res.status(200).json({ detail: 'Event rejected successfully', event });
   } catch (error) {
@@ -454,6 +495,14 @@ exports.approveCollegeRequest = async (req, res) => {
       user.college_name = collegeName;
       user.college_request_status = 'approved';
       await user.save();
+
+      sendPushToUser({
+        userId: user.user_id,
+        title: 'College Added! 🏫',
+        body: `Your college "${collegeName}" has been added to Off-Campus!`,
+        data: { type: 'college_approved', deepLink: '/(tabs)/profile' },
+        category: 'general'
+      });
     }
 
     return res.status(200).json({

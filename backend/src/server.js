@@ -185,10 +185,24 @@ const startServer = async () => {
       console.log('[Patch] Manually added college_request_status column to users');
     } catch (e) {}
 
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN fcm_token TEXT NULL;");
+      console.log('[Patch] Manually added fcm_token column to users table');
+    } catch (e) {}
+
+    try {
+      await sequelize.query("ALTER TABLE users ADD COLUMN notification_preferences JSON NULL;");
+      console.log('[Patch] Manually added notification_preferences column to users table');
+    } catch (e) {}
+
     // 3. Seed colleges and dummy users if they are not already present
     await seedDatabase();
     const seedColleges = require('./scripts/seedColleges');
     await seedColleges();
+
+    // Initialize cron jobs
+    const { initCronJobs } = require('./utils/cronJobs');
+    initCronJobs(app);
 
     // 4. Start listening for incoming connections on the HTTP server
     server.listen(PORT, '0.0.0.0', () => {

@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
+import { updateNotificationPreferencesWithBackend } from '@/src/services/notificationService';
+
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function SettingsScreen() {
@@ -28,6 +30,14 @@ export default function SettingsScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  // Notification Preferences
+  const [notifChat, setNotifChat] = useState(user?.notification_preferences?.chat ?? true);
+  const [notifMatches, setNotifMatches] = useState(user?.notification_preferences?.matches ?? true);
+  const [notifLikes, setNotifLikes] = useState(user?.notification_preferences?.likes ?? true);
+  const [notifConfessions, setNotifConfessions] = useState(user?.notification_preferences?.confessions ?? true);
+  const [notifEvents, setNotifEvents] = useState(user?.notification_preferences?.events ?? true);
+  const [notifPremium, setNotifPremium] = useState(user?.notification_preferences?.premium ?? true);
 
   const handleLinkGoogle = async () => {
     let GoogleSigninModule: any = null;
@@ -73,42 +83,7 @@ export default function SettingsScreen() {
         setLinkingGoogle(false);
       }
     } else {
-      console.log('[Dev Bypass] Mocking Google link in Expo Go...');
-      Alert.alert(
-        'Developer Mode 🛠️',
-        'Running inside Expo Go (Mock Mode). Real Google Link is disabled. Link with mock Google account: google-test-user@test.edu.in?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Link Mock Account',
-            onPress: async () => {
-              setLinkingGoogle(true);
-              try {
-                const res = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/link-google`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionToken}`
-                  },
-                  body: JSON.stringify({ firebaseToken: 'dev-token-google-test-user@test.edu.in' })
-                });
-
-                if (!res.ok) {
-                  const errData = await res.json();
-                  throw new Error(errData.detail || 'Failed to link Google account');
-                }
-
-                await refreshUser();
-                Alert.alert('Linked! 👑', 'Your Google account has been successfully linked.');
-              } catch (error: any) {
-                Alert.alert('Linking Failed', error.message || 'Failed to link.');
-              } finally {
-                setLinkingGoogle(false);
-              }
-            }
-          }
-        ]
-      );
+      Alert.alert('Google Sign-In Unavailable', 'Google Authentication requires a native build with Google Play Services.');
     }
   };
 
@@ -213,6 +188,16 @@ export default function SettingsScreen() {
       if (!response.ok) {
         throw new Error('Failed to update settings');
       }
+
+      // Save notification preferences
+      await updateNotificationPreferencesWithBackend({
+        chat: notifChat,
+        matches: notifMatches,
+        likes: notifLikes,
+        confessions: notifConfessions,
+        events: notifEvents,
+        premium: notifPremium
+      });
 
       await refreshUser();
       Alert.alert('Success ✨', 'Settings saved successfully!');
@@ -336,6 +321,35 @@ export default function SettingsScreen() {
                 })}
               </View>
             </View>
+          </View>
+
+          {/* PUSH NOTIFICATION PREFERENCES */}
+          <Text style={styles.sectionTitle}>Push Notifications 🔔</Text>
+          <View style={styles.settingsGroup}>
+            {[
+              { label: 'Chat Messages', sub: 'New message alerts & voice notes', state: notifChat, set: setNotifChat },
+              { label: 'Matches & Handshakes', sub: 'Instant alerts when you get a match or handshake', state: notifMatches, set: setNotifMatches },
+              { label: 'Profile Likes', sub: 'Alerts when someone vibes with your profile', state: notifLikes, set: setNotifLikes },
+              { label: 'Confessions & Replies', sub: 'Likes and comments on your campus confessions', state: notifConfessions, set: setNotifConfessions },
+              { label: 'Campus Fests & Events', sub: 'Approvals, RSVPs, and fest reminders', state: notifEvents, set: setNotifEvents },
+              { label: 'Premium & Billing', sub: 'Subscription status and renewal warnings', state: notifPremium, set: setNotifPremium },
+            ].map((p, idx) => (
+              <View key={p.label}>
+                {idx > 0 && <View style={styles.divider} />}
+                <View style={styles.settingItemRow}>
+                  <View style={{ flex: 1, marginRight: 16 }}>
+                    <Text style={styles.settingItemLabel}>{p.label}</Text>
+                    <Text style={styles.settingItemSub}>{p.sub}</Text>
+                  </View>
+                  <Switch
+                    value={p.state}
+                    onValueChange={p.set}
+                    trackColor={{ false: '#2A1F3D', true: '#C2FF3D' }}
+                    thumbColor={Platform.OS === 'ios' ? undefined : p.state ? '#000' : '#8E8E93'}
+                  />
+                </View>
+              </View>
+            ))}
           </View>
 
           {/* PERMISSIONS & ACCESS OPTIONS */}

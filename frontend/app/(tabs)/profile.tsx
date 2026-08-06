@@ -443,40 +443,6 @@ export default function Profile() {
             }
           }
         },
-        {
-          text: 'Add Sample Data',
-          onPress: async () => {
-            if ((sessionToken === 'dummy_token' || !sessionToken) && updateUser) {
-              updateUser({
-                spotify_data: {
-                  top_tracks: ['Starboy - The Weeknd', 'Levitating - Dua Lipa', 'Peaches - Justin Bieber'],
-                  top_artists: ['Harry Styles', 'Glass Animals', 'The Weeknd'],
-                },
-                vibe_score: 4.9
-              });
-              Alert.alert('Success', 'Spotify data added! Vibe Score increased!');
-              return;
-            }
-
-            try {
-              await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/spotify`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${sessionToken}`,
-                },
-                body: JSON.stringify({
-                  top_tracks: ['Starboy - The Weeknd', 'Levitating - Dua Lipa', 'Peaches - Justin Bieber'],
-                  top_artists: ['Harry Styles', 'Glass Animals', 'The Weeknd'],
-                }),
-              });
-              await refreshUser();
-              Alert.alert('Success', 'Spotify data added! Vibe Score increased!');
-            } catch (error) {
-              console.error('Error:', error);
-            }
-          },
-        },
         { text: 'Cancel', style: 'cancel' },
       ]
     );

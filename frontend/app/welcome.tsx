@@ -129,15 +129,7 @@ export default function Welcome() {
         Alert.alert('SMS Failed', error.message || 'Failed to send OTP verification code.');
       }
     } else {
-      console.log('[Dev Bypass] Sending mock OTP for phone number:', fullNumber);
-      Alert.alert(
-        'Developer Mode 🛠️',
-        'Running inside Expo Go (Mock Mode). Real SMS is disabled. Press OK to proceed and use any 6-digit code to log in.',
-        [{ text: 'OK', onPress: () => {
-          setStep('otp');
-          setTimer(30);
-        }}]
-      );
+      Alert.alert('SMS Unavailable', 'SMS Phone Authentication requires a native build or device with Google Play Services.');
     }
   };
 
@@ -147,30 +139,25 @@ export default function Welcome() {
       return;
     }
 
-    const fullNumber = `+91${phoneNumber.replace(/\D/g, '')}`;
+    if (!confirmResult) {
+      Alert.alert('Error', 'No active verification session. Please resend the code.');
+      return;
+    }
 
-    if (isNativeFirebaseAvailable()) {
-      if (!confirmResult) {
-        Alert.alert('Error', 'No active verification session. Please resend the code.');
-        return;
+    try {
+      // Verify code
+      await confirmResult.confirm(otpCode);
+      
+      // Get verified ID Token from Firebase
+      const idToken = await firebaseAuth().currentUser?.getIdToken();
+      if (idToken) {
+        await login(idToken, true, referralCode.trim(), isSignUp ? 'signup' : 'login');
+      } else {
+        throw new Error('Failed to retrieve Firebase ID Token.');
       }
-      try {
-        // Verify code
-        await confirmResult.confirm(otpCode);
-        
-        // Get verified ID Token from Firebase
-        const idToken = await firebaseAuth().currentUser?.getIdToken();
-        if (idToken) {
-          await login(idToken, true, referralCode.trim(), isSignUp ? 'signup' : 'login');
-        } else {
-          throw new Error('Failed to retrieve Firebase ID Token.');
-        }
-      } catch (error: any) {
-        console.error('Firebase OTP verification failed:', error);
-        Alert.alert('Verification Failed', error.message || 'The code you entered is invalid. Please try again.');
-      }
-    } else {
-      await login(fullNumber, false, referralCode.trim(), isSignUp ? 'signup' : 'login');
+    } catch (error: any) {
+      console.error('Firebase OTP verification failed:', error);
+      Alert.alert('Verification Failed', error.message || 'The code you entered is invalid. Please try again.');
     }
   };
 
@@ -189,8 +176,7 @@ export default function Welcome() {
           Alert.alert('SMS Failed', error.message || 'Failed to resend OTP.');
         }
       } else {
-        setTimer(30);
-        Alert.alert('Developer Mode 🛠️', 'Resent mock verification code.');
+        Alert.alert('SMS Unavailable', 'SMS Phone Authentication requires a native build.');
       }
     }
   };
@@ -223,21 +209,7 @@ export default function Welcome() {
         setGoogleLoading(false);
       }
     } else {
-      console.log('[Dev Bypass] Mocking Google Login in Expo Go...');
-      Alert.alert(
-        'Developer Mode 🛠️',
-        'Running inside Expo Go (Mock Mode). Real Google Sign-in is disabled. Press OK to log in with a mock Google account.',
-        [{ text: 'OK', onPress: async () => {
-          setGoogleLoading(true);
-          try {
-            await login('google-test-user@test.edu.in', false, referralCode.trim(), 'login');
-          } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'Failed mock Google login.');
-          } finally {
-            setGoogleLoading(false);
-          }
-        }}]
-      );
+      Alert.alert('Google Sign-In Unavailable', 'Google Authentication requires a native build with Google Play Services.');
     }
   };
 

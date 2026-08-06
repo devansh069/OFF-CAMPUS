@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Coupon = require('../models/Coupon');
 const CouponUsage = require('../models/CouponUsage');
+const { sendPushToUser } = require('../utils/pushNotification');
 
 const getRazorpayInstance = () => {
   const key_id = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID;
@@ -154,6 +155,14 @@ exports.verifyPayment = async (req, res) => {
       user.profile_visibility = 2.0;
       await user.save();
       console.log(`[Razorpay Success] User ${userId} upgraded to Premium (${months}mo) until ${premiumUntil}`);
+
+      sendPushToUser({
+        userId,
+        title: 'Welcome to Premium! 👑',
+        body: "You're now a Premium member. Enjoy unlimited likes, handshakes & extra perks!",
+        data: { type: 'premium_activated', deepLink: '/(tabs)/profile' },
+        category: 'premium'
+      });
     }
 
     // Record coupon usage if a coupon was applied

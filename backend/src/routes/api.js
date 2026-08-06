@@ -67,6 +67,8 @@ router.get('/notifications', authMiddleware, authController.getNotifications);
 router.patch('/notifications/read-all', authMiddleware, authController.markAllNotificationsRead);
 router.patch('/notifications/:id/read', authMiddleware, authController.markNotificationRead);
 router.delete('/notifications/:id', authMiddleware, authController.deleteNotification);
+router.post('/auth/register-push-token', authMiddleware, authController.registerPushToken);
+router.patch('/auth/notification-preferences', authMiddleware, authController.updateNotificationPreferences);
 
 // Messages and conversations routes (Protected)
 router.get('/messages/conversations', authMiddleware, authController.getConversations);

@@ -20,6 +20,7 @@ const Op = {
 };
 const { sequelize } = require('../config/db');
 const cloudinary = require('cloudinary').v2;
+const { sendPushToUser } = require('../utils/pushNotification');
 const emailService = require('../utils/emailService');
 const { validateCollegeEmail } = require('../utils/emailValidator');
 
@@ -1058,6 +1059,31 @@ exports.likeUser = async (req, res) => {
         to_user_id: target_user_id,
         is_match: true
       });
+
+      // Dispatch Match Push Notifications to BOTH users asynchronously
+      try {
+        const targetUser = await User.findOne({ where: { user_id: target_user_id }, attributes: ['user_id', 'name'] });
+        const targetName = targetUser ? targetUser.name : 'Someone';
+        const currentName = currentUser ? currentUser.name : 'Someone';
+
+        sendPushToUser({
+          userId: target_user_id,
+          title: "It's a Match! 🎉",
+          body: `You and ${currentName} just matched! Start a conversation now.`,
+          data: { type: 'match', targetUserId: currentUserId, deepLink: `/chat/${currentUserId}` },
+          category: 'matches'
+        });
+
+        sendPushToUser({
+          userId: currentUserId,
+          title: "It's a Match! 🎉",
+          body: `You and ${targetName} just matched! Start a conversation now.`,
+          data: { type: 'match', targetUserId: target_user_id, deepLink: `/chat/${target_user_id}` },
+          category: 'matches'
+        });
+      } catch (pushErr) {
+        console.error('[likeUser Match Push Error]:', pushErr.message);
+      }
     } else {
       await Like.upsert({
         like_id: likeId,
@@ -1065,6 +1091,19 @@ exports.likeUser = async (req, res) => {
         to_user_id: target_user_id,
         is_match: false
       });
+
+      // Dispatch "New Like" Push Notification to target user
+      try {
+        sendPushToUser({
+          userId: target_user_id,
+          title: "Someone liked you! 💜",
+          body: "A new person vibed with your profile! Open to see who.",
+          data: { type: 'like', deepLink: '/(tabs)/likes' },
+          category: 'likes'
+        });
+      } catch (pushErr) {
+        console.error('[likeUser Like Push Error]:', pushErr.message);
+      }
     }
 
     return res.status(200).json({
@@ -1430,6 +1469,25 @@ exports.sendMessage = async (req, res) => {
     if (io) {
       console.log(`[Socket] Broadcasting new_message to room: ${to_user_id}`);
       io.to(to_user_id).emit('new_message', message.toJSON());
+    }
+
+    // Dispatch Push Notification to recipient
+    try {
+      const senderName = req.user?.name || 'Someone';
+      let previewText = content ? (content.length > 80 ? content.substring(0, 77) + '...' : content) : 'Sent a file';
+      if (message_type === 'image') previewText = '📷 Sent you a photo';
+      if (message_type === 'audio') previewText = '🎤 Sent you a voice note';
+
+      sendPushToUser({
+        userId: to_user_id,
+        title: senderName,
+        body: previewText,
+        data: { type: 'chat', senderId: currentUserId, deepLink: `/chat/${currentUserId}` },
+        category: 'chat',
+        threadId: currentUserId // Groups multiple unread messages from same sender into ONE notification!
+      });
+    } catch (pushErr) {
+      console.error('[sendMessage Push Error]:', pushErr.message);
     }
 
     return res.status(201).json({ message });
@@ -1892,6 +1950,31 @@ exports.sendHandshake = async (req, res) => {
         is_match: true,
         is_handshake: true
       });
+
+      // Dispatch Handshake Match push to BOTH
+      try {
+        const targetUser = await User.findOne({ where: { user_id: target_user_id }, attributes: ['user_id', 'name'] });
+        const targetName = targetUser ? targetUser.name : 'Someone';
+        const currentName = currentUser ? currentUser.name : 'Someone';
+
+        sendPushToUser({
+          userId: target_user_id,
+          title: "Handshake Match! 🤝🎉",
+          body: `Your Handshake with ${currentName} turned into a Match!`,
+          data: { type: 'match', targetUserId: currentUserId, deepLink: `/chat/${currentUserId}` },
+          category: 'matches'
+        });
+
+        sendPushToUser({
+          userId: currentUserId,
+          title: "Handshake Match! 🤝🎉",
+          body: `Your Handshake with ${targetName} turned into a Match!`,
+          data: { type: 'match', targetUserId: target_user_id, deepLink: `/chat/${target_user_id}` },
+          category: 'matches'
+        });
+      } catch (pushErr) {
+        console.error('[sendHandshake Match Push Error]:', pushErr.message);
+      }
     } else {
       await Like.upsert({
         like_id: likeId,
@@ -1900,6 +1983,19 @@ exports.sendHandshake = async (req, res) => {
         is_match: false,
         is_handshake: true
       });
+
+      // Dispatch Handshake Received push
+      try {
+        sendPushToUser({
+          userId: target_user_id,
+          title: "You got a Handshake! 🤝",
+          body: "Someone used a rare Handshake on your profile!",
+          data: { type: 'handshake', deepLink: '/(tabs)/likes' },
+          category: 'likes'
+        });
+      } catch (pushErr) {
+        console.error('[sendHandshake Push Error]:', pushErr.message);
+      }
     }
 
     return res.status(200).json({
@@ -2011,5 +2107,48 @@ exports.deleteNotification = async (req, res) => {
   } catch (error) {
     console.error('[deleteNotification Error]:', error);
     return res.status(500).json({ detail: 'Failed to delete notification: ' + error.message });
+  }
+};
+
+exports.registerPushToken = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'FCM push token is required' });
+    }
+
+    await User.update(
+      { fcm_token: token },
+      { where: { user_id: currentUserId } }
+    );
+
+    console.log(`[PushToken] Successfully registered push token for user: ${currentUserId}`);
+    return res.status(200).json({ success: true, message: 'Push token registered' });
+  } catch (error) {
+    console.error('[registerPushToken Error]:', error);
+    return res.status(500).json({ detail: 'Failed to register push token: ' + error.message });
+  }
+};
+
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const currentUserId = req.user.user_id;
+    const { preferences } = req.body;
+
+    if (!preferences || typeof preferences !== 'object') {
+      return res.status(400).json({ error: 'Preferences object is required' });
+    }
+
+    await User.update(
+      { notification_preferences: preferences },
+      { where: { user_id: currentUserId } }
+    );
+
+    return res.status(200).json({ success: true, preferences });
+  } catch (error) {
+    console.error('[updateNotificationPreferences Error]:', error);
+    return res.status(500).json({ detail: 'Failed to update preferences: ' + error.message });
   }
 };
