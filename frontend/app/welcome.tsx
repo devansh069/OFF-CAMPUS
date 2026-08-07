@@ -22,8 +22,11 @@ import { BlurView } from 'expo-blur';
 let firebaseAuth: any = null;
 let GoogleSignin: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  firebaseAuth = require('@react-native-firebase/auth').default;
+  // IMPORTANT: Do NOT change this back to .default only!
+  // On iOS, the module has no .default export — using .default alone makes firebaseAuth = undefined on iOS.
+  // The fallback pattern (authMod.default || authMod) works on BOTH Android AND iOS.
+  const authMod = require('@react-native-firebase/auth');
+  firebaseAuth = authMod.default || authMod;
 } catch {
   // Safe fallback if native module is not linked (Expo Go)
 }
@@ -203,7 +206,9 @@ export default function Welcome() {
         if (!idToken) throw new Error('Failed to retrieve Google ID Token.');
 
         // Authenticate with Firebase using Google credentials
-        const authModule = require('@react-native-firebase/auth').default;
+        // Same fallback pattern needed for iOS (see top-level comment)
+        const rawAuth = require('@react-native-firebase/auth');
+        const authModule = rawAuth.default || rawAuth;
         const googleCredential = authModule.GoogleAuthProvider.credential(idToken);
         const userCredential = await authModule().signInWithCredential(googleCredential);
         
