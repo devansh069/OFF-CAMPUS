@@ -10,17 +10,8 @@ const uploadToCloudinary = async (base64Str) => {
     }
     const uploadResponse = await cloudinary.uploader.upload(formattedStr, {
       folder: 'off_campus_stories',
-      resource_type: 'image',
-      moderation: 'aws_rek'
+      resource_type: 'image'
     });
-
-    // Check if the image failed AI moderation
-    if (uploadResponse.moderation && uploadResponse.moderation.length > 0) {
-      const modStatus = uploadResponse.moderation[0].status;
-      if (modStatus === 'rejected') {
-        throw new Error('Image failed content moderation: Inappropriate content detected.');
-      }
-    }
 
     return uploadResponse.secure_url;
   } catch (error) {
