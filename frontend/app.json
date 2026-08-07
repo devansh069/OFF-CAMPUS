@@ -16,9 +16,9 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-  "app-1-948138685161-ios-02fd8ee821a2c24742b678",
-  "com.googleusercontent.apps.948138685161-o7fab6rrj3ak679rekga7fpu7idf0iip"
-]
+              "app-1-501902701509-ios-c299e880508a05e43a11ac",
+              "com.googleusercontent.apps.501902701509-9ldnpd7ev6m98u0ql17km0lsp679b3h9"
+            ]
           }
         ],
         "NSLocationWhenInUseUsageDescription": "Allow OutThere to access your location to discover people and events nearby.",
@@ -102,9 +102,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b549ee80-bfa2-4d41-8d2a-d108869fe1c9"
+        "projectId": "c6197dfb-1b99-47b0-b5a9-3b33bba01dbf"
       }
     },
-    "owner": "krishtechh"
+    "owner": "devansh069"
   }
 }
