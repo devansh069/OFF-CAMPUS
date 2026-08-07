@@ -82,8 +82,8 @@ exports.exchangeCode = async (req, res) => {
       top_artists: topArtists
     };
 
-    // Vibe score bonus (+0.2, capped at 5.0)
-    user.vibe_score = Math.min(5.0, user.vibe_score + 0.2);
+    // Vibe score bonus (+0.2, capped at 10.0)
+    user.vibe_score = Math.min(10.0, user.vibe_score + 0.2);
     await user.save();
 
     // Fetch updated user with college info

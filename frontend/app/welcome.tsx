@@ -16,7 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
 
 let firebaseAuth: any = null;
@@ -62,12 +62,23 @@ const convertDevanagariToAscii = (text: string): string => {
 export default function Welcome() {
   const { user, login, loading } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   // Navigation steps: 'choice' | 'login_choice' | 'phone' | 'otp'
   const [step, setStep] = useState<'choice' | 'login_choice' | 'phone' | 'otp'>('choice');
   const [isSignUp, setIsSignUp] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (params?.flow === 'signup') {
+      setIsSignUp(true);
+      setStep('phone');
+    } else if (params?.flow === 'login') {
+      setIsSignUp(false);
+      setStep('login_choice');
+    }
+  }, [params?.flow]);
   
   // OTP States
   const [otpCode, setOtpCode] = useState('');
@@ -80,10 +91,11 @@ export default function Welcome() {
   // Initialize Google Sign-In SDK conditionally
   useEffect(() => {
     if (isGoogleSigninAvailable()) {
-      GoogleSignin.configure({
-        webClientId: '948138685161-9m1j3qkbjh2j5o0kvqucashjoher0o0u.apps.googleusercontent.com',
-        offlineAccess: true,
-      });
+     GoogleSignin.configure({
+  webClientId:
+    '1010337349558-lj094cssa5g89pue59dlr9a13k99ae77.apps.googleusercontent.com',
+  offlineAccess: true,
+});
     }
   }, []);
 
@@ -383,6 +395,22 @@ export default function Welcome() {
                         autoCorrect={false}
                       />
                     </View>
+
+                    {/* Referral Code Input (Only for new user account creation) */}
+                    {isSignUp && (
+                      <View style={[styles.referralContainer, { marginTop: 12, marginBottom: 12 }]}>
+                        <Ionicons name="gift-outline" size={16} color="#A1A1AA" />
+                        <TextInput
+                          style={styles.referralInput}
+                          placeholder="Referral Code (Optional)"
+                          placeholderTextColor="#A1A1AA"
+                          value={referralCode}
+                          onChangeText={setReferralCode}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                        />
+                      </View>
+                    )}
 
                     <TouchableOpacity style={styles.actionBtn} onPress={handleSendOTP}>
                       <LinearGradient colors={['#8B5CF6', '#F43F5E']} style={styles.btnGrad}>

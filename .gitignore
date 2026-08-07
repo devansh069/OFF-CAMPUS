@@ -97,6 +97,6 @@ credentials.json
 **/off-campus-*-firebase-adminsdk-*.json
 *.firebase-adminsdk.json
 
-
-
- 
+# Native mobile build folders
+/frontend/ios/
+/frontend/android/

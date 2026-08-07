@@ -1428,23 +1428,7 @@ export default function Discover() {
             </View>
           </Animated.View>
 
-          {/* Floating Daily Likes Counter Pill */}
-          {!user?.is_premium && (
-            <TouchableOpacity
-              style={styles.dailyLikesPill}
-              onPress={() => {
-                setUpsellTitle('Daily Free Likes Limit ⚡');
-                setUpsellFeature('6 Likes Daily Limit');
-                setUpsellVisible(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="sparkles" size={12} color="#C2FF3D" />
-              <Text style={styles.dailyLikesPillText}>
-                {likesRemaining > 0 ? `${likesRemaining}/6 Free Likes Left` : '0 Free Likes Left — Get Premium'}
-              </Text>
-            </TouchableOpacity>
-          )}
+
 
           {/* Floating Action Overlay Buttons */}
           <View style={styles.floatingActionsContainer}>
@@ -1504,27 +1488,49 @@ export default function Discover() {
         {/* Top Header Bar */}
         <View style={styles.topBar}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>off campus</Text>
+            <Text style={styles.logoText}>OutThere</Text>
           </View>
-          <TouchableOpacity
-            style={styles.likesTriggerBtn}
-            onPress={() => router.push('/(tabs)/likes')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="heart-outline" size={24} color="#FFF" />
-            {likesCount > 0 && (
-              <View style={styles.likesBadgeContainer}>
-                <LinearGradient
-                  colors={['#C2FF3D', '#A5D62B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.likesBadgeGradient}
-                >
-                  <Text style={styles.likesBadgeText}>{likesCount}</Text>
-                </LinearGradient>
-              </View>
-            )}
-          </TouchableOpacity>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {/* Pink Likes Remaining badge placed left of heart */}
+            <TouchableOpacity
+              style={styles.likesPill}
+              activeOpacity={0.8}
+              onPress={() => {
+                Alert.alert(
+                  'Daily Likes ',
+                  user?.is_premium
+                    ? 'You are a Premium member and have Unlimited daily likes! 🎉'
+                    : `You have ${likesRemaining} free daily like${likesRemaining === 1 ? '' : 's'} remaining. Upgrade to Premium for unlimited daily likes!`
+                );
+              }}
+            >
+              <Ionicons name="heart" size={12} color="#FF2D55" style={{ marginRight: 4 }} />
+              <Text style={[styles.likesPillText, { fontSize: 12 }]}>
+                {user?.is_premium ? 'Unlimited' : likesRemaining}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.likesTriggerBtn}
+              onPress={() => router.push('/(tabs)/likes')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="heart-outline" size={24} color="#FFF" />
+              {likesCount > 0 && (
+                <View style={styles.likesBadgeContainer}>
+                  <LinearGradient
+                    colors={['#C2FF3D', '#A5D62B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.likesBadgeGradient}
+                  >
+                    <Text style={styles.likesBadgeText}>{likesCount}</Text>
+                  </LinearGradient>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Verification & College Request Status Warning Banner */}
@@ -1614,26 +1620,7 @@ export default function Discover() {
           </View>
         </View>
 
-        {/* Likes Remaining Count Pill */}
-        <View style={styles.likesPillContainer}>
-          <TouchableOpacity
-            style={styles.likesPill}
-            activeOpacity={0.8}
-            onPress={() => {
-              Alert.alert(
-                'Daily Likes ',
-                user?.is_premium
-                  ? 'You are a Premium member and have Unlimited daily likes! 🎉'
-                  : `You have ${likesRemaining} free daily like${likesRemaining === 1 ? '' : 's'} remaining. Upgrade to Premium for unlimited daily likes!`
-              );
-            }}
-          >
-            <Ionicons name="heart" size={14} color="#FF2D55" style={{ marginRight: 4 }} />
-            <Text style={styles.likesPillText}>
-              {user?.is_premium ? 'Unlimited' : likesRemaining}
-            </Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
 
       {/* Filter Modal Overlay */}
@@ -1884,7 +1871,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -1,
-    textTransform: 'lowercase',
+    textTransform: 'none',
   },
   likesTriggerBtn: {
     width: 40,
