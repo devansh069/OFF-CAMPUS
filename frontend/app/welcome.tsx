@@ -81,7 +81,7 @@ export default function Welcome() {
   useEffect(() => {
     if (isGoogleSigninAvailable()) {
       GoogleSignin.configure({
-        webClientId: '948138685161-9m1j3qkbjh2j5o0kvqucashjoher0o0u.apps.googleusercontent.com',
+        webClientId: '501902701509-ggdo46lf6pkrneulmq3t2itunrv41nt4.apps.googleusercontent.com',
         offlineAccess: true,
       });
     }
