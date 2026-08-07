@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder, Linking, Pressable } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, Modal, Dimensions, Platform, Animated, KeyboardAvoidingView, Share, PanResponder, Linking, Pressable, DeviceEventEmitter } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,15 @@ const MOCK_STORIES = [
 export default function CampusLive() {
   const { user, sessionToken, socket } = useAuth();
   const router = useRouter();
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('scroll-to-top-confessions', () => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => sub.remove();
+  }, []);
+
   const [confessions, setConfessions] = useState<any[]>([]);
   const [stories, setStories] = useState<any[]>([]);
   const [topVibes, setTopVibes] = useState<any[]>([]);
@@ -1587,6 +1596,7 @@ export default function CampusLive() {
       </View>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
+          ref={mainScrollRef}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

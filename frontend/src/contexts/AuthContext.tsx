@@ -250,12 +250,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     } catch (error: any) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        console.warn('[AuthContext] Profile fetch timed out (Railway server waking up or network latency). Keeping session active.');
-      } else {
-        console.error('Error fetching user:', error);
-        await clearSession();
-      }
+      console.error('Error fetching user profile:', error);
+      // Do not clear session on network or connection errors
       setLoading(false);
     }
   };

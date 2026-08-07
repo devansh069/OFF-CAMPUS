@@ -716,6 +716,20 @@ export default function ProfileSetup() {
               >
                 <Text style={styles.videoSkipText}>Previous</Text>
               </TouchableOpacity>
+            ) : stage === 'v1' ? (
+              <TouchableOpacity
+                style={styles.videoSkipBtn}
+                activeOpacity={0.7}
+                onPress={async () => {
+                  const flow = user?.name ? 'login' : 'signup';
+                  if (logout) {
+                    await logout();
+                  }
+                  router.replace(`/welcome?flow=${flow}`);
+                }}
+              >
+                <Text style={styles.videoSkipText}>Previous</Text>
+              </TouchableOpacity>
             ) : (
               <View style={{ width: 80 }} />
             )}

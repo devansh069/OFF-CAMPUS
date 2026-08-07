@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, TouchableOpacity, Pressable, Image, DeviceEventEmitter } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -10,6 +10,7 @@ const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width: screenWidth } = Dimensions.get('window');
 
 function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount }: any) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const widthAnim = useRef(new Animated.Value(screenWidth * 0.7)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -109,7 +110,9 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
                 canPreventDefault: true,
               });
 
-              if (!isFocused && !event.defaultPrevented) {
+              if (isFocused) {
+                DeviceEventEmitter.emit(`scroll-to-top-${route.name}`);
+              } else if (!event.defaultPrevented) {
                 navigation.navigate({ name: route.name, merge: true });
               }
             };
@@ -173,7 +176,22 @@ function CustomTabBar({ state, descriptors, navigation, likesCount, unreadCount 
                 ]}
               >
                 <View style={styles.iconWrapper}>
-                  <Ionicons name={iconName} size={22} color={tintColor} />
+                  {route.name === 'profile' ? (
+                    <Image
+                      source={{
+                        uri: user?.main_photo || user?.photos?.[0] || user?.picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150'
+                      }}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: isFocused ? 1.5 : 0.5,
+                        borderColor: isFocused ? '#C2FF3D' : 'rgba(255,255,255,0.4)',
+                      }}
+                    />
+                  ) : (
+                    <Ionicons name={iconName} size={22} color={tintColor} />
+                  )}
                   {badgeCount > 0 && (
                     <View style={styles.badgeContainer}>
                       <LinearGradient
