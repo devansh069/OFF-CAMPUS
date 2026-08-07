@@ -152,12 +152,22 @@ export default function Welcome() {
         Alert.alert('SMS Failed', error.message || 'Failed to send OTP verification code.');
       }
     } else {
-      // Diagnostic alert to help debug iOS issue
+      // Diagnostic: try calling firebaseAuth() here to capture the exact error
+      let callError = 'none';
+      let instanceResult = 'unknown';
+      try {
+        const inst = firebaseAuth();
+        instanceResult = inst ? `truthy (${typeof inst})` : `falsy (${inst})`;
+      } catch (e: any) {
+        callError = e?.message || String(e);
+      }
       const debugInfo = [
         `Platform: ${Platform.OS}`,
         `firebaseAuth type: ${typeof firebaseAuth}`,
         `firebaseAuth truthy: ${!!firebaseAuth}`,
         `loadError: ${firebaseAuthLoadError || 'none'}`,
+        `firebaseAuth() result: ${instanceResult}`,
+        `firebaseAuth() error: ${callError}`,
       ].join('\n');
       Alert.alert('SMS Unavailable', `Debug info:\n${debugInfo}`);
     }
