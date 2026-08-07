@@ -58,14 +58,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "948138685161-ldg7u92hup04ede0igq8ck0155ngjnab.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.outthere.app",
-            "certificate_hash": "805882678a70997b180848e0213d17a03bc166a5"
-          }
-        },
-        {
           "client_id": "948138685161-9ibhvna8p7ec1sa58dcqakvs4n4rika5.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -83,10 +75,10 @@
               "client_type": 3
             },
             {
-              "client_id": "948138685161-o7fab6rrj3ak679rekga7fpu7idf0iip.apps.googleusercontent.com",
+              "client_id": "948138685161-pgsj25d2pgouvn07sp410bt86j889afo.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.outthere.app"
+                "bundle_id": "com.devansh.offcampus"
               }
             }
           ]

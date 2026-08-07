@@ -98,8 +98,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c6197dfb-1b99-47b0-b5a9-3b33bba01dbf"
+        "projectId": "b549ee80-bfa2-4d41-8d2a-d108869fe1c9"
       }
-    }
+    },
+    "owner": "krishtechh"
   }
 }

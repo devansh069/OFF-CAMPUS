@@ -11,7 +11,7 @@ const withFirebaseFix = (config) => {
         return config;
       }
       let contents = fs.readFileSync(podfile, 'utf8');
-      
+
       const snippet = `
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
