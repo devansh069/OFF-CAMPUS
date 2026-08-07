@@ -21,14 +21,17 @@ import { BlurView } from 'expo-blur';
 
 let firebaseAuth: any = null;
 let GoogleSignin: any = null;
+let firebaseAuthLoadError: string | null = null;
 try {
   // IMPORTANT: Do NOT change this back to .default only!
   // On iOS, the module has no .default export — using .default alone makes firebaseAuth = undefined on iOS.
   // The fallback pattern (authMod.default || authMod) works on BOTH Android AND iOS.
   const authMod = require('@react-native-firebase/auth');
   firebaseAuth = authMod.default || authMod;
-} catch {
-  // Safe fallback if native module is not linked (Expo Go)
+  console.log('[FirebaseAuth] Module loaded. Type:', typeof firebaseAuth, 'Has default:', !!authMod.default);
+} catch (e: any) {
+  firebaseAuthLoadError = e?.message || 'Unknown require error';
+  console.warn('[FirebaseAuth] Failed to load module:', e);
 }
 
 try {
@@ -41,10 +44,15 @@ try {
 const isNativeFirebaseAvailable = () => {
   if (Platform.OS === 'web') return false;
   try {
-    const available = !!firebaseAuth && !!firebaseAuth();
-    return available;
-  } catch (e) {
-    console.warn('isNativeFirebaseAvailable check failed:', e);
+    if (!firebaseAuth) {
+      console.warn('[FirebaseAuth] firebaseAuth is falsy:', firebaseAuth, 'loadError:', firebaseAuthLoadError);
+      return false;
+    }
+    const instance = firebaseAuth();
+    console.log('[FirebaseAuth] Instance created:', !!instance);
+    return !!instance;
+  } catch (e: any) {
+    console.warn('[FirebaseAuth] firebaseAuth() call failed:', e?.message);
     return false;
   }
 };
@@ -144,7 +152,14 @@ export default function Welcome() {
         Alert.alert('SMS Failed', error.message || 'Failed to send OTP verification code.');
       }
     } else {
-      Alert.alert('SMS Unavailable', 'SMS Phone Authentication requires a native build or device with Google Play Services.');
+      // Diagnostic alert to help debug iOS issue
+      const debugInfo = [
+        `Platform: ${Platform.OS}`,
+        `firebaseAuth type: ${typeof firebaseAuth}`,
+        `firebaseAuth truthy: ${!!firebaseAuth}`,
+        `loadError: ${firebaseAuthLoadError || 'none'}`,
+      ].join('\n');
+      Alert.alert('SMS Unavailable', `Debug info:\n${debugInfo}`);
     }
   };
 
