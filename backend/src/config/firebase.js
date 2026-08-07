@@ -16,7 +16,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 
 if (!credential) {
   try {
-    const serviceAccount = require('./off-campus-44e8f-firebase-adminsdk-fbsvc-b2bee1766d.json');
+    const serviceAccount = require('./outthere-57bca-firebase-adminsdk-fbsvc-70ab2a33e9.json');
     credential = cert(serviceAccount);
     console.log('[Firebase] Initialized using local service account JSON file.');
   } catch (error) {
