@@ -16,9 +16,9 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "app-1-948138685161-ios-3fc08ff789fed5e842b678",
-              "com.googleusercontent.apps.948138685161-o7fab6rrj3ak679rekga7fpu7idf0iip"
-            ]
+  "app-1-948138685161-ios-02fd8ee821a2c24742b678",
+  "com.googleusercontent.apps.948138685161-o7fab6rrj3ak679rekga7fpu7idf0iip"
+]
           }
         ],
         "NSLocationWhenInUseUsageDescription": "Allow OutThere to access your location to discover people and events nearby.",
@@ -85,10 +85,10 @@
           "ios": {
             "useFrameworks": "static",
             "forceStaticLinking": [
-        "RNFBApp",
-        "RNFBAuth",
-        "RNFBCrashlytics"
-      ]
+              "RNFBApp",
+              "RNFBAuth",
+              "RNFBCrashlytics"
+            ]
           },
           "android": {
             "minSdkVersion": 24
