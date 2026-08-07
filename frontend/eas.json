@@ -9,7 +9,11 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://off-campus-production.up.railway.app",
+        "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "8709e2c8c7114010ad077793df87152b"
+      }
     },
     "production": {
       "autoIncrement": true
