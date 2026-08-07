@@ -19,7 +19,7 @@ PODS:
   - EXImageLoader (6.0.0):
     - ExpoModulesCore
     - React-Core
-  - Expo (54.0.35):
+  - Expo (54.0.36):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -60,6 +60,8 @@ PODS:
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
   - ExpoClipboard (8.0.8):
+    - ExpoModulesCore
+  - ExpoFileSystem (19.0.23):
     - ExpoModulesCore
   - ExpoFont (14.0.12):
     - ExpoModulesCore
@@ -2001,7 +2003,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNDateTimePicker (8.4.4):
+  - RNDateTimePicker (8.6.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2357,16 +2359,17 @@ DEPENDENCIES:
   - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
   - Expo (from `../node_modules/expo`)
   - "ExpoAdapterGoogleSignIn (from `../node_modules/@react-native-google-signin/google-signin/expo/ios`)"
-  - ExpoAsset (from `../node_modules/expo/node_modules/expo-asset/ios`)
+  - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
+  - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
   - ExpoHead (from `../node_modules/expo-router/ios`)
   - ExpoImage (from `../node_modules/expo-image/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
-  - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
+  - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoLocation (from `../node_modules/expo-location/ios`)
@@ -2504,13 +2507,15 @@ EXTERNAL SOURCES:
   ExpoAdapterGoogleSignIn:
     :path: "../node_modules/@react-native-google-signin/google-signin/expo/ios"
   ExpoAsset:
-    :path: "../node_modules/expo/node_modules/expo-asset/ios"
+    :path: "../node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../node_modules/expo-blur/ios"
   ExpoCamera:
     :path: "../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../node_modules/expo-clipboard/ios"
+  ExpoFileSystem:
+    :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
   ExpoHaptics:
@@ -2522,7 +2527,7 @@ EXTERNAL SOURCES:
   ExpoImagePicker:
     :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
-    :path: "../node_modules/expo/node_modules/expo-keep-awake/ios"
+    :path: "../node_modules/expo-keep-awake/ios"
   ExpoLinearGradient:
     :path: "../node_modules/expo-linear-gradient/ios"
   ExpoLinking:
@@ -2711,12 +2716,13 @@ SPEC CHECKSUMS:
   EXAV: b60fcf142fae6684d295bc28cd7cfcb3335570ea
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
-  Expo: 8c3be76724b69b17b931726385084273925b504d
+  Expo: a3f0f69d893059490516e5e2e4f596264a9e1d44
   ExpoAdapterGoogleSignIn: cfc75819d7d2490488250ce5634f57f92c60a2b8
   ExpoAsset: 9e5a7c9c0a9fb83ad5b2bb365141f2bd7f289b66
   ExpoBlur: b90747a3f22a8b6ceffd9cb0dc41a4184efdc656
   ExpoCamera: 6a326deb45ba840749652e4c15198317aa78497e
   ExpoClipboard: b36b287d8356887844bb08ed5c84b5979bb4dd1e
+  ExpoFileSystem: a8e7fb1e958471764fb48d281cf9fa81a9e4d77c
   ExpoFont: dfb7c572372b610da45b41e3b436321fd6a97215
   ExpoHaptics: d3a6375d8dcc3a1083d003bc2298ff654fafb536
   ExpoHead: 33924c5829f9a3f98a5bd432d23c0e02ef64afcc
@@ -2826,7 +2832,7 @@ SPEC CHECKSUMS:
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   RNCAsyncStorage: c8407cc394627a3a4cf56b457d594bfa822b6ab8
   RNCPicker: e77543f719cf823e13dcf8080336d633101b098e
-  RNDateTimePicker: 3b90b0645499e9ae1a86298f23275a648283d415
+  RNDateTimePicker: 39207e620903192715b66fc2dbae4025a9d554b8
   RNFBApp: 7cf6d65798a1c7976bcfe008ef46deb41be929e0
   RNFBAuth: 50299a2902703f5738c3941bf086d62410a6c361
   RNFBCrashlytics: 02a8e3a8fd1a2aca32098bdf54dc5a58ecb970dc
@@ -2842,6 +2848,6 @@ SPEC CHECKSUMS:
   Yoga: 65431d43277b661ebc7289c6c5d82f64ce42cfe0
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: e31ad307656983282600a2ea63e4d3b6147bace2
+PODFILE CHECKSUM: 6f6e0e2699cf645e7f5af4e12db26b6b290ca477
 
 COCOAPODS: 1.16.2

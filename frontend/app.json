@@ -89,8 +89,7 @@
             "minSdkVersion": 24
           }
         }
-      ],
-      "./withFirebaseFix.js"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
