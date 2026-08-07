@@ -79,14 +79,7 @@
       ],
       "@react-native-community/datetimepicker",
       "@react-native-firebase/app",
-      [
-        "@react-native-firebase/auth",
-        {
-          "ios": {
-            "captchaOpenUrlFix": false
-          }
-        }
-      ],
+      "@react-native-firebase/auth",
       [
         "expo-build-properties",
         {

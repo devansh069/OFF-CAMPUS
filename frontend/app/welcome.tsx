@@ -22,15 +22,15 @@ import { BlurView } from 'expo-blur';
 let firebaseAuth: any = null;
 let GoogleSignin: any = null;
 try {
-  const authMod = require('@react-native-firebase/auth');
-  firebaseAuth = authMod.default || authMod;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  firebaseAuth = require('@react-native-firebase/auth').default;
 } catch {
   // Safe fallback if native module is not linked (Expo Go)
 }
 
 try {
-  const gsMod = require('@react-native-google-signin/google-signin');
-  GoogleSignin = gsMod.GoogleSignin || gsMod.default?.GoogleSignin || gsMod;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
 } catch {
   // Safe fallback if native module is not linked (Expo Go)
 }
@@ -38,9 +38,8 @@ try {
 const isNativeFirebaseAvailable = () => {
   if (Platform.OS === 'web') return false;
   try {
-    if (!firebaseAuth) return false;
-    const instance = firebaseAuth();
-    return !!instance;
+    const available = !!firebaseAuth && !!firebaseAuth();
+    return available;
   } catch (e) {
     console.warn('isNativeFirebaseAvailable check failed:', e);
     return false;
@@ -204,8 +203,7 @@ export default function Welcome() {
         if (!idToken) throw new Error('Failed to retrieve Google ID Token.');
 
         // Authenticate with Firebase using Google credentials
-        const rawAuth = require('@react-native-firebase/auth');
-        const authModule = rawAuth.default || rawAuth;
+        const authModule = require('@react-native-firebase/auth').default;
         const googleCredential = authModule.GoogleAuthProvider.credential(idToken);
         const userCredential = await authModule().signInWithCredential(googleCredential);
         
