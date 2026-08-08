@@ -4,7 +4,6 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  SafeAreaView, 
   Image, 
   ScrollView, 
   TextInput, 
@@ -13,6 +12,7 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   resendText: { color: '#F43F5E', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
 
   // Purple-to-pink gradient button style with white text
-  actionBtn: { width: '100%', height: 50, borderRadius: 12, overflow: 'hidden', marginTop: 16 },
+  actionBtn: { width: '100%', height: 50, borderRadius: 12, overflow: 'hidden', marginTop: 16, backgroundColor: '#8B5CF6' },
   btnGrad: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnText: { color: '#FFF', fontSize: 16, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   referralContainer: {
