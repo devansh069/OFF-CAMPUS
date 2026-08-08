@@ -19,6 +19,12 @@
               "app-1-501902701509-ios-c299e880508a05e43a11ac",
               "com.googleusercontent.apps.501902701509-9ldnpd7ev6m98u0ql17km0lsp679b3h9"
             ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "app-1-501902701509-ios-c299e880508a05e43a11ac",
+              "com.googleusercontent.apps.501902701509-9ldnpd7ev6m98u0ql17km0lsp679b3h9"
+            ]
           }
         ],
         "NSLocationWhenInUseUsageDescription": "Allow OutThere to access your location to discover people and events nearby.",
@@ -45,7 +51,10 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -87,6 +96,14 @@
           }
         }
       ],
+      "@react-native-firebase/messaging",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#C2FF3D"
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -94,7 +111,8 @@
             "useFrameworks": "static",
             "forceStaticLinking": [
               "RNFBApp",
-              "RNFBAuth"
+              "RNFBAuth",
+              "RNFBMessaging"
             ]
           },
           "android": {
@@ -113,6 +131,12 @@
         "projectId": "c6197dfb-1b99-47b0-b5a9-3b33bba01dbf"
       }
     },
-    "owner": "devansh069"
+    "owner": "devansh069",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c6197dfb-1b99-47b0-b5a9-3b33bba01dbf"
+    }
   }
 }

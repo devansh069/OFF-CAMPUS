@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { Platform, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import io from 'socket.io-client';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
@@ -100,8 +101,9 @@ const dummyUser: User = {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { fcmToken } = usePushNotifications();
 
   // Check for existing session on mount
   useEffect(() => {
@@ -286,6 +288,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
   }, [user, sessionToken]);
+
+  // Register push token to backend
+  useEffect(() => {
+    const registerPushToken = async () => {
+      if (user && sessionToken && fcmToken) {
+        try {
+          console.log('[AuthContext] Registering FCM token to backend...');
+          const response = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/register-push-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`,
+            },
+            body: JSON.stringify({ token: fcmToken }),
+          });
+
+          if (!response.ok) {
+            console.warn('[AuthContext] Failed to register push token:', await response.text());
+          } else {
+            console.log('[AuthContext] Successfully registered FCM token.');
+          }
+        } catch (error) {
+          console.error('[AuthContext Error] Failed to register push token:', error);
+        }
+      }
+    };
+
+    registerPushToken();
+  }, [user, sessionToken, fcmToken]);
 
   const login = async (tokenOrPhone: string, isRealToken: boolean = false, referralCode?: string, mode?: 'login' | 'signup') => {
     const controller = new AbortController();
