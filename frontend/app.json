@@ -101,7 +101,8 @@
             "minSdkVersion": 24
           }
         }
-      ]
+      ],
+      "./plugins/withFirebaseSwiftAppDelegate.js"
     ],
     "experiments": {
       "typedRoutes": true
