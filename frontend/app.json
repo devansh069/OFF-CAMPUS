@@ -120,7 +120,8 @@
           }
         }
       ],
-      "./plugins/withFirebaseSwiftAppDelegate.js"
+      "./plugins/withFirebaseSwiftAppDelegate.js",
+      "./plugins/withManifestColorFix.js"
     ],
     "experiments": {
       "typedRoutes": true
