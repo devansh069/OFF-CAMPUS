@@ -549,9 +549,6 @@ export default function ProfileSetup() {
         latitude: latitude || 28.6139,
         longitude: longitude || 77.2090,
         photos,
-        cover_photo: photos[0] || null,
-        main_photo: photos[0] || null,
-        picture: photos[0] || null,
         prompts: photoPrompts,
         interests,
         religion,
@@ -573,7 +570,7 @@ export default function ProfileSetup() {
             'Authorization': `Bearer ${sessionToken}`,
           },
           body: JSON.stringify(payload),
-        }, 5000); // 5s timeout
+        }, 15000); // 15s timeout
 
         if (response.ok) {
           console.log('[Onboarding] Backend update succeeded.');
