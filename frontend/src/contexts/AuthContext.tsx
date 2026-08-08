@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { Platform, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import io from 'socket.io-client';
-import { usePushNotifications } from '../../hooks/usePushNotifications';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 if (!process.env.EXPO_PUBLIC_BACKEND_URL) {
